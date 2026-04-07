@@ -196,7 +196,7 @@ Based on this benchmark, the following gaps represent opportunities for WAS Insu
 1. **Multi-pet household support** — Offer a bundled quoting flow and household discount for 2+ pets, which Budget Direct does not.
 2. **Save & resume quote** — Allow users to save their progress and return via email link; reduces abandonment.
 3. **Breed-aware pricing transparency** — Surface breed risk information early (e.g., "Certain breeds may have higher premiums") to set expectations before checkout.
-4. **Mobile-first plan comparison** — Design the plan comparison experience specifically for mobile with clear swipe affordances and a sticky sticky-compare panel.
+4. **Mobile-first plan comparison** — Design the plan comparison experience specifically for mobile with clear swipe affordances and a sticky compare panel.
 5. **In-context help** — Add a live chat widget or contextual FAQ tooltips at key decision points (excess selection, PDS acknowledgement).
 6. **Post-quote nurture** — Automatically email a quote summary with a one-click return link when an email is provided early in the flow.
 
