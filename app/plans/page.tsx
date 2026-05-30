@@ -58,7 +58,7 @@ export default function PlanComparisonPage() {
   const breed = searchParams.get("breed") || "";
   const dob = searchParams.get("dob") || "";
   const gender = searchParams.get("gender") || "";
-  const address = searchParams.get("address") || "";
+  const address = sessionStorage.getItem("petAddress");
 
   const [excess, setExcess] = useState(250);
   const [limit, setLimit] = useState(20000);

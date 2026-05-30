@@ -8,22 +8,23 @@ export default function Home() {
   const [gender, setGender] = useState<"male" | "female" | null>(null);
   const [breed, setBreed] = useState("");
   const [dob, setDob] = useState("");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState<string>("");
   const router = useRouter();
   const today = new Date().toISOString().split("T")[0];
 
   {/* Click generate quote button behaviour */}
   const handleSubmit = () => {
+    sessionStorage.setItem("petAddress", address);
+
     const query = new URLSearchParams({
       petType: petType ?? "",
       gender: gender ?? "",
       breed,
       dob,
-      address,
     });
 
     router.push(`/plans?${query.toString()}`);
-};
+  };
 
   const buttonStyle = (active: boolean) => ({
     flex: 1,
