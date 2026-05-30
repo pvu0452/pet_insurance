@@ -11,9 +11,20 @@ export default function Home() {
   const [address, setAddress] = useState<string>("");
   const router = useRouter();
   const today = new Date().toISOString().split("T")[0];
+  const [errors, setErrors] = useState({
+  petType: false,
+  gender: false,
+  breed: false,
+  dob: false,
+  address: false,
+});
 
   {/* Click generate quote button behaviour */}
   const handleSubmit = () => {
+    const isValid = validate();
+
+    if (!isValid) return;
+
     sessionStorage.setItem("petAddress", address);
 
     const query = new URLSearchParams({
@@ -24,6 +35,20 @@ export default function Home() {
     });
 
     router.push(`/plans?${query.toString()}`);
+  };
+
+  const validate = () => {
+    const newErrors = {
+      petType: petType === null,
+      gender: gender === null,
+      breed: breed.trim() === "",
+      dob: dob.trim() === "",
+      address: address.trim() === "",
+    };
+
+    setErrors(newErrors);
+
+    return !Object.values(newErrors).includes(true);
   };
 
   const buttonStyle = (active: boolean) => ({
@@ -103,41 +128,64 @@ export default function Home() {
 
           <div style={{ display: "flex", gap: 10 }}>
             <button
-              style={buttonStyle(petType === "cat")}
+              style={{
+                ...buttonStyle(petType === "cat"),
+                border: errors.petType ? "2px solid red" : "1px solid #ddd",
+              }}
               onClick={() => setPetType("cat")}
             >
               🐱 Cat
             </button>
 
             <button
-              style={buttonStyle(petType === "dog")}
+              style={{
+                ...buttonStyle(petType === "dog"),
+                border: errors.petType ? "2px solid red" : "1px solid #ddd",
+              }}
               onClick={() => setPetType("dog")}
             >
               🐶 Dog
             </button>
+            </div>
+            {errors.petType && (
+              <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>
+                Please select Cat or Dog
+              </p>
+            )}
           </div>
-        </div>
 
         {/* GENDER */}
         <div style={{ marginTop: 25 }}>
-          <span style={labelStyle}>Gender:</span>
+        <span style={labelStyle}>Gender:</span>
 
-          <div style={{ display: "flex", gap: 10 }}>
-            <button
-              style={buttonStyle(gender === "male")}
-              onClick={() => setGender("male")}
-            >
-              ♂ Male
-            </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            style={{
+              ...buttonStyle(gender === "male"),
+              border: errors.gender ? "2px solid red" : "1px solid #ddd",
+            }}
+            onClick={() => setGender("male")}
+          >
+            ♂ Male
+          </button>
 
-            <button
-              style={buttonStyle(gender === "female")}
-              onClick={() => setGender("female")}
-            >
-              ♀ Female
-            </button>
-          </div>
+          <button
+            style={{
+              ...buttonStyle(gender === "female"),
+              border: errors.gender ? "2px solid red" : "1px solid #ddd",
+            }}
+            onClick={() => setGender("female")}
+          >
+            ♀ Female
+          </button>
         </div>
+
+        {errors.gender && (
+          <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>
+            Please select Male or Female
+          </p>
+        )}
+      </div>
 
         {/* BREED */}
         <div style={{ marginTop: 25 }}>
@@ -150,11 +198,16 @@ export default function Home() {
               width: "100%",
               padding: 12,
               borderRadius: 10,
-              border: "1px solid #ddd",
+              border: errors.breed ? "1px solid red" : "1px solid #ddd",
               color: "#111",
               outline: "none",
             }}
           />
+          {errors.breed && (
+            <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>
+              Breed is required
+            </p>
+          )}
         </div>
 
         {/* DOB */}
@@ -169,11 +222,16 @@ export default function Home() {
               width: "100%",
               padding: 12,
               borderRadius: 10,
-              border: "1px solid #ddd",
+              border: errors.dob ? "1px solid red" : "1px solid #ddd",
               color: "#111",
               outline: "none",
             }}
           />
+          {errors.dob && (
+            <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>
+              Date of Birth is required
+            </p>
+          )}
         </div>
 
         {/* ADDRESS */}
@@ -187,11 +245,16 @@ export default function Home() {
               width: "100%",
               padding: 12,
               borderRadius: 10,
-              border: "1px solid #ddd",
+              border: errors.address ? "1px solid red" : "1px solid #ddd",
               color: "#111",
               outline: "none",
             }}
           />
+          {errors.address && (
+            <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>
+              Home Address is required
+            </p>
+          )}
         </div>
 
         {/* SUBMIT */}
