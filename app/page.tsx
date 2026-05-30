@@ -1,65 +1,216 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const [petType, setPetType] = useState<"cat" | "dog" | null>(null);
+  const [gender, setGender] = useState<"male" | "female" | null>(null);
+  const [breed, setBreed] = useState("");
+  const [dob, setDob] = useState("");
+  const [address, setAddress] = useState("");
+  const router = useRouter();
+  const today = new Date().toISOString().split("T")[0];
+
+  {/* Click generate quote button behaviour */}
+  const handleSubmit = () => {
+    const query = new URLSearchParams({
+      petType: petType ?? "",
+      gender: gender ?? "",
+      breed,
+      dob,
+      address,
+    });
+
+    router.push(`/plans?${query.toString()}`);
+};
+
+  const buttonStyle = (active: boolean) => ({
+    flex: 1,
+    padding: "12px",
+    borderRadius: 10,
+    border: "1px solid #ddd",
+    background: active ? "#111" : "#fff",
+    color: active ? "#fff" : "#111",
+    cursor: "pointer",
+    fontWeight: 500,
+  });
+
+  const labelStyle = {
+    color: "#111",
+    fontSize: 14,
+    marginBottom: 6,
+    display: "block",
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <main
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#ffffff",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: 40,
+        fontFamily: "Arial",
+      }}
+    >
+      {/* LOGO (outside card) */}
+      <div
+      style={{
+        width: "100%",
+        maxWidth: 520,
+        display: "flex",
+        justifyContent: "flex-start",
+        marginBottom: 20,
+      }}
+    >
+      <img
+        src="/was-logo.min.webp"
+        alt="logo"
+        style={{
+          width: 120,
+          opacity: 0.65,
+        }}
+      />
     </div>
+
+      {/* CARD */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          background: "#fff",
+          border: "1px solid #eee",
+          borderRadius: 16,
+          padding: 30,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+        }}
+      >
+        {/* TITLE */}
+        <h2 style={{ color: "#111", marginBottom: 6 }}>
+          Pet Insurance Quote
+        </h2>
+
+        <p style={{ color: "#666", marginTop: 0 }}>
+          Enter your pet details to generate a quote
+        </p>
+
+        {/* PET TYPE */}
+        <div style={{ marginTop: 25 }}>
+          <span style={labelStyle}>Your pet is a:</span>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              style={buttonStyle(petType === "cat")}
+              onClick={() => setPetType("cat")}
+            >
+              🐱 Cat
+            </button>
+
+            <button
+              style={buttonStyle(petType === "dog")}
+              onClick={() => setPetType("dog")}
+            >
+              🐶 Dog
+            </button>
+          </div>
+        </div>
+
+        {/* GENDER */}
+        <div style={{ marginTop: 25 }}>
+          <span style={labelStyle}>Gender:</span>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              style={buttonStyle(gender === "male")}
+              onClick={() => setGender("male")}
+            >
+              ♂ Male
+            </button>
+
+            <button
+              style={buttonStyle(gender === "female")}
+              onClick={() => setGender("female")}
+            >
+              ♀ Female
+            </button>
+          </div>
+        </div>
+
+        {/* BREED */}
+        <div style={{ marginTop: 25 }}>
+          <label style={labelStyle}>Breed</label>
+          <input
+            value={breed}
+            onChange={(e) => setBreed(e.target.value)}
+            placeholder="e.g. Golden Retriever"
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 10,
+              border: "1px solid #ddd",
+              color: "#111",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        {/* DOB */}
+        <div style={{ marginTop: 20 }}>
+          <label style={labelStyle}>Date of Birth</label>
+          <input
+            type="date"
+            value={dob}
+            max={today}
+            onChange={(e) => setDob(e.target.value)}
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 10,
+              border: "1px solid #ddd",
+              color: "#111",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        {/* ADDRESS */}
+        <div style={{ marginTop: 20 }}>
+          <label style={labelStyle}>Home Address</label>
+          <input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="e.g. Brisbane, QLD"
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 10,
+              border: "1px solid #ddd",
+              color: "#111",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        {/* SUBMIT */}
+        <button
+          onClick={handleSubmit}
+          style={{
+            marginTop: 30,
+            width: "100%",
+            padding: 14,
+            borderRadius: 10,
+            border: "none",
+            background: "#111",
+            color: "#fff",
+            cursor: "pointer",
+            fontWeight: 600,
+          }}
+        >
+          Generate Quote
+        </button>
+      </div>
+    </main>
   );
 }
