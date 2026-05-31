@@ -19,16 +19,22 @@ export async function POST(req: Request) {
   let base = plan === "basic" ? 30 : plan === "upgraded" ? 45 : 60;
 
   if (petType === "dog") base *= 1.15;
+
   if (age > 7) base *= 1.2;
+
   if (excess === 100) base *= 1.25;
   if (excess === 500) base *= 0.85;
+
+  if (benefit === 70) base *= 0.9;
+  if (benefit === 80) base *= 1.0;
   if (benefit === 90) base *= 1.2;
+  
   if (limit === 30000) base *= 1.1;
 
   const price = Math.round(base);
 
   return NextResponse.json({
     price,
-    received: data, // useful for debugging + demo
+    received: data, // useful for debugging + demo until we have real logic
   });
 }

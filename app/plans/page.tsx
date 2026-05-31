@@ -58,15 +58,22 @@ export default function PlanComparisonPage() {
   const breed = searchParams.get("breed") || "";
   const dob = searchParams.get("dob") || "";
   const gender = searchParams.get("gender") || "";
-  const address = sessionStorage.getItem("petAddress");
+  const [address, setAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAddress(sessionStorage.getItem("petAddress"));
+  }, []);
 
   const [excess, setExcess] = useState(250);
   const [limit, setLimit] = useState(20000);
   const [benefit, setBenefit] = useState(80);
 
-  const [selectedPlan, setSelectedPlan] = useState<PlanKey | null>(null);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
-  const [price, setPrice] = useState<number | null>(null);
+  const [prices, setPrices] = useState<Record<PlanKey, number | null>>({
+  basic: null,
+  upgraded: null,
+  gold: null,
+});
 
   const steps = ["Quote", "Plans", "Details", "Payment"];
   const currentStep = 1;
@@ -75,6 +82,7 @@ export default function PlanComparisonPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey | null>(null);
 
   async function getQuote(data: QuoteRequest) {
   const res = await fetch("/api/quote", {
@@ -88,27 +96,42 @@ export default function PlanComparisonPage() {
     return res.json();
   }
   
-
-useEffect(() => {
-  const fetchPrice = async () => {
+  const fetchAllPrices = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const result = await getQuote({
-      petType,
-      plan: selectedPlan ?? "basic",
-      excess,
-      limit,
-      benefit,
+      const planKeys: PlanKey[] = ["basic", "upgraded", "gold"];
 
-      breed: breed ?? "",
-      dob: dob ?? "",
-      gender: gender ?? "",
-      address: address ?? "",
-    });
+      const results = await Promise.all(
+        planKeys.map(async (plan) => {
+          const res = await getQuote({
+            petType,
+            plan,
+            excess,
+            limit,
+            benefit,
+            breed: breed ?? "",
+            dob: dob ?? "",
+            gender: gender ?? "",
+            address: address ?? "",
+          });
 
-      setPrice(result.price);
+          return { plan, price: res.price };
+        })
+      );
+
+      const newPrices: Record<PlanKey, number | null> = {
+        basic: null,
+        upgraded: null,
+        gold: null,
+      };
+
+      results.forEach(({ plan, price }) => {
+        newPrices[plan] = price;
+      });
+
+      setPrices(newPrices);
     } catch (e) {
       setError("Failed to fetch quote");
     } finally {
@@ -116,8 +139,9 @@ useEffect(() => {
     }
   };
 
-  fetchPrice();
-}, [petType, selectedPlan, excess, limit, benefit]);
+useEffect(() => {
+  fetchAllPrices();
+}, [petType, excess, limit, benefit]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -229,7 +253,7 @@ useEffect(() => {
                 </div>
 
                 <div className={`text-2xl font-extrabold ${isSelected ? "text-white" : "text-gray-900"}`}>
-                  ${price ?? "..."}
+                  {loading || prices[p] === null ? "..." : `$${prices[p]}`}
                 </div>
 
                 <div className={`text-xs ${isSelected ? "text-white/80" : "text-gray-600"}`}>
