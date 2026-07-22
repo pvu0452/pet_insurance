@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
+
   const data = await req.json();
+
 
   const {
     petType,
-    age,
+    dob,
     breed,
     gender,
     plan,
@@ -15,26 +17,85 @@ export async function POST(req: Request) {
     address,
   } = data;
 
-  // TEMP LOGIC (placeholder)
-  let base = plan === "basic" ? 30 : plan === "upgraded" ? 45 : 60;
 
-  if (petType === "dog") base *= 1.15;
+  function calculateAge(dob:string){
 
-  if (age > 7) base *= 1.2;
+    const birthDate = new Date(dob);
+    const today = new Date();
 
-  if (excess === 100) base *= 1.25;
-  if (excess === 500) base *= 0.85;
+    let age =
+      today.getFullYear() -
+      birthDate.getFullYear();
 
-  if (benefit === 70) base *= 0.9;
-  if (benefit === 80) base *= 1.0;
-  if (benefit === 90) base *= 1.2;
-  
-  if (limit === 30000) base *= 1.1;
+
+    const monthDifference =
+      today.getMonth() -
+      birthDate.getMonth();
+
+
+    if(
+      monthDifference < 0 ||
+      (
+        monthDifference === 0 &&
+        today.getDate() < birthDate.getDate()
+      )
+    ){
+      age--;
+    }
+
+
+    return age;
+
+  }
+
+
+  const age = calculateAge(dob);
+
+
+
+  let base =
+    plan === "basic"
+      ? 30
+      : plan === "upgraded"
+      ? 45
+      : 60;
+
+
+  if (petType === "dog")
+    base *= 1.15;
+
+
+  if (age > 7)
+    base *= 1.2;
+
+
+  if (excess === 100)
+    base *= 1.25;
+
+
+  if (excess === 500)
+    base *= 0.85;
+
+
+  if (benefit === 70)
+    base *= 0.9;
+
+
+  if (benefit === 90)
+    base *= 1.2;
+
+
+  if (limit === 30000)
+    base *= 1.1;
+
 
   const price = Math.round(base);
 
+
   return NextResponse.json({
     price,
-    received: data, // useful for debugging + demo until we have real logic
+    received:data,
+    calculatedAge:age
   });
+
 }

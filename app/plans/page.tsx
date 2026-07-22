@@ -52,16 +52,19 @@ const plans: Record<
 ------------------------------*/
 export default function PlanComparisonPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [petDetails, setPetDetails] = useState<any>(null);
 
-  const petType = (searchParams.get("petType") as PetType) || "cat";
-  const breed = searchParams.get("breed") || "";
-  const dob = searchParams.get("dob") || "";
-  const gender = searchParams.get("gender") || "";
-  const [address, setAddress] = useState<string | null>(null);
 
   useEffect(() => {
-    setAddress(sessionStorage.getItem("petAddress"));
+
+    const storedPet =
+      sessionStorage.getItem("petDetails");
+
+
+    if(storedPet){
+      setPetDetails(JSON.parse(storedPet));
+    }
+
   }, []);
 
   const [excess, setExcess] = useState(250);
@@ -106,15 +109,15 @@ export default function PlanComparisonPage() {
       const results = await Promise.all(
         planKeys.map(async (plan) => {
           const res = await getQuote({
-            petType,
+            petType: petDetails?.petType || "cat",
             plan,
             excess,
             limit,
             benefit,
-            breed: breed ?? "",
-            dob: dob ?? "",
-            gender: gender ?? "",
-            address: address ?? "",
+            breed: petDetails?.breed || "",
+            dob: petDetails?.dob || "",
+            gender: petDetails?.gender || "",
+            address: petDetails?.address || "",
           });
 
           return { plan, price: res.price };
@@ -140,8 +143,12 @@ export default function PlanComparisonPage() {
   };
 
 useEffect(() => {
-  fetchAllPrices();
-}, [petType, excess, limit, benefit]);
+
+    if (petDetails) {
+      fetchAllPrices();
+    }
+
+  }, [petDetails, excess, limit, benefit]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -175,7 +182,7 @@ useEffect(() => {
               }}
             >
               <div className="text-2xl">
-                {petType === "dog" ? "🐕" : "🐈"}
+                {petDetails?.petType === "dog" ? "🐕" : "🐈"}
               </div>
             </div>
           </div>
@@ -328,6 +335,18 @@ useEffect(() => {
           <button
             onClick={() => {
               if (!selectedPlan) return alert("Select a plan first");
+
+              sessionStorage.setItem(
+                "cover",
+                JSON.stringify({
+                  plan: selectedPlan,
+                  limit,
+                  excess,
+                  benefit,
+                  price: prices[selectedPlan],
+                })
+              );
+
               router.push("/details");
             }}
             className="w-full bg-gray-800 text-white py-3 rounded-xl font-semibold"

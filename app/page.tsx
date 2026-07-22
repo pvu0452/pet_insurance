@@ -21,20 +21,41 @@ export default function Home() {
 
   {/* Click generate quote button behaviour */}
   const handleSubmit = () => {
+
     const isValid = validate();
+
+    console.log({
+      petType,
+      gender,
+      breed,
+      dob,
+      address,
+      isValid
+    });
+
 
     if (!isValid) return;
 
-    sessionStorage.setItem("petAddress", address);
 
-    const query = new URLSearchParams({
-      petType: petType ?? "",
-      gender: gender ?? "",
-      breed,
-      dob,
-    });
+    sessionStorage.setItem(
+      "petDetails",
+      JSON.stringify({
+        petType,
+        gender,
+        breed,
+        dob,
+        address,
+      })
+    );
 
-    router.push(`/plans?${query.toString()}`);
+
+    console.log(
+      "Saved:",
+      sessionStorage.getItem("petDetails")
+    );
+
+
+    router.push("/plans");
   };
 
   const validate = () => {
