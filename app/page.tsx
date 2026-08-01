@@ -94,7 +94,7 @@ export default function Home() {
     <main
       style={{
         minHeight: "100vh",
-        backgroundColor: "#ffffff",
+        backgroundColor: "Transparent",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
