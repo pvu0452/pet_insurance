@@ -1,26 +1,11 @@
 "use client";
-import React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 /* -----------------------------
    TYPES
 ------------------------------*/
-type PetType = "dog" | "cat";
 type PlanKey = "basic" | "upgraded" | "gold";
-
-type QuoteRequest = {
-  petType: PetType;
-  plan: PlanKey;
-  excess: number;
-  limit: number;
-  benefit: number;
-
-  breed: string;
-  dob: string;
-  gender: string;
-  address: string;
-};
 
 /* -----------------------------
    FEATURES
@@ -87,14 +72,90 @@ export default function PlanComparisonPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<PlanKey | null>(null);
 
-  async function getQuote(data: QuoteRequest) {
-  const res = await fetch("/api/quote", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
+  async function getQuote(plan: PlanKey) {
+
+    const today = new Intl.DateTimeFormat(
+      "en-CA",
+      {
+        timeZone: "Australia/Brisbane",
+      }
+    ).format(new Date());
+
+    const product =
+      plan === "gold"
+        ? {
+            gold: {
+              annual_limit: limit,
+              benefit_percentage: benefit,
+              annual_excess: excess,
+            },
+          }
+        : {
+            upgraded: {
+              annual_limit: limit,
+              benefit_percentage: benefit,
+              annual_excess: excess,
+            },
+          };
+
+
+    const payload = {
+
+      payment_frequency: "monthly",
+
+      customer: {
+        suburb: "Lalor",
+        state: "VIC",
+        postcode: "3075",
+        email: "pet@wiseandsilent.com",
+      },
+
+
+      pets: [
+        {
+          pet_no: "0",
+          pet_name: "Pet",
+
+          pet_type:
+            petDetails?.petType === "dog"
+              ? "Dog"
+              : "Cat",
+
+          pet_sex:
+            petDetails?.gender === "male"
+              ? "Male"
+              : petDetails?.gender === "female"
+              ? "Female"
+              : "Male",
+
+          pet_breed:
+            petDetails?.breed || "",
+
+          pet_dob:
+            petDetails?.dob,
+
+          policy_start_date:
+            today,
+        },
+      ],
+
+      ...product,
+    };
+
+    console.log(
+      "SENDING PAYLOAD:",
+      JSON.stringify(payload, null, 2)
+    );
+    const res = await fetch("/api/quote", {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify(payload),
     });
+
 
     return res.json();
   }
@@ -108,19 +169,36 @@ export default function PlanComparisonPage() {
 
       const results = await Promise.all(
         planKeys.map(async (plan) => {
-          const res = await getQuote({
-            petType: petDetails?.petType || "cat",
-            plan,
-            excess,
-            limit,
-            benefit,
-            breed: petDetails?.breed || "",
-            dob: petDetails?.dob || "",
-            gender: petDetails?.gender || "",
-            address: petDetails?.address || "",
-          });
 
-          return { plan, price: res.price };
+          const res = await getQuote(plan);
+
+          console.log("PLAN:", plan);
+          console.log("API RESPONSE:", res);
+
+
+          const apiPlan = plan === "gold"
+            ? "gold"
+            : "upgraded";
+
+            console.log(
+              "PRICE OBJECT:",
+              JSON.stringify(res[apiPlan], null, 2)
+            );
+
+            const price =
+            res[apiPlan]
+              ?.data
+              ?.quote
+              ?.pets?.[0]
+              ?.premiums
+              ?.installment ?? null;
+
+
+          return {
+            plan,
+            price,
+          };
+
         })
       );
 
