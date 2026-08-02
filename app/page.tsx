@@ -5,8 +5,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface Option {
-  breed_name: string;
-  pet_type: string;
+    value: string;
+    label: string;
+    petType: string;
+    petBreed: string;
 }
 
 export default function Home() {
@@ -97,7 +99,49 @@ export default function Home() {
     fontSize: 14,
     marginBottom: 6,
     display: "block",
-  };
+    };
+
+    const selectStyles = {
+        control: (base: any) => ({
+            ...base,
+            minHeight: "46px",
+            borderRadius: "10px",
+            border: "1px solid #ddd",
+            boxShadow: "none",
+            backgroundColor: "#fff",
+            "&:hover": {
+                borderColor: "#ddd",
+            },
+        }),
+
+        singleValue: (base: any) => ({
+            ...base,
+            color: "#111",
+        }),
+
+        input: (base: any) => ({
+            ...base,
+            color: "#111",
+        }),
+
+        placeholder: (base: any) => ({
+            ...base,
+            color: "#666",
+        }),
+
+        menu: (base: any) => ({
+            ...base,
+            backgroundColor: "#fff",
+        }),
+
+        option: (base: any, state: any) => ({
+            ...base,
+            color: "#111",
+            backgroundColor: state.isFocused ? "#f3f3f3" : "#fff",
+            cursor: "pointer",
+        }),
+    };
+
   useEffect(() => {
     fetchOptions();
   }, []);
@@ -241,11 +285,12 @@ export default function Home() {
         {/* BREED */}
         <div style={{ marginTop: 25 }}>
           <label style={labelStyle}>Breed</label>
-          <Select 
-          options={options}
-          value={selectedOption}
-          onChange={(e) => setSelectedOption(e)}
-          />
+            <Select
+              options={options}
+              value={selectedOption}
+              onChange={(e) => setSelectedOption(e)}
+              styles={selectStyles}
+             />
           {errors.breed && (
             <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>
               Breed is required
