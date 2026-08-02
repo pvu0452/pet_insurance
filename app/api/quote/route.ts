@@ -1,101 +1,75 @@
 import { NextResponse } from "next/server";
 
+
+const API_URL =
+  "https://api4pet-dev-msac6e2qpq-ts.a.run.app";
+
+
 export async function POST(req: Request) {
 
-  const data = await req.json();
+  try {
+
+    console.log("🔥 NEW QUOTE ROUTE HIT");
+
+    const data = await req.json();
+
+    console.log("REQUEST SENT TO WAS:");
+    console.log(data);
 
 
-  const {
-    petType,
-    dob,
-    breed,
-    gender,
-    plan,
-    excess,
-    limit,
-    benefit,
-    address,
-  } = data;
+    const response = await fetch(
+      `${API_URL}/api/v1/quote/price`,
+      {
+        method: "POST",
+        headers:{
+          "Content-Type":"application/json",
+        },
+        body: JSON.stringify(data),
+      }
+    );
 
 
-  function calculateAge(dob:string){
-
-    const birthDate = new Date(dob);
-    const today = new Date();
-
-    let age =
-      today.getFullYear() -
-      birthDate.getFullYear();
+    const result = await response.json();
 
 
-    const monthDifference =
-      today.getMonth() -
-      birthDate.getMonth();
+    console.log("WAS RESPONSE:");
+    console.log(result);
 
 
-    if(
-      monthDifference < 0 ||
-      (
-        monthDifference === 0 &&
-        today.getDate() < birthDate.getDate()
-      )
-    ){
-      age--;
+    if(!response.ok){
+
+      return NextResponse.json(
+        {
+          error:true,
+          message:
+            result.message ||
+            "Quote request failed"
+        },
+        {
+          status:response.status
+        }
+      );
+
     }
 
 
-    return age;
+    return NextResponse.json(result);
+
+
+  } catch(error){
+
+    console.error("ROUTE ERROR:", error);
+
+    return NextResponse.json(
+      {
+        error:true,
+        message:"Internal server error"
+      },
+      {
+        status:500
+      }
+    );
 
   }
-
-
-  const age = calculateAge(dob);
-
-
-
-  let base =
-    plan === "basic"
-      ? 30
-      : plan === "upgraded"
-      ? 45
-      : 60;
-
-
-  if (petType === "dog")
-    base *= 1.15;
-
-
-  if (age > 7)
-    base *= 1.2;
-
-
-  if (excess === 100)
-    base *= 1.25;
-
-
-  if (excess === 500)
-    base *= 0.85;
-
-
-  if (benefit === 70)
-    base *= 0.9;
-
-
-  if (benefit === 90)
-    base *= 1.2;
-
-
-  if (limit === 30000)
-    base *= 1.1;
-
-
-  const price = Math.round(base);
-
-
-  return NextResponse.json({
-    price,
-    received:data,
-    calculatedAge:age
-  });
 
 }

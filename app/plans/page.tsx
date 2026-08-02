@@ -1,26 +1,11 @@
 "use client";
-import React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 /* -----------------------------
    TYPES
 ------------------------------*/
-type PetType = "dog" | "cat";
 type PlanKey = "basic" | "upgraded" | "gold";
-
-type QuoteRequest = {
-  petType: PetType;
-  plan: PlanKey;
-  excess: number;
-  limit: number;
-  benefit: number;
-
-  breed: string;
-  dob: string;
-  gender: string;
-  address: string;
-};
 
 /* -----------------------------
    FEATURES
@@ -40,11 +25,11 @@ const features = [
 ------------------------------*/
 const plans: Record<
   PlanKey,
-  { label: string; base: number; included: number[] }
+  { label: string; included: number[] }
 > = {
-  basic: { label: "Basic", base: 30, included: [0, 1, 2] },
-  upgraded: { label: "Upgraded", base: 45, included: [0, 1, 2, 3] },
-  gold: { label: "Gold", base: 60, included: [0, 1, 2, 3, 4, 5, 6] },
+  basic: { label: "Basic", included: [0,1,2] },
+  upgraded: { label: "Upgraded", included: [0,1,2,3] },
+  gold: { label: "Gold", included: [0,1,2,3,4,5,6] },
 };
 
 /* -----------------------------
@@ -87,14 +72,90 @@ export default function PlanComparisonPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<PlanKey | null>(null);
 
-  async function getQuote(data: QuoteRequest) {
-  const res = await fetch("/api/quote", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
+  async function getQuote(plan: PlanKey) {
+
+    const today = new Intl.DateTimeFormat(
+      "en-CA",
+      {
+        timeZone: "Australia/Brisbane",
+      }
+    ).format(new Date());
+
+    const product =
+      plan === "gold"
+        ? {
+            gold: {
+              annual_limit: limit,
+              benefit_percentage: benefit,
+              annual_excess: excess,
+            },
+          }
+        : {
+            [plan]: {
+              annual_limit: limit,
+              benefit_percentage: benefit,
+              annual_excess: excess,
+            },
+          };
+
+
+    const payload = {
+
+      payment_frequency: "monthly",
+
+      customer: {
+        suburb: "Lalor",
+        state: "VIC",
+        postcode: "3075",
+        email: "pet@wiseandsilent.com",
+      },
+
+
+      pets: [
+        {
+          pet_no: "0",
+          pet_name: "Pet",
+
+          pet_type:
+            petDetails?.petType === "dog"
+              ? "Dog"
+              : "Cat",
+
+          pet_sex:
+            petDetails?.gender === "male"
+              ? "Male"
+              : petDetails?.gender === "female"
+              ? "Female"
+              : "Male",
+
+          pet_breed:
+            petDetails?.breed || "",
+
+          pet_dob:
+            petDetails?.dob,
+
+          policy_start_date:
+            today,
+        },
+      ],
+
+      ...product,
+    };
+
+    console.log(
+      "SENDING PAYLOAD:",
+      JSON.stringify(payload, null, 2)
+    );
+    const res = await fetch("/api/quote", {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify(payload),
     });
+
 
     return res.json();
   }
@@ -108,19 +169,34 @@ export default function PlanComparisonPage() {
 
       const results = await Promise.all(
         planKeys.map(async (plan) => {
-          const res = await getQuote({
-            petType: petDetails?.petType || "cat",
-            plan,
-            excess,
-            limit,
-            benefit,
-            breed: petDetails?.breed || "",
-            dob: petDetails?.dob || "",
-            gender: petDetails?.gender || "",
-            address: petDetails?.address || "",
-          });
 
-          return { plan, price: res.price };
+          const res = await getQuote(plan);
+
+          console.log("PLAN:", plan);
+          console.log("API RESPONSE:", res);
+
+
+          const apiPlan = plan;
+
+            console.log(
+              "PRICE OBJECT:",
+              JSON.stringify(res[apiPlan], null, 2)
+            );
+
+            const price =
+            res[apiPlan]
+              ?.data
+              ?.quote
+              ?.pets?.[0]
+              ?.premiums
+              ?.installment ?? null;
+
+
+          return {
+            plan,
+            price,
+          };
+
         })
       );
 
@@ -151,7 +227,7 @@ useEffect(() => {
   }, [petDetails, excess, limit, benefit]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <div className="max-w-2xl mx-auto px-4 py-6">
 
         {/* LOGO */}
@@ -200,9 +276,15 @@ useEffect(() => {
               onChange={(e) => setLimit(Number(e.target.value))}
               className="mt-1 w-full p-2 border rounded-lg bg-white text-gray-900"
             >
-              <option value={10000}>$10,000</option>
-              <option value={20000}>$20,000</option>
-              <option value={30000}>$30,000</option>
+              {Array.from({ length: 26 }, (_, i) => {
+              const value = 5000 + i * 1000;
+
+              return (
+                <option key={value} value={value}>
+                  ${value.toLocaleString()}
+                </option>
+              );
+            })}
             </select>
           </div>
 
@@ -215,9 +297,16 @@ useEffect(() => {
               onChange={(e) => setBenefit(Number(e.target.value))}
               className="mt-1 w-full p-2 border rounded-lg bg-white text-gray-900"
             >
-              <option value={70}>70%</option>
-              <option value={80}>80%</option>
-              <option value={90}>90%</option>
+              {Array.from({ length: 7 }, (_, i) => {
+                const value = 60 + i * 5;
+
+                return (
+                  <option key={value} value={value}>
+                    {value}%
+                  </option>
+                );
+              })}
+          
             </select>
           </div>
 
@@ -230,9 +319,15 @@ useEffect(() => {
               onChange={(e) => setExcess(Number(e.target.value))}
               className="mt-1 w-full p-2 border rounded-lg bg-white text-gray-900"
             >
-              <option value={100}>$100</option>
-              <option value={250}>$250</option>
-              <option value={500}>$500</option>
+              {Array.from({ length: 21 }, (_, i) => {
+                const value = i * 50;
+
+                return (
+                  <option key={value} value={value}>
+                    ${value.toLocaleString()}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

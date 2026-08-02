@@ -164,11 +164,17 @@ export default function Home() {
       console.error(err);
     }
   }
+
+  const filteredBreedOptions = options.filter(
+    (option) =>
+      !petType ||
+      option.petType.toLowerCase() === petType
+  );
   return (
     <main
       style={{
         minHeight: "100vh",
-        backgroundColor: "#ffffff",
+        backgroundColor: "Transparent",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -227,7 +233,11 @@ export default function Home() {
                 ...buttonStyle(petType === "cat"),
                 border: errors.petType ? "2px solid red" : "1px solid #ddd",
               }}
-              onClick={() => setPetType("cat")}
+              onClick={() => {
+                setPetType("cat");
+                setSelectedOption(null);
+                setBreed("");
+              }}
             >
               🐱 Cat
             </button>
@@ -237,7 +247,11 @@ export default function Home() {
                 ...buttonStyle(petType === "dog"),
                 border: errors.petType ? "2px solid red" : "1px solid #ddd",
               }}
-              onClick={() => setPetType("dog")}
+              onClick={() => {
+                setPetType("dog");
+                setSelectedOption(null);
+                setBreed("");
+              }}
             >
               🐶 Dog
             </button>
@@ -286,11 +300,14 @@ export default function Home() {
         <div style={{ marginTop: 25 }}>
           <label style={labelStyle}>Breed</label>
             <Select
-              options={options}
+              options={filteredBreedOptions}
               value={selectedOption}
-              onChange={(e) => setSelectedOption(e)}
+              onChange={(e) => {
+                setSelectedOption(e);
+                setBreed(e?.value || "");
+              }}
               styles={selectStyles}
-             />
+            />
           {errors.breed && (
             <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>
               Breed is required
