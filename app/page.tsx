@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import Select from "react-select";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+interface Option {
+  breed_name: string;
+  pet_type: string;
+}
+
 export default function Home() {
+  const [options, setOptions] = useState<Option[]>([]);
+  const [selectedOption, setSelectedOption] = useState<Option | null>(null);
   const [petType, setPetType] = useState<"cat" | "dog" | null>(null);
   const [gender, setGender] = useState<"male" | "female" | null>(null);
   const [breed, setBreed] = useState("");
@@ -17,6 +25,7 @@ export default function Home() {
   breed: false,
   dob: false,
   address: false,
+  
 });
 
   {/* Click generate quote button behaviour */}
@@ -89,7 +98,28 @@ export default function Home() {
     marginBottom: 6,
     display: "block",
   };
-
+  useEffect(() => {
+    fetchOptions();
+  }, []);
+  const fetchOptions = async () => {
+    try {
+      const response = await fetch("https://api4pet-dev-msac6e2qpq-ts.a.run.app/api/v1/category/pet-breed");
+      if (!response.ok) {
+        throw new Error("Failed to fetch options");
+      }
+      const data = await response.json();
+      
+    const options = data.data.map((item: any) => ({
+        value: item.breed_name,
+        label: `${item.breed_name} (${item.pet_type})`,
+        petType: item.pet_type,
+        petBreed: item.breed_name
+    }));
+    setOptions(options);
+    } catch (err) {
+      console.error(err);
+    }
+  }
   return (
     <main
       style={{
@@ -211,18 +241,10 @@ export default function Home() {
         {/* BREED */}
         <div style={{ marginTop: 25 }}>
           <label style={labelStyle}>Breed</label>
-          <input
-            value={breed}
-            onChange={(e) => setBreed(e.target.value)}
-            placeholder="e.g. Golden Retriever"
-            style={{
-              width: "100%",
-              padding: 12,
-              borderRadius: 10,
-              border: errors.breed ? "1px solid red" : "1px solid #ddd",
-              color: "#111",
-              outline: "none",
-            }}
+          <Select 
+          options={options}
+          value={selectedOption}
+          onChange={(e) => setSelectedOption(e)}
           />
           {errors.breed && (
             <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>

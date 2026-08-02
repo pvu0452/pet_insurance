@@ -1,8 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-
+interface Option {
+  breed_name: string;
+  pet_type: string;
+}
 export default function PaymentPage() {
+
+  const [options, setOptions] = useState<Option[]>([]);
+  const [selectedOption, setSelectedOption] = useState("");
 
   const steps = ["Quote", "Plans", "Details", "Payment"];
   const currentStep = 3;
@@ -61,6 +67,8 @@ export default function PaymentPage() {
 
  useEffect(() => {
 
+  fetchOptions();
+
   const storedCover = sessionStorage.getItem("cover");
   const storedPet = sessionStorage.getItem("petDetails");
 
@@ -100,7 +108,18 @@ export default function PaymentPage() {
 
 }, []);
 
-
+  const fetchOptions = async () => {
+    try {
+      const response = await fetch("https://api4pet-dev-msac6e2qpq-ts.a.run.app/api/v1/category/pet-breed");
+      if (!response.ok) {
+        throw new Error("Failed to fetch options");
+      }
+      const data = await response.json();
+      setOptions(data.data);
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
 
   function confirmPayment(){
@@ -326,11 +345,18 @@ className={inputStyle}
 
 <FormField label="Breed">
 
-<input
-value={pet.breed}
-readOnly
-className={inputStyle}
-/>
+<select 
+value={selectedOption}
+onChange={(e) => setSelectedOption(e.target.value)}
+>
+<option value="">Select...</option>
+
+{options.map((option) => (
+    <option key={option.breed_name} value={option.breed_name}>
+        {option.breed_name}
+    </option>
+))}
+</select>
 
 </FormField>
 
