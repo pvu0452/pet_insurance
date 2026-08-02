@@ -25,11 +25,11 @@ const features = [
 ------------------------------*/
 const plans: Record<
   PlanKey,
-  { label: string; base: number; included: number[] }
+  { label: string; included: number[] }
 > = {
-  basic: { label: "Basic", base: 30, included: [0, 1, 2] },
-  upgraded: { label: "Upgraded", base: 45, included: [0, 1, 2, 3] },
-  gold: { label: "Gold", base: 60, included: [0, 1, 2, 3, 4, 5, 6] },
+  basic: { label: "Basic", included: [0,1,2] },
+  upgraded: { label: "Upgraded", included: [0,1,2,3] },
+  gold: { label: "Gold", included: [0,1,2,3,4,5,6] },
 };
 
 /* -----------------------------
@@ -278,9 +278,15 @@ useEffect(() => {
               onChange={(e) => setLimit(Number(e.target.value))}
               className="mt-1 w-full p-2 border rounded-lg bg-white text-gray-900"
             >
-              <option value={10000}>$10,000</option>
-              <option value={20000}>$20,000</option>
-              <option value={30000}>$30,000</option>
+              {Array.from({ length: 26 }, (_, i) => {
+              const value = 5000 + i * 1000;
+
+              return (
+                <option key={value} value={value}>
+                  ${value.toLocaleString()}
+                </option>
+              );
+            })}
             </select>
           </div>
 
@@ -293,9 +299,16 @@ useEffect(() => {
               onChange={(e) => setBenefit(Number(e.target.value))}
               className="mt-1 w-full p-2 border rounded-lg bg-white text-gray-900"
             >
-              <option value={70}>70%</option>
-              <option value={80}>80%</option>
-              <option value={90}>90%</option>
+              {Array.from({ length: 7 }, (_, i) => {
+                const value = 60 + i * 5;
+
+                return (
+                  <option key={value} value={value}>
+                    {value}%
+                  </option>
+                );
+              })}
+          
             </select>
           </div>
 
@@ -308,9 +321,15 @@ useEffect(() => {
               onChange={(e) => setExcess(Number(e.target.value))}
               className="mt-1 w-full p-2 border rounded-lg bg-white text-gray-900"
             >
-              <option value={100}>$100</option>
-              <option value={250}>$250</option>
-              <option value={500}>$500</option>
+              {Array.from({ length: 21 }, (_, i) => {
+                const value = i * 50;
+
+                return (
+                  <option key={value} value={value}>
+                    ${value.toLocaleString()}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
