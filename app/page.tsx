@@ -158,7 +158,11 @@ export default function Home() {
         label: `${item.breed_name} (${item.pet_type})`,
         petType: item.pet_type,
         petBreed: item.breed_name
-    }));
+      }))
+      .sort((a: Option, b: Option) =>
+      a.petBreed.localeCompare(b.petBreed)
+      );
+      
     setOptions(options);
     } catch (err) {
       console.error(err);
