@@ -91,7 +91,7 @@ export default function PlanComparisonPage() {
             },
           }
         : {
-            upgraded: {
+            [plan]: {
               annual_limit: limit,
               benefit_percentage: benefit,
               annual_excess: excess,
@@ -176,9 +176,7 @@ export default function PlanComparisonPage() {
           console.log("API RESPONSE:", res);
 
 
-          const apiPlan = plan === "gold"
-            ? "gold"
-            : "upgraded";
+          const apiPlan = plan;
 
             console.log(
               "PRICE OBJECT:",
