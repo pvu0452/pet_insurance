@@ -1,9 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import Select from "react-select";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+interface Option {
+    value: string;
+    label: string;
+    petType: string;
+    petBreed: string;
+}
+
 export default function Home() {
+  const [options, setOptions] = useState<Option[]>([]);
+  const [selectedOption, setSelectedOption] = useState<Option | null>(null);
   const [petType, setPetType] = useState<"cat" | "dog" | null>(null);
   const [gender, setGender] = useState<"male" | "female" | null>(null);
   const [breed, setBreed] = useState("");
@@ -17,6 +27,7 @@ export default function Home() {
   breed: false,
   dob: false,
   address: false,
+  
 });
 
   {/* Click generate quote button behaviour */}
@@ -88,8 +99,71 @@ export default function Home() {
     fontSize: 14,
     marginBottom: 6,
     display: "block",
-  };
+    };
 
+    const selectStyles = {
+        control: (base: any) => ({
+            ...base,
+            minHeight: "46px",
+            borderRadius: "10px",
+            border: "1px solid #ddd",
+            boxShadow: "none",
+            backgroundColor: "#fff",
+            "&:hover": {
+                borderColor: "#ddd",
+            },
+        }),
+
+        singleValue: (base: any) => ({
+            ...base,
+            color: "#111",
+        }),
+
+        input: (base: any) => ({
+            ...base,
+            color: "#111",
+        }),
+
+        placeholder: (base: any) => ({
+            ...base,
+            color: "#666",
+        }),
+
+        menu: (base: any) => ({
+            ...base,
+            backgroundColor: "#fff",
+        }),
+
+        option: (base: any, state: any) => ({
+            ...base,
+            color: "#111",
+            backgroundColor: state.isFocused ? "#f3f3f3" : "#fff",
+            cursor: "pointer",
+        }),
+    };
+
+  useEffect(() => {
+    fetchOptions();
+  }, []);
+  const fetchOptions = async () => {
+    try {
+      const response = await fetch("https://api4pet-dev-msac6e2qpq-ts.a.run.app/api/v1/category/pet-breed");
+      if (!response.ok) {
+        throw new Error("Failed to fetch options");
+      }
+      const data = await response.json();
+      
+    const options = data.data.map((item: any) => ({
+        value: item.breed_name,
+        label: `${item.breed_name} (${item.pet_type})`,
+        petType: item.pet_type,
+        petBreed: item.breed_name
+    }));
+    setOptions(options);
+    } catch (err) {
+      console.error(err);
+    }
+  }
   return (
     <main
       style={{
@@ -211,19 +285,12 @@ export default function Home() {
         {/* BREED */}
         <div style={{ marginTop: 25 }}>
           <label style={labelStyle}>Breed</label>
-          <input
-            value={breed}
-            onChange={(e) => setBreed(e.target.value)}
-            placeholder="e.g. Golden Retriever"
-            style={{
-              width: "100%",
-              padding: 12,
-              borderRadius: 10,
-              border: errors.breed ? "1px solid red" : "1px solid #ddd",
-              color: "#111",
-              outline: "none",
-            }}
-          />
+            <Select
+              options={options}
+              value={selectedOption}
+              onChange={(e) => setSelectedOption(e)}
+              styles={selectStyles}
+             />
           {errors.breed && (
             <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>
               Breed is required
