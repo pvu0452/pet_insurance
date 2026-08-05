@@ -1,6 +1,5 @@
 "use client";
 
-import { stripePromise } from "stripe";
 
 export default function Home() {
   const checkout = async () => {
@@ -18,11 +17,6 @@ export default function Home() {
     const data = await res.json();
     
     window.location.href = data.url;
-    const stripe = await stripePromise;
-
-    await stripe.redirectToCheckout({
-      sessionId: data.id,
-    });
   };
 
   return (
