@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 interface Option {
   breed_name: string;
   pet_type: string;
@@ -9,7 +10,7 @@ export default function PaymentPage() {
 
   const [options, setOptions] = useState<Option[]>([]);
   const [selectedOption, setSelectedOption] = useState("");
-
+  const router = useRouter();
   const steps = ["Quote", "Plans", "Details", "Payment"];
   const currentStep = 3;
 
@@ -129,7 +130,7 @@ export default function PaymentPage() {
       return;
     }
 
-
+    router.push("/checkout");
     const checkoutData = {
 
       customer,
