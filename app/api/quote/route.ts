@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+const API_URL =
+  "https://api4pet-dev-msac6e2qpq-ts.a.run.app";
+
 
 export async function POST(req: Request) {
 
