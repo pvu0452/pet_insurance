@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 interface Option {
   breed_name: string;
   pet_type: string;
