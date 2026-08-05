@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 interface Option {
   breed_name: string;
@@ -9,7 +10,7 @@ export default function PaymentPage() {
 
   const [options, setOptions] = useState<Option[]>([]);
   const [selectedOption, setSelectedOption] = useState("");
-
+  const router = useRouter();
   const steps = ["Quote", "Plans", "Details", "Payment"];
   const currentStep = 3;
 
@@ -160,7 +161,7 @@ export default function PaymentPage() {
 
 
     alert("Checkout ready for Stripe");
-
+    router.push("/checkout");
   }
 
 

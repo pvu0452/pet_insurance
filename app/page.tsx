@@ -1,8 +1,11 @@
 "use client";
 
-import Select from "react-select";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import Select from "react-select";
+import { SingleValue } from "react-select";
+
 
 interface Option {
     value: string;
@@ -141,8 +144,10 @@ export default function Home() {
             cursor: "pointer",
         }),
     };
+    const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     fetchOptions();
   }, []);
   const fetchOptions = async () => {
@@ -303,15 +308,17 @@ export default function Home() {
         {/* BREED */}
         <div style={{ marginTop: 25 }}>
           <label style={labelStyle}>Breed</label>
-            <Select
-              options={filteredBreedOptions}
-              value={selectedOption}
-              onChange={(e) => {
-                setSelectedOption(e);
-                setBreed(e?.value || "");
-              }}
-              styles={selectStyles}
-            />
+            {mounted && (
+              <Select<Option, false>
+                options={filteredBreedOptions}
+                value={selectedOption}
+                onChange={(e) => {
+                  setSelectedOption(e);
+                  setBreed(e?.value || "");
+                }}
+                styles={selectStyles}
+              />
+            )}
           {errors.breed && (
             <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>
               Breed is required
