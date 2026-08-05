@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+const API_URL =
+  "https://api4pet-dev-msac6e2qpq-ts.a.run.app";
+
 
 
 const API_URL =
