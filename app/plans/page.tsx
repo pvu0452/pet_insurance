@@ -322,7 +322,11 @@ useEffect(() => {
 
         </div>
 
-      
+        {/* TABLE HEADER */}
+        <div className="grid grid-cols-3 bg-gray-100 rounded-xl overflow-hidden text-sm border border-gray-200">
+          <div className="p-3 font-semibold text-gray-900 border-r border-gray-200">
+            Coverage
+          </div>
 
 
           {/* COVERAGE */}
@@ -343,56 +347,24 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* PLAN HEADERS */}
-              {(Object.keys(plans) as PlanKey[]).map((p) => {
-                const isSelected = selectedPlan === p;
-                const isGold = p === "gold";
+        {/* FEATURES */}
+        <div className="mt-2 space-y-2">
 
-                return (
-                  <div
-                    key={p}
-                    onClick={() => setSelectedPlan(p)}
-                    className={`
-                      relative
-                      px-3
-                      py-4
-                      text-center
-                      cursor-pointer
-                      border-l
-                      border-gray-200
-                      transition
-                      ${
-                        isSelected
-                          ? "bg-gray-800 text-white"
-                          : isGold
-                              ? "bg-amber-100/80 hover:bg-amber-100"
-                              : "bg-slate-200/80 hover:bg-slate-200"
-                      }
-                    `}
-                  >
+          {features.map((f, i) => {
+            const isOpen = expandedRow === i;
 
-                    {/* RECOMMENDED */}
-                    {isGold && (
-                      <div className="absolute -top-0 left-1/2 -translate-x-1/2">
-                        <span
-                          className={`
-                            text-[9px]
-                            font-semibold
-                            px-2
-                            py-0.5
-                            rounded-full
-                            whitespace-nowrap
-                            ${
-                              isSelected
-                                ? "bg-white text-gray-800"
-                                : "bg-gray-800 text-white"
-                            }
-                          `}
-                        >
-                          Recommended
-                        </span>
-                      </div>
-                    )}
+            return (
+              <div key={i}>
+                {/* ROW */}
+                <div
+                  onClick={() => setExpandedRow(isOpen ? null : i)}
+                  className="grid grid-cols-3 bg-white border border-gray-200 rounded-lg overflow-hidden cursor-pointer"
+                >
+                  {/* LABEL */}
+                  <div className="p-3 text-sm font-medium text-gray-900 border-r border-gray-200 flex items-center gap-1">
+                    {f.short}
+                    <span className="text-gray-400 text-xs">ⓘ</span>
+                  </div>
 
                     <div className="mt-2">
                       <div
