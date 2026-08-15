@@ -6,13 +6,13 @@ interface Option {
   breed_name: string;
   pet_type: string;
 }
-export default function PaymentPage() {
+export default function DetailsPage() {
 
   const [options, setOptions] = useState<Option[]>([]);
   const [selectedOption, setSelectedOption] = useState("");
   const router = useRouter();
-  const steps = ["Quote", "Plans", "Details", "Payment"];
-  const currentStep = 3;
+  const steps = ["Quote", "Plans", "Details"];
+  const currentStep = 2;
 
   const progress = (currentStep / (steps.length - 1)) * 100;
 
