@@ -30,9 +30,10 @@ export async function POST(req: Request) {
     const result = await response.json();
 
 
-    console.log("WAS RESPONSE:");
-    console.log(result);
-
+    console.log(
+      "WAS RESPONSE:",
+      JSON.stringify(result, null, 2)
+    );
 
     if(!response.ok){
 
