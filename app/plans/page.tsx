@@ -7,6 +7,13 @@ import { useRouter } from "next/navigation";
 ------------------------------*/
 type PlanKey = "upgraded" | "gold";
 
+type PetQuote = {
+        name: string;
+        type: string;
+        breed: string;
+        age: string;
+        price: number;
+      };
 /* -----------------------------
    FEATURES
 ------------------------------*/
@@ -37,6 +44,64 @@ const plans: Record<
 export default function PlanComparisonPage() {
   const router = useRouter();
   const [petDetails, setPetDetails] = useState<any>(null);
+  const getPetAge = (dob: string) => {
+    if (!dob) return "";
+
+    const birthDate = new Date(dob + "T00:00:00");
+    const today = new Date();
+
+    let years =
+      today.getFullYear() - birthDate.getFullYear();
+
+    let months =
+      today.getMonth() - birthDate.getMonth();
+
+    let days =
+      today.getDate() - birthDate.getDate();
+
+    if (days < 0) {
+      months--;
+    }
+
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
+    // Less than 1 month old
+    if (years === 0 && months === 0) {
+      const diffTime =
+        today.getTime() - birthDate.getTime();
+
+      const totalDays = Math.floor(
+        diffTime / (1000 * 60 * 60 * 24)
+      );
+
+      return `${totalDays} ${
+        totalDays === 1 ? "day" : "days"
+      }`;
+    }
+
+    // Less than 1 year old
+    if (years === 0) {
+      return `${months} ${
+        months === 1 ? "month" : "months"
+      }`;
+    }
+
+    // 1 year or older
+    if (months === 0) {
+      return `${years} ${
+        years === 1 ? "year" : "years"
+      }`;
+    }
+
+    return `${years} ${
+      years === 1 ? "year" : "years"
+    }, ${months} ${
+      months === 1 ? "month" : "months"
+    }`;
+  };
 
 
   useEffect(() => {
@@ -60,6 +125,11 @@ export default function PlanComparisonPage() {
   upgraded: null,
   gold: null,
 });
+
+  const [petQuotes, setPetQuotes] = useState<Record<PlanKey, PetQuote[]>>({
+    upgraded: [],
+    gold: [],
+  });
 
   const steps = ["Quote", "Plans", "Details"];
   const currentStep = 1;
@@ -109,33 +179,28 @@ export default function PlanComparisonPage() {
       },
 
 
-      pets: [
-        {
-          pet_no: "0",
-          pet_name: "Pet",
+      pets: petDetails?.pets?.map(
+        (pet: any, index: number) => ({
+          pet_no: String(index),
+          pet_name: `Pet ${index + 1}`,
 
           pet_type:
-            petDetails?.petType === "dog"
+            pet.petType === "dog"
               ? "Dog"
               : "Cat",
 
           pet_sex:
-            petDetails?.gender === "male"
+            pet.gender === "male"
               ? "Male"
-              : petDetails?.gender === "female"
-              ? "Female"
-              : "Male",
+              : "Female",
 
-          pet_breed:
-            petDetails?.breed || "",
+          pet_breed: pet.breed,
 
-          pet_dob:
-            petDetails?.dob,
+          pet_dob: pet.dob,
 
-          policy_start_date:
-            today,
-        },
-      ],
+          policy_start_date: today,
+        })
+      ),
 
       ...product,
     };
@@ -164,6 +229,8 @@ export default function PlanComparisonPage() {
       setError(null);
 
       const planKeys: PlanKey[] = ["upgraded", "gold"];
+      
+      
 
       const results = await Promise.all(
         planKeys.map(async (plan) => {
@@ -180,48 +247,73 @@ export default function PlanComparisonPage() {
               "PRICE OBJECT:",
               JSON.stringify(res[apiPlan], null, 2)
             );
+const quotePets = res[apiPlan]?.data?.quote?.pets ?? [];
 
-            const price =
-            res[apiPlan]
-              ?.data
-              ?.quote
-              ?.pets?.[0]
-              ?.premiums
-              ?.installment ?? null;
+const petQuoteData: PetQuote[] = quotePets.map(
+  (quotePet: any, index: number) => {
+    const originalPet = petDetails?.pets?.[index];
 
+    return {
+      name: `Pet ${index + 1}`,
 
-          return {
-            plan,
-            price,
-          };
+      type:
+        originalPet?.petType === "dog"
+          ? "Dog"
+          : "Cat",
 
-        })
-      );
+      breed: originalPet?.breed || "",
 
-      const newPrices: Record<PlanKey, number | null> = {
-        upgraded: null,
-        gold: null,
-      };
+      age: getPetAge(originalPet?.dob),
 
-      results.forEach(({ plan, price }) => {
-        newPrices[plan] = price;
-      });
+      price: Number(
+        (quotePet.premiums?.installment ?? 0).toFixed(2)
+      ),
+    };
+  }
+);
 
-      setPrices(newPrices);
-    } catch (e) {
-      setError("Failed to fetch quote");
-    } finally {
-      setLoading(false);
-    }
-  };
+const price = petQuoteData.reduce(
+  (total, pet) => total + pet.price,
+  0
+);
+
+return {
+  plan,
+  price: Number(price.toFixed(2)),
+  petQuotes: petQuoteData,
+};
+})
+);
+
+const newPrices: Record<PlanKey, number | null> = {
+  upgraded: null,
+  gold: null,
+};
+
+results.forEach(({ plan, price, petQuotes }) => {
+  newPrices[plan] = price;
+
+  setPetQuotes((current) => ({
+    ...current,
+    [plan]: petQuotes,
+  }));
+});
+
+setPrices(newPrices);
+
+} catch (e) {
+  setError("Failed to fetch quote");
+} finally {
+  setLoading(false);
+}
+
+};
 
 useEffect(() => {
-
-    if (petDetails) {
-      fetchAllPrices();
-    }
-
-  }, [petDetails, excess, limit, benefit]);
+  if (petDetails) {
+    fetchAllPrices();
+  }
+}, [petDetails, excess, limit, benefit]);
 
   return (
     <div className="min-h-screen">
@@ -410,7 +502,7 @@ useEffect(() => {
                       >
                         {loading || prices[p] === null
                           ? "..."
-                          : `$${prices[p]}`}
+                          : `$${prices[p]?.toFixed(2)}`}
                       </div>
 
                       <div
@@ -591,6 +683,219 @@ useEffect(() => {
             })}
 
           </div>
+          {/* PET PRICE BREAKDOWN */}
+          <div className="mt-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+
+            <div className="px-4 py-4 bg-gray-50 border-b border-gray-200">
+              <h3 className="text-sm font-bold text-gray-900">
+                Pet price breakdown
+              </h3>
+
+              <p className="text-[10px] text-gray-500 mt-1">
+                Monthly premium for each pet
+              </p>
+            </div>
+
+            {/* TABLE HEADER */}
+            <div className="grid grid-cols-[25%_25%_25%_25%] bg-gray-50 border-b border-gray-200">
+
+              <div className="px-4 py-3 text-[10px] font-semibold text-gray-500">
+                Pet
+              </div>
+
+              <div className="px-4 py-3 text-[10px] font-semibold text-gray-500">
+                Breed
+              </div>
+
+              {/* SILVER HEADER */}
+              <div
+                onClick={() => setSelectedPlan("upgraded")}
+                className={`
+                  px-4 py-3
+                  text-[10px]
+                  font-semibold
+                  text-center
+                  cursor-pointer
+                  border-l
+                  border-gray-200
+                  transition
+                  ${
+                    selectedPlan === "upgraded"
+                      ? "bg-gray-800 text-white"
+                      : "bg-slate-200/80 text-gray-700 hover:bg-slate-200"
+                  }
+                `}
+              >
+                Silver
+              </div>
+
+              {/* GOLD HEADER */}
+              <div
+                onClick={() => setSelectedPlan("gold")}
+                className={`
+                  px-4 py-3
+                  text-[10px]
+                  font-semibold
+                  text-center
+                  cursor-pointer
+                  border-l
+                  border-gray-200
+                  transition
+                  ${
+                    selectedPlan === "gold"
+                      ? "bg-gray-800 text-white"
+                      : "bg-amber-100/80 text-gray-700 hover:bg-amber-100"
+                  }
+                `}
+              >
+                Gold
+              </div>
+
+            </div>
+
+            {/* PETS */}
+            {petQuotes.upgraded.map((silverPet, index) => {
+              const goldPet = petQuotes.gold[index];
+
+              return (
+                <div
+                  key={index}
+                  className="grid grid-cols-[25%_25%_25%_25%] border-b border-gray-100 last:border-b-0"
+                >
+
+                  {/* PET */}
+                  <div className="px-4 py-3">
+                    <div className="text-sm font-medium text-gray-900">
+                      {silverPet.name}
+                    </div>
+
+                    <div className="text-[10px] text-gray-500">
+                      {silverPet.type} · {silverPet.age}
+                    </div>
+                  </div>
+
+                  {/* BREED */}
+                  <div className="px-4 py-3 text-xs text-gray-700">
+                    {silverPet.breed}
+                  </div>
+
+                  {/* SILVER PRICE */}
+                  <div
+                    onClick={() => setSelectedPlan("upgraded")}
+                    className={`
+                      px-4 py-3
+                      text-center
+                      cursor-pointer
+                      border-l
+                      border-gray-100
+                      transition
+                      ${
+                        selectedPlan === "upgraded"
+                          ? "bg-slate-200/70"
+                          : "bg-slate-50/20 hover:bg-slate-100"
+                      }
+                    `}
+                  >
+                    <div className="text-sm font-bold text-gray-900">
+                      ${silverPet.price.toFixed(2)}
+                    </div>
+                  </div>
+
+                  {/* GOLD PRICE */}
+                  <div
+                    onClick={() => setSelectedPlan("gold")}
+                    className={`
+                      px-4 py-3
+                      text-center
+                      cursor-pointer
+                      border-l
+                      border-gray-100
+                      transition
+                      ${
+                        selectedPlan === "gold"
+                          ? "bg-amber-100/60"
+                          : "bg-amber-50/30 hover:bg-amber-100/50"
+                      }
+                    `}
+                  >
+                    <div className="text-sm font-bold text-gray-900">
+                      ${goldPet?.price.toFixed(2) ?? "..."}
+                    </div>
+                  </div>
+
+                </div>
+              );
+            })}
+
+            {/* TOTAL */}
+            <div className="grid grid-cols-[25%_25%_25%_25%] bg-gray-50 border-t border-gray-200">
+
+              {/* TOTAL LABEL */}
+              <div className="px-4 py-4">
+                <span className="text-sm font-semibold text-gray-900">
+                  Total
+                </span>
+              </div>
+
+              {/* EMPTY BREED COLUMN */}
+              <div></div>
+
+              {/* SILVER TOTAL */}
+              <div
+                onClick={() => setSelectedPlan("upgraded")}
+                className={`
+                  px-4 py-4
+                  text-center
+                  cursor-pointer
+                  border-l
+                  border-gray-200
+                  transition
+                  ${
+                    selectedPlan === "upgraded"
+                      ? "bg-slate-200/70"
+                      : "bg-gray-50 hover:bg-slate-100"
+                  }
+                `}
+              >
+                <div className="text-sm font-bold text-gray-900">
+                  ${prices.upgraded?.toFixed(2)}
+                </div>
+
+                <div className="text-[10px] text-gray-500">
+                  per month
+                </div>
+              </div>
+
+              {/* GOLD TOTAL */}
+              <div
+                onClick={() => setSelectedPlan("gold")}
+                className={`
+                  px-4 py-4
+                  text-center
+                  cursor-pointer
+                  border-l
+                  border-gray-200
+                  transition
+                  ${
+                    selectedPlan === "gold"
+                      ? "bg-amber-100/60"
+                      : "bg-gray-50 hover:bg-amber-50"
+                  }
+                `}
+              >
+                <div className="text-sm font-bold text-gray-900">
+                  ${prices.gold?.toFixed(2)}
+                </div>
+
+                <div className="text-[10px] text-gray-500">
+                  per month
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
 
         {/* NEXT BUTTON */}
         <div className="mt-6">
@@ -611,9 +916,9 @@ useEffect(() => {
 
               router.push("/details");
             }}
-            className="w-full bg-gray-800 text-white py-3 rounded-xl font-semibold"
+            className="w-full bg-amber-400 hover:bg-amber-500 text-gray-900 py-3 rounded-xl font-semibold transition"
           >
-            Next → Details
+            Next
           </button>
         </div>
 
