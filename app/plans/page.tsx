@@ -684,6 +684,7 @@ useEffect(() => {
 
           </div>
           {/* PET PRICE BREAKDOWN */}
+        {petDetails?.pets?.length > 1 && (
           <div className="mt-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
 
             <div className="px-4 py-4 bg-gray-50 border-b border-gray-200">
@@ -895,8 +896,8 @@ useEffect(() => {
             </div>
 
           </div>
-
-
+        )}
+        
         {/* NEXT BUTTON */}
         <div className="mt-6">
           <button
