@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 /* -----------------------------
    TYPES
 ------------------------------*/
-type PlanKey = "basic" | "upgraded" | "gold";
+type PlanKey = "upgraded" | "gold";
 
 /* -----------------------------
    FEATURES
@@ -27,8 +27,7 @@ const plans: Record<
   PlanKey,
   { label: string; included: number[] }
 > = {
-  basic: { label: "Basic", included: [0,1,2] },
-  upgraded: { label: "Upgraded", included: [0,1,2,3] },
+  upgraded: { label: "Silver", included: [0,1,2,3] },
   gold: { label: "Gold", included: [0,1,2,3,4,5,6] },
 };
 
@@ -58,7 +57,6 @@ export default function PlanComparisonPage() {
 
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [prices, setPrices] = useState<Record<PlanKey, number | null>>({
-  basic: null,
   upgraded: null,
   gold: null,
 });
@@ -165,7 +163,7 @@ export default function PlanComparisonPage() {
       setLoading(true);
       setError(null);
 
-      const planKeys: PlanKey[] = ["basic", "upgraded", "gold"];
+      const planKeys: PlanKey[] = ["upgraded", "gold"];
 
       const results = await Promise.all(
         planKeys.map(async (plan) => {
@@ -201,7 +199,6 @@ export default function PlanComparisonPage() {
       );
 
       const newPrices: Record<PlanKey, number | null> = {
-        basic: null,
         upgraded: null,
         gold: null,
       };
@@ -322,7 +319,7 @@ useEffect(() => {
         </div>
 
         {/* TABLE HEADER */}
-        <div className="grid grid-cols-4 bg-gray-100 rounded-xl overflow-hidden text-sm border border-gray-200">
+        <div className="grid grid-cols-3 bg-gray-100 rounded-xl overflow-hidden text-sm border border-gray-200">
           <div className="p-3 font-semibold text-gray-900 border-r border-gray-200">
             Coverage
           </div>
@@ -365,7 +362,7 @@ useEffect(() => {
                 {/* ROW */}
                 <div
                   onClick={() => setExpandedRow(isOpen ? null : i)}
-                  className="grid grid-cols-4 bg-white border border-gray-200 rounded-lg overflow-hidden cursor-pointer"
+                  className="grid grid-cols-3 bg-white border border-gray-200 rounded-lg overflow-hidden cursor-pointer"
                 >
                   {/* LABEL */}
                   <div className="p-3 text-sm font-medium text-gray-900 border-r border-gray-200 flex items-center gap-1">
