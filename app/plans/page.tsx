@@ -63,7 +63,7 @@ export default function PlanComparisonPage() {
   gold: null,
 });
 
-  const steps = ["Quote", "Plans", "Details", "Payment"];
+  const steps = ["Quote", "Plans", "Details"];
   const currentStep = 1;
 
   const progress = (currentStep / (steps.length - 1)) * 100;
@@ -249,18 +249,6 @@ useEffect(() => {
               className="absolute h-2 bg-gray-800 rounded-full"
               style={{ width: `${progress}%` }}
             />
-
-            <div
-              className="absolute -top-3"
-              style={{
-                left: `${progress}%`,
-                transform: "translateX(-50%)",
-              }}
-            >
-              <div className="text-2xl">
-                {petDetails?.petType === "dog" ? "🐕" : "🐈"}
-              </div>
-            </div>
           </div>
         </div>
 
