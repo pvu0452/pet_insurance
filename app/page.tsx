@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Select from "react-select";
+import {setOptions as setGoogleMapsOptions, importLibrary,} from "@googlemaps/js-api-loader";
 
 interface Option {
   value: string;
@@ -23,6 +24,7 @@ export default function Home() {
 
   const [options, setOptions] = useState<Option[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [loadingBreeds, setLoadingBreeds] = useState(true);
 
   // -----------------------------
   // PETS
@@ -40,6 +42,8 @@ export default function Home() {
   // ADDRESS
   // -----------------------------
   const [address, setAddress] = useState("");
+  const [googleMapsFailed, setGoogleMapsFailed] = useState(false);
+  const addressContainerRef = useRef<HTMLDivElement>(null);
 
   // -----------------------------
   // ERRORS
@@ -188,9 +192,10 @@ export default function Home() {
   // LABEL STYLE
   // -----------------------------
   const labelStyle = {
-    color: "#111",
-    fontSize: 14,
-    marginBottom: 6,
+    color: "#333",
+    fontSize: 13,
+    fontWeight: 600,
+    marginBottom: 7,
     display: "block",
   };
 
@@ -246,10 +251,102 @@ export default function Home() {
   useEffect(() => {
     setMounted(true);
     fetchOptions();
+
+    const loadGoogleMaps = async () => {
+      try {
+        setGoogleMapsOptions({
+          key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+          v: "weekly",
+        });
+
+        const { PlaceAutocompleteElement } =
+          (await importLibrary("places"));
+
+        if (!addressContainerRef.current) {
+          return;
+        }
+
+        const autocomplete = new PlaceAutocompleteElement();
+
+        autocomplete.setAttribute(
+          "included-region-codes",
+          "au"
+        );
+
+        autocomplete.setAttribute(
+          "placeholder",
+          "e.g. Brisbane, QLD"
+        );
+
+        addressContainerRef.current.appendChild(
+          autocomplete
+        );
+
+        // -----------------------------
+        // GOOGLE PLACE SELECTED
+        // -----------------------------
+
+        autocomplete.addEventListener(
+          "gmp-select",
+          async (event: any) => {
+            try {
+              const place =
+                event.placePrediction.toPlace();
+
+              await place.fetchFields({
+                fields: [
+                  "formattedAddress",
+                  "addressComponents",
+                ],
+              });
+
+              if (place.formattedAddress) {
+                setAddress(place.formattedAddress);
+                setAddressError(false);
+              }
+            } catch (error) {
+              console.error(
+                "Failed to get selected address:",
+                error
+              );
+
+              setGoogleMapsFailed(true);
+            }
+          }
+        );
+
+    // -----------------------------
+    // GOOGLE MAPS ERROR / QUOTA
+    // -----------------------------
+
+    autocomplete.addEventListener(
+      "gmp-error",
+      () => {
+        console.warn(
+          "Google Maps autocomplete failed. Switching to manual address entry."
+        );
+
+        setGoogleMapsFailed(true);
+      }
+    );
+
+  } catch (error) {
+    console.error(
+      "Google Maps failed to load. Using manual address entry.",
+      error
+    );
+
+    setGoogleMapsFailed(true);
+  }
+};
+
+loadGoogleMaps();
   }, []);
 
   const fetchOptions = async () => {
     try {
+      setLoadingBreeds(true);
+
       const response = await fetch(
         "https://api4pet-dev-msac6e2qpq-ts.a.run.app/api/v1/category/pet-breed"
       );
@@ -274,6 +371,8 @@ export default function Home() {
       setOptions(options);
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoadingBreeds(false);
     }
   };
 
@@ -325,7 +424,10 @@ export default function Home() {
         <h2
           style={{
             color: "#111",
-            marginBottom: 6,
+            fontSize: 22,
+            fontWeight: 700,
+            marginBottom: 8,
+            letterSpacing: "-0.5px",
           }}
         >
           Pet Insurance Quote
@@ -334,7 +436,10 @@ export default function Home() {
         <p
           style={{
             color: "#666",
+            fontSize: 14,
             marginTop: 0,
+            marginBottom: 25,
+            lineHeight: 1.5,
           }}
         >
           Enter your pet details to generate a quote
@@ -364,8 +469,11 @@ export default function Home() {
               <h3
                 style={{
                   color: "#111",
-                  fontSize: 16,
-                  marginBottom: 20,
+                  fontSize: 24,
+                  fontWeight: 700,
+                  textAlign: "center",
+                  marginBottom: 22,
+                  letterSpacing: "-0.5px",
                 }}
               >
                 Pet {index + 1}
@@ -512,22 +620,26 @@ export default function Home() {
                     options={options.filter(
                       (option) =>
                         !pet.petType ||
-                        option.petType.toLowerCase() ===
-                          pet.petType
+                        option.petType.toLowerCase() === pet.petType
                     )}
                     value={
                       options.find(
-                        (option) =>
-                          option.value === pet.breed
+                        (option) => option.value === pet.breed
                       ) || null
                     }
                     onChange={(selected) => {
                       updatePet(index, {
-                        breed:
-                          selected?.value || "",
+                        breed: selected?.value || "",
                       });
                     }}
                     styles={selectStyles}
+                    isLoading={loadingBreeds}
+                    placeholder="Select your pet's breed"
+                    noOptionsMessage={() =>
+                      loadingBreeds
+                        ? "Loading breeds..."
+                        : "No breeds found"
+                    }
                   />
                 )}
 
@@ -655,50 +767,61 @@ export default function Home() {
           + Add Another Pet
         </button>
 
-        {/* =========================
-            SHARED ADDRESS
-        ========================== */}
+       {/* =========================
+              SHARED ADDRESS
+            ========================== */}
 
-        <div style={{ marginTop: 20 }}>
-          <label style={labelStyle}>
-            Home Address
-          </label>
+            <div style={{ marginTop: 20 }}>
+              <label style={labelStyle}>
+                Home Address
+              </label>
 
-          <input
-            value={address}
-            onChange={(e) => {
-              setAddress(e.target.value);
+              {googleMapsFailed ? (
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
 
-              if (e.target.value.trim() !== "") {
-                setAddressError(false);
-              }
-            }}
-            placeholder="e.g. Brisbane, QLD"
-            style={{
-              width: "100%",
-              padding: 12,
-              borderRadius: 10,
-              border: addressError
-                ? "1px solid red"
-                : "1px solid #ddd",
-              color: "#111",
-              outline: "none",
-            }}
-          />
+                    if (e.target.value.trim() !== "") {
+                      setAddressError(false);
+                    }
+                  }}
+                  placeholder="e.g. 123 Queen Street, Brisbane QLD 4000"
+                  style={{
+                    width: "100%",
+                    padding: 12,
+                    borderRadius: 10,
+                    border: addressError
+                      ? "1px solid red"
+                      : "1px solid #ddd",
+                    backgroundColor: "#fff",
+                    color: "#111",
+                    outline: "none",
+                    boxSizing: "border-box",
+                  }}
+                />
+              ) : (
+                <div
+                  ref={addressContainerRef}
+                  style={{
+                    width: "100%",
+                  }}
+                />
+              )}
 
-          {addressError && (
-            <p
-              style={{
-                color: "red",
-                fontSize: 12,
-                marginTop: 6,
-              }}
-            >
-              Home Address is required
-            </p>
-          )}
-        </div>
-
+              {addressError && (
+                <p
+                  style={{
+                    color: "red",
+                    fontSize: 12,
+                    marginTop: 6,
+                  }}
+                >
+                  Home Address is required
+                </p>
+              )}
+            </div>
         {/* =========================
             GENERATE QUOTE
         ========================== */}
