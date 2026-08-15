@@ -234,19 +234,23 @@ useEffect(() => {
         />
 
         {/* PROGRESS BAR */}
-        <div className="mb-6">
-          <div className="flex justify-between text-xs text-gray-500 mb-2">
-            {steps.map((s) => (
-              <span key={s}>{s}</span>
-            ))}
+        <div className="relative mb-6">
+          {/* Progress content */}
+          <div className="relative pt-3">
+            <div className="flex justify-between text-xs font-medium text-gray-600 mb-2">
+              {steps.map((s) => (
+                <span key={s}>{s}</span>
+              ))}
+            </div>
+
+            <div className="relative w-full h-2 bg-gray-200 rounded-full">
+              <div
+                className="absolute h-2 bg-gray-800 rounded-full"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           </div>
 
-          <div className="relative w-full h-2 bg-gray-200 rounded-full">
-            <div
-              className="absolute h-2 bg-gray-800 rounded-full"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
         </div>
 
         {/* DROPDOWNS */}
@@ -324,32 +328,24 @@ useEffect(() => {
             Coverage
           </div>
 
-          {(Object.keys(plans) as PlanKey[]).map((p) => {
-            const isSelected = selectedPlan === p;
 
-            return (
-              <div
-                key={p}
-                onClick={() => setSelectedPlan(p)}
-                className={`p-3 text-center cursor-pointer transition border-r border-gray-200 last:border-r-0 ${
-                  isSelected ? "bg-gray-700" : ""
-                }`}
-              >
-                <div className={`font-semibold ${isSelected ? "text-white" : "text-gray-900"}`}>
-                  {plans[p].label}
-                </div>
+          {/* COVERAGE */}
+          <div className="mt-5 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
 
-                <div className={`text-2xl font-extrabold ${isSelected ? "text-white" : "text-gray-900"}`}>
-                  {loading || prices[p] === null ? "..." : `$${prices[p]}`}
-                </div>
+            {/* TABLE HEADER */}
+            <div className="grid grid-cols-[1.2fr_0.9fr_0.9fr] sm:grid-cols-3 bg-gray-50 border-b border-gray-200">
 
-                <div className={`text-xs ${isSelected ? "text-white/80" : "text-gray-600"}`}>
-                  per month
+              {/* COVERAGE HEADER */}
+              <div className="px-4 py-4 flex items-end">
+                <div>
+                  <div className="text-sm font-bold text-gray-900">
+                    Coverage
+                  </div>
+                  <div className="text-[10px] text-gray-500 mt-0.5">
+                    What's included
+                  </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
 
         {/* FEATURES */}
         <div className="mt-2 space-y-2">
@@ -370,45 +366,214 @@ useEffect(() => {
                     <span className="text-gray-400 text-xs">ⓘ</span>
                   </div>
 
-                  {(Object.keys(plans) as PlanKey[]).map((p) => {
-                    const included = plans[p].included.includes(i);
-                    const isSelected = selectedPlan === p;
-
-                    return (
+                    <div className="mt-2">
                       <div
-                        key={p}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedPlan(p);
-                        }}
-                        className={`p-3 text-center border-r border-gray-200 last:border-r-0 ${
-                          isSelected ? "bg-gray-700" : ""
+                        className={`text-sm font-bold ${
+                          isSelected ? "text-white" : "text-gray-900"
                         }`}
                       >
-                        {included ? (
-                          <span className="text-green-700 font-bold">
-                            ✔
-                          </span>
-                        ) : (
-                          <span className="text-red-600 font-bold">
-                            ✕
-                          </span>
-                        )}
+                        {plans[p].label}
                       </div>
-                    );
-                  })}
-                </div>
 
-                {/* EXPANDED TEXT */}
-                {isOpen && (
-                  <div className="bg-gray-50 text-sm text-gray-700 px-3 py-2 border border-t-0 border-gray-200 rounded-b-lg">
-                    {f.full}
+                      <div
+                        className={`mt-1 text-lg font-extrabold ${
+                          isSelected ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        {loading || prices[p] === null
+                          ? "..."
+                          : `$${prices[p]}`}
+                      </div>
+
+                      <div
+                        className={`text-[10px] ${
+                          isSelected
+                            ? "text-white/70"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        per month
+                      </div>
+                    </div>
+
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+
+            </div>
+
+            {/* COVERAGE ROWS */}
+            {features.map((f, i) => {
+
+              const isOpen = expandedRow === i;
+
+              return (
+                <div key={i}>
+
+                  {/* ROW */}
+                  <div
+                    onClick={() =>
+                      setExpandedRow(isOpen ? null : i)
+                    }
+                    className={`
+                      grid
+                      grid-cols-[1.2fr_0.9fr_0.9fr]
+                      sm:grid-cols-3
+                      items-stretch
+                      border-b
+                      border-gray-100
+                      last:border-b-0
+                      cursor-pointer
+                      transition
+                      ${
+                        isOpen
+                          ? "bg-gray-200"
+                          : "hover:bg-gray-50"
+                      }
+                    `}
+                  >
+
+                    {/* FEATURE NAME */}
+                    <div className="px-4 py-4 flex items-center">
+                      <div className="flex items-center justify-between w-full">
+
+                        <span className="text-sm font-medium text-gray-900">
+                          {f.short}
+                        </span>
+
+                        <span
+                          className={`
+                            flex items-center justify-center
+                            w-5 h-5
+                            rounded-full
+                            bg-gray-100
+                            text-gray-500
+                            flex-shrink-0
+                            transition-transform
+                            duration-200
+                            ${isOpen ? "rotate-180" : ""}
+                          `}
+                        >
+                          <svg
+                            className="w-3 h-3"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M6 9l6 6 6-6"
+                            />
+                          </svg>
+                        </span>
+
+                      </div>
+                    </div>
+
+
+                    {/* SILVER */}
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPlan("upgraded");
+                      }}
+                      className={`
+                        flex
+                        items-center
+                        justify-center
+                        border-l
+                        border-gray-100
+                        transition
+                        ${
+                          selectedPlan === "upgraded"
+                            ? "bg-slate-200/70"
+                            : "bg-slate-50/20"
+                        }
+                      `}
+                    >
+
+                      {plans.upgraded.included.includes(i) ? (
+                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold">
+                          ✓
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">
+                          —
+                        </span>
+                      )}
+
+                    </div>
+
+
+                    {/* GOLD */}
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPlan("gold");
+                      }}
+                      className={`
+                        flex
+                        items-center
+                        justify-center
+                        border-l
+                        border-gray-100
+                        transition
+                        ${
+                          selectedPlan === "gold"
+                            ? "bg-amber-100/60"
+                            : "bg-amber-50/30"
+                        }
+                      `}
+                    >
+
+                      {plans.gold.included.includes(i) ? (
+                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold">
+                          ✓
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">
+                          —
+                        </span>
+                      )}
+
+                    </div>
+
+                  </div>
+
+
+                  {/* DESCRIPTION */}
+                  {isOpen && (
+                    <div className="px-4 py-4 bg-blue-50 border-b border-blue-100">
+                      <div className="flex items-start gap-3">
+
+                        {/* INFO ICON */}
+                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
+                          i
+                        </div>
+
+                        {/* DESCRIPTION */}
+                        <div>
+                          <p className="text-xs font-semibold text-blue-900 mb-1">
+                            About {f.short} coverage
+                          </p>
+
+                          <p className="text-xs leading-relaxed text-blue-800">
+                            {f.full}
+                          </p>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              );
+
+            })}
+
+          </div>
 
         {/* NEXT BUTTON */}
         <div className="mt-6">
