@@ -43,6 +43,7 @@ export default function Home() {
   // -----------------------------
   const [address, setAddress] = useState("");
   const [googleMapsFailed, setGoogleMapsFailed] = useState(false);
+
   const addressContainerRef = useRef<HTMLDivElement>(null);
 
   // -----------------------------
@@ -252,6 +253,9 @@ export default function Home() {
     setMounted(true);
     fetchOptions();
 
+    let cancelled = false;
+    let autocomplete: HTMLElement | null = null;
+
     const loadGoogleMaps = async () => {
       try {
         setGoogleMapsOptions({
@@ -260,33 +264,51 @@ export default function Home() {
         });
 
         const { PlaceAutocompleteElement } =
-          (await importLibrary("places"));
+          await importLibrary("places");
+
+        // If this effect has already been cleaned up,
+        // don't create the Google autocomplete.
+        if (cancelled) {
+          return;
+        }
 
         if (!addressContainerRef.current) {
           return;
         }
 
-        const autocomplete = new PlaceAutocompleteElement();
+        // Remove anything that may already be inside
+        // the container.
+        addressContainerRef.current.innerHTML = "";
 
-        autocomplete.setAttribute(
+        const newAutocomplete =
+          new PlaceAutocompleteElement();
+
+        autocomplete = newAutocomplete;
+
+        newAutocomplete.setAttribute(
           "included-region-codes",
           "au"
         );
 
-        autocomplete.setAttribute(
+        newAutocomplete.setAttribute(
           "placeholder",
           "e.g. Brisbane, QLD"
         );
 
+        // Check again before adding it.
+        if (cancelled) {
+          return;
+        }
+
         addressContainerRef.current.appendChild(
-          autocomplete
+          newAutocomplete
         );
 
         // -----------------------------
         // GOOGLE PLACE SELECTED
         // -----------------------------
 
-        autocomplete.addEventListener(
+        newAutocomplete.addEventListener(
           "gmp-select",
           async (event: any) => {
             try {
@@ -300,8 +322,14 @@ export default function Home() {
                 ],
               });
 
-              if (place.formattedAddress) {
-                setAddress(place.formattedAddress);
+              if (
+                !cancelled &&
+                place.formattedAddress
+              ) {
+                setAddress(
+                  place.formattedAddress
+                );
+
                 setAddressError(false);
               }
             } catch (error) {
@@ -310,37 +338,59 @@ export default function Home() {
                 error
               );
 
-              setGoogleMapsFailed(true);
+              if (!cancelled) {
+                setGoogleMapsFailed(true);
+              }
             }
           }
         );
 
-    // -----------------------------
-    // GOOGLE MAPS ERROR / QUOTA
-    // -----------------------------
+        // -----------------------------
+        // GOOGLE MAPS ERROR / QUOTA
+        // -----------------------------
 
-    autocomplete.addEventListener(
-      "gmp-error",
-      () => {
-        console.warn(
-          "Google Maps autocomplete failed. Switching to manual address entry."
+        newAutocomplete.addEventListener(
+          "gmp-error",
+          () => {
+            console.warn(
+              "Google Maps autocomplete failed. Switching to manual address entry."
+            );
+
+            if (!cancelled) {
+              setGoogleMapsFailed(true);
+            }
+          }
         );
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "Google Maps failed to load. Using manual address entry.",
+            error
+          );
 
-        setGoogleMapsFailed(true);
+          setGoogleMapsFailed(true);
+        }
       }
-    );
+    };
 
-  } catch (error) {
-    console.error(
-      "Google Maps failed to load. Using manual address entry.",
-      error
-    );
+    loadGoogleMaps();
 
-    setGoogleMapsFailed(true);
-  }
-};
+    // -----------------------------
+    // CLEANUP
+    // -----------------------------
 
-loadGoogleMaps();
+    return () => {
+      cancelled = true;
+
+      if (autocomplete) {
+        autocomplete.remove();
+        autocomplete = null;
+      }
+
+      if (addressContainerRef.current) {
+        addressContainerRef.current.innerHTML = "";
+      }
+    };
   }, []);
 
   const fetchOptions = async () => {
