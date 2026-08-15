@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import Select from "react-select";
-import { SingleValue } from "react-select";
+
 
 
 interface Option {
@@ -23,34 +22,58 @@ export default function Home() {
   const [dob, setDob] = useState("");
   const [address, setAddress] = useState<string>("");
   const router = useRouter();
-  const today = new Date().toISOString().split("T")[0];
+  
   const [errors, setErrors] = useState({
   petType: false,
   gender: false,
   breed: false,
-  dob: false,
+  dob: "",
   address: false,
   
 });
 
   {/* Click generate quote button behaviour */}
   const handleSubmit = () => {
+    const newErrors = {
+      petType: petType === null,
+      gender: gender === null,
+      breed: breed.trim() === "",
+      dob: "",
+      address: address.trim() === "",
+    };
 
-    const isValid = validate();
+    // DOB validation
+    if (dob === "") {
+      newErrors.dob = "Date of Birth is required";
+    } else {
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
-    console.log({
-      petType,
-      gender,
-      breed,
-      dob,
-      address,
-      isValid
-    });
+      const minimumDob = fourteenDaysAgo.toISOString().split("T")[0];
 
+      console.log("Selected DOB:", dob);
+      console.log("Minimum DOB:", minimumDob);
 
-    if (!isValid) return;
+      if (dob > minimumDob) {
+        newErrors.dob = "Your pet must be at least 14 days old";
+      }
+    }
 
+    // SHOW ERRORS ON SCREEN
+    setErrors(newErrors);
 
+    // STOP if there is ANY error
+    if (
+      newErrors.petType ||
+      newErrors.gender ||
+      newErrors.breed ||
+      newErrors.dob ||
+      newErrors.address
+    ) {
+      return;
+    }
+
+    // Save valid details
     sessionStorage.setItem(
       "petDetails",
       JSON.stringify({
@@ -62,28 +85,8 @@ export default function Home() {
       })
     );
 
-
-    console.log(
-      "Saved:",
-      sessionStorage.getItem("petDetails")
-    );
-
-
+    // Go to plans ONLY if valid
     router.push("/plans");
-  };
-
-  const validate = () => {
-    const newErrors = {
-      petType: petType === null,
-      gender: gender === null,
-      breed: breed.trim() === "",
-      dob: dob.trim() === "",
-      address: address.trim() === "",
-    };
-
-    setErrors(newErrors);
-
-    return !Object.values(newErrors).includes(true);
   };
 
   const buttonStyle = (active: boolean) => ({
@@ -328,12 +331,43 @@ export default function Home() {
 
         {/* DOB */}
         <div style={{ marginTop: 20 }}>
-          <label style={labelStyle}>Date of Birth</label>
+          <label style={labelStyle}>Pet's Date of Birth</label>
+
           <input
             type="date"
             value={dob}
-            max={today}
-            onChange={(e) => setDob(e.target.value)}
+            onChange={(e) => {
+              const selectedDob = e.target.value;
+              setDob(selectedDob);
+
+              if (selectedDob === "") {
+                setErrors((prev) => ({
+                  ...prev,
+                  dob: "Date of Birth is required",
+                }));
+                return;
+              }
+
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+
+              const minimumDobDate = new Date(today);
+              minimumDobDate.setDate(today.getDate() - 14);
+
+              const selectedDate = new Date(selectedDob + "T00:00:00");
+
+              if (selectedDate > minimumDobDate) {
+                setErrors((prev) => ({
+                  ...prev,
+                  dob: "Your pet must be at least 14 days old",
+                }));
+              } else {
+                setErrors((prev) => ({
+                  ...prev,
+                  dob: "",
+                }));
+              }
+            }}
             style={{
               width: "100%",
               padding: 12,
@@ -343,9 +377,10 @@ export default function Home() {
               outline: "none",
             }}
           />
+
           {errors.dob && (
             <p style={{ color: "red", fontSize: 12, marginTop: 6 }}>
-              Date of Birth is required
+              {errors.dob}
             </p>
           )}
         </div>
