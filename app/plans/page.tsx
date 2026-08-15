@@ -322,11 +322,7 @@ useEffect(() => {
 
         </div>
 
-        {/* TABLE HEADER */}
-        <div className="grid grid-cols-3 bg-gray-100 rounded-xl overflow-hidden text-sm border border-gray-200">
-          <div className="p-3 font-semibold text-gray-900 border-r border-gray-200">
-            Coverage
-          </div>
+      
 
 
           {/* COVERAGE */}
@@ -347,24 +343,56 @@ useEffect(() => {
                 </div>
               </div>
 
-        {/* FEATURES */}
-        <div className="mt-2 space-y-2">
+              {/* PLAN HEADERS */}
+              {(Object.keys(plans) as PlanKey[]).map((p) => {
+                const isSelected = selectedPlan === p;
+                const isGold = p === "gold";
 
-          {features.map((f, i) => {
-            const isOpen = expandedRow === i;
+                return (
+                  <div
+                    key={p}
+                    onClick={() => setSelectedPlan(p)}
+                    className={`
+                      relative
+                      px-3
+                      py-4
+                      text-center
+                      cursor-pointer
+                      border-l
+                      border-gray-200
+                      transition
+                      ${
+                        isSelected
+                          ? "bg-gray-800 text-white"
+                          : isGold
+                              ? "bg-amber-100/80 hover:bg-amber-100"
+                              : "bg-slate-200/80 hover:bg-slate-200"
+                      }
+                    `}
+                  >
 
-            return (
-              <div key={i}>
-                {/* ROW */}
-                <div
-                  onClick={() => setExpandedRow(isOpen ? null : i)}
-                  className="grid grid-cols-3 bg-white border border-gray-200 rounded-lg overflow-hidden cursor-pointer"
-                >
-                  {/* LABEL */}
-                  <div className="p-3 text-sm font-medium text-gray-900 border-r border-gray-200 flex items-center gap-1">
-                    {f.short}
-                    <span className="text-gray-400 text-xs">ⓘ</span>
-                  </div>
+                    {/* RECOMMENDED */}
+                    {isGold && (
+                      <div className="absolute -top-0 left-1/2 -translate-x-1/2">
+                        <span
+                          className={`
+                            text-[9px]
+                            font-semibold
+                            px-2
+                            py-0.5
+                            rounded-full
+                            whitespace-nowrap
+                            ${
+                              isSelected
+                                ? "bg-white text-gray-800"
+                                : "bg-gray-800 text-white"
+                            }
+                          `}
+                        >
+                          Recommended
+                        </span>
+                      </div>
+                    )}
 
                     <div className="mt-2">
                       <div
@@ -404,7 +432,6 @@ useEffect(() => {
 
             {/* COVERAGE ROWS */}
             {features.map((f, i) => {
-
               const isOpen = expandedRow === i;
 
               return (
@@ -472,7 +499,6 @@ useEffect(() => {
                       </div>
                     </div>
 
-
                     {/* SILVER */}
                     <div
                       onClick={(e) => {
@@ -493,7 +519,6 @@ useEffect(() => {
                         }
                       `}
                     >
-
                       {plans.upgraded.included.includes(i) ? (
                         <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold">
                           ✓
@@ -503,9 +528,7 @@ useEffect(() => {
                           —
                         </span>
                       )}
-
                     </div>
-
 
                     {/* GOLD */}
                     <div
@@ -527,7 +550,6 @@ useEffect(() => {
                         }
                       `}
                     >
-
                       {plans.gold.included.includes(i) ? (
                         <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold">
                           ✓
@@ -537,23 +559,19 @@ useEffect(() => {
                           —
                         </span>
                       )}
-
                     </div>
 
                   </div>
-
 
                   {/* DESCRIPTION */}
                   {isOpen && (
                     <div className="px-4 py-4 bg-blue-50 border-b border-blue-100">
                       <div className="flex items-start gap-3">
 
-                        {/* INFO ICON */}
                         <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
                           i
                         </div>
 
-                        {/* DESCRIPTION */}
                         <div>
                           <p className="text-xs font-semibold text-blue-900 mb-1">
                             About {f.short} coverage
@@ -570,7 +588,6 @@ useEffect(() => {
 
                 </div>
               );
-
             })}
 
           </div>
