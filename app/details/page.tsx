@@ -123,14 +123,13 @@ export default function DetailsPage() {
   }
 
 
-  function confirmPayment(){
+  async function confirmPayment(){
 
     if(!termsAccepted || !coverConfirmed){
       alert("Please accept all acknowledgements");
       return;
     }
 
-    router.push("/checkout");
     const checkoutData = {
 
       customer,
@@ -161,7 +160,20 @@ export default function DetailsPage() {
 
 
     alert("Checkout ready for Stripe");
-    router.push("/checkout");
+    const res = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: {
+      "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        unit_amount: 2500, // $25.00 in cents
+        productName: "Pet Insurance Quote",
+      }),
+    });
+    
+    const data = await res.json();
+    
+    window.location.href = data.url;
   }
 
 
