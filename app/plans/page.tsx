@@ -173,9 +173,9 @@ export default function PlanComparisonPage() {
       payment_frequency: "monthly",
 
       customer: {
-        suburb: "Lalor",
-        state: "VIC",
-        postcode: "3075",
+        suburb: petDetails?.addressDetails?.suburb || "",
+        state: petDetails?.addressDetails?.state || "",
+        postcode: petDetails?.addressDetails?.postcode || "",
         email: "pet@wiseandsilent.com",
       },
 
@@ -183,7 +183,7 @@ export default function PlanComparisonPage() {
       pets: petDetails?.pets?.map(
         (pet: any, index: number) => ({
           pet_no: String(index),
-          pet_name: `Pet ${index + 1}`,
+          pet_name: pet.name,
 
           pet_type:
             pet.petType === "dog"
@@ -255,7 +255,7 @@ const petQuoteData: PetQuote[] = quotePets.map(
     const originalPet = petDetails?.pets?.[index];
 
     return {
-      name: `Pet ${index + 1}`,
+      name: originalPet?.name || `Pet ${index + 1}`,
 
       type:
         originalPet?.petType === "dog"

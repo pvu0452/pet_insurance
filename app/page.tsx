@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Select from "react-select";
-import {setOptions as setGoogleMapsOptions, importLibrary,} from "@googlemaps/js-api-loader";
+import {importLibrary, setOptions as setGoogleMapsOptions,} from "@googlemaps/js-api-loader";
+
+let googleMapsConfigured = false;
 
 interface Option {
   value: string;
@@ -13,6 +15,7 @@ interface Option {
 }
 
 interface Pet {
+  name: string;
   petType: "cat" | "dog" | null;
   gender: "male" | "female" | null;
   breed: string;
@@ -31,6 +34,7 @@ export default function Home() {
   // -----------------------------
   const [pets, setPets] = useState<Pet[]>([
     {
+      name: "",
       petType: null,
       gender: null,
       breed: "",
@@ -42,6 +46,12 @@ export default function Home() {
   // ADDRESS
   // -----------------------------
   const [address, setAddress] = useState("");
+  const [addressDetails, setAddressDetails] = useState({
+    suburb: "",
+    state: "",
+    postcode: "",
+  });
+
   const [googleMapsFailed, setGoogleMapsFailed] = useState(false);
 
   const addressContainerRef = useRef<HTMLDivElement>(null);
@@ -50,7 +60,8 @@ export default function Home() {
   // ERRORS
   // -----------------------------
   const [errors, setErrors] = useState<
-    {
+    { 
+      name: boolean;
       petType: boolean;
       gender: boolean;
       breed: boolean;
@@ -58,6 +69,7 @@ export default function Home() {
     }[]
   >([
     {
+      name: false,
       petType: false,
       gender: false,
       breed: false,
@@ -74,6 +86,7 @@ export default function Home() {
     setPets((currentPets) => [
       ...currentPets,
       {
+        name: "",
         petType: null,
         gender: null,
         breed: "",
@@ -84,6 +97,7 @@ export default function Home() {
     setErrors((currentErrors) => [
       ...currentErrors,
       {
+        name: false,
         petType: false,
         gender: false,
         breed: false,
@@ -125,7 +139,8 @@ export default function Home() {
   // -----------------------------
   const handleSubmit = () => {
     const newErrors = pets.map((pet) => ({
-      petType: pet.petType === null,
+      name: pet.name.trim() === "",
+      petType: false,
       gender: pet.gender === null,
       breed: pet.breed.trim() === "",
       dob: "",
@@ -159,6 +174,7 @@ export default function Home() {
 
     const hasPetErrors = newErrors.some(
       (error) =>
+        error.name ||
         error.petType ||
         error.gender ||
         error.breed ||
@@ -166,12 +182,23 @@ export default function Home() {
     );
 
     const hasAddressError =
-      address.trim() === "";
+      address.trim() === "" ||
+      addressDetails.state === "";
 
     setAddressError(hasAddressError);
 
     // Stop if anything is invalid
     if (hasPetErrors || hasAddressError) {
+      if (addressDetails.state === "") {
+        console.error(
+          "ADDRESS STATE IS MISSING:",
+          {
+            address,
+            addressDetails,
+          }
+        );
+      }
+
       return;
     }
 
@@ -181,6 +208,7 @@ export default function Home() {
       JSON.stringify({
         pets,
         address,
+        addressDetails,
       })
     );
 
@@ -195,8 +223,8 @@ export default function Home() {
     padding: "12px",
     borderRadius: 10,
     border: "1px solid #ddd",
-    background: active ? "#111" : "#fff",
-    color: active ? "#fff" : "#111",
+    background: active ? "#eaac2a" : "#fff",
+    color: "#111",
     cursor: "pointer",
     fontWeight: 500,
   });
@@ -258,22 +286,58 @@ export default function Home() {
     }),
   };
 
-  // -----------------------------
-  // FETCH BREEDS
-  // -----------------------------
+
   useEffect(() => {
     setMounted(true);
     fetchOptions();
+
+    // -----------------------------
+    // RESTORE SAVED PET DETAILS
+    // -----------------------------
+    const storedPetDetails = sessionStorage.getItem("petDetails");
+
+    let savedAddress = "";
+
+    if (storedPetDetails) {
+      const saved = JSON.parse(storedPetDetails);
+
+      if (saved.pets) {
+        setPets(saved.pets);
+
+        setErrors(
+          saved.pets.map(() => ({
+            name: false,
+            petType: false,
+            gender: false,
+            breed: false,
+            dob: "",
+          }))
+        );
+      }
+
+      if (saved.address) {
+        savedAddress = saved.address;
+        setAddress(saved.address);
+      }
+
+      if (saved.addressDetails) {
+        setAddressDetails(saved.addressDetails);
+      }
+    }
 
     let cancelled = false;
     let autocomplete: HTMLElement | null = null;
 
     const loadGoogleMaps = async () => {
       try {
-        setGoogleMapsOptions({
-          key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-          v: "weekly",
-        });
+        if (!googleMapsConfigured) {
+          setGoogleMapsOptions({
+            key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+            v: "weekly",
+          });
+
+          googleMapsConfigured = true;
+        }
 
         const { PlaceAutocompleteElement } =
           await importLibrary("places");
@@ -294,8 +358,12 @@ export default function Home() {
 
         const newAutocomplete =
           new PlaceAutocompleteElement();
-
+      
         autocomplete = newAutocomplete;
+
+        if (savedAddress) {
+          newAutocomplete.value = savedAddress;
+        }
 
         newAutocomplete.setAttribute(
           "included-region-codes",
@@ -338,9 +406,65 @@ export default function Home() {
                 !cancelled &&
                 place.formattedAddress
               ) {
-                setAddress(
-                  place.formattedAddress
-                );
+                setAddress(place.formattedAddress);
+
+                const components = place.addressComponents || [];
+                console.log("GOOGLE ADDRESS COMPONENTS:", components);
+
+                let suburb = "";
+                let state = "";
+                let postcode = "";
+
+                components.forEach((component: any) => {
+                  const types = component.types || [];
+
+                  if (
+                    types.includes("locality") ||
+                    types.includes("postal_town") ||
+                    types.includes("sublocality")
+                  ) {
+                    suburb =
+                      component.longText ||
+                      component.shortText ||
+                      "";
+                  }
+
+                  if (
+                    types.includes(
+                      "administrative_area_level_1"
+                    )
+                  ) {
+                    state =
+                      component.shortText ||
+                      component.longText ||
+                      "";
+                  }
+
+                  if (
+                    types.includes("postal_code")
+                  ) {
+                    postcode =
+                      component.longText ||
+                      component.shortText ||
+                      "";
+                  }
+                });
+
+                state = state
+                  .toUpperCase()
+                  .trim();
+
+                console.log("EXTRACTED ADDRESS:", {
+                  suburb,
+                  state,
+                  postcode,
+                });
+
+                setAddressDetails({
+                  suburb,
+                  state,
+                  postcode,
+                });
 
                 setAddressError(false);
               }
@@ -546,7 +670,12 @@ export default function Home() {
                     letterSpacing: "-0.5px",
                   }}
                 >
-                  Pet {index + 1}
+                  {pet.petType === "cat"
+                    ? "🐱"
+                    : pet.petType === "dog"
+                    ? "🐶"
+                    : ""}{" "}
+                  {pet.name || `Pet ${index + 1}`}
                 </h3>
 
                 {/* REMOVE PET */}
@@ -578,61 +707,40 @@ export default function Home() {
                   </button>
                 )}
               </div>
+              {/* NAME */}
+              <div style={{ marginTop: 25 }}>
+                <label style={labelStyle}>
+                  Pet's Name
+                </label>
 
-              {/* PET TYPE */}
-              <div>
-                <span style={labelStyle}>
-                  Your pet is a:
-                </span>
+                <input
+                  type="text"
+                  value={pet.name}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(
+                      /[^a-zA-Z\s'-]/g,
+                      ""
+                    );
 
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
+                    updatePet(index, {
+                      name: value,
+                    });
                   }}
-                >
-                  <button
-                    type="button"
-                    style={{
-                      ...buttonStyle(
-                        pet.petType === "cat"
-                      ),
-                      border: petError?.petType
-                        ? "2px solid red"
-                        : "1px solid #ddd",
-                    }}
-                    onClick={() => {
-                      updatePet(index, {
-                        petType: "cat",
-                        breed: "",
-                      });
-                    }}
-                  >
-                    🐱 Cat
-                  </button>
+                  placeholder="Enter your pet's name"
+                  style={{
+                    width: "100%",
+                    padding: 12,
+                    borderRadius: 10,
+                    border: petError?.name
+                      ? "1px solid red"
+                      : "1px solid #ddd",
+                    color: "#111",
+                    outline: "none",
+                    boxSizing: "border-box",
+                  }}
+                />
 
-                  <button
-                    type="button"
-                    style={{
-                      ...buttonStyle(
-                        pet.petType === "dog"
-                      ),
-                      border: petError?.petType
-                        ? "2px solid red"
-                        : "1px solid #ddd",
-                    }}
-                    onClick={() => {
-                      updatePet(index, {
-                        petType: "dog",
-                        breed: "",
-                      });
-                    }}
-                  >
-                    🐶 Dog
-                  </button>
-                </div>
-
-                {petError?.petType && (
+                {petError?.name && (
                   <p
                     style={{
                       color: "red",
@@ -640,7 +748,7 @@ export default function Home() {
                       marginTop: 6,
                     }}
                   >
-                    Please select Cat or Dog
+                    Pet's name is required
                   </p>
                 )}
               </div>
@@ -717,19 +825,27 @@ export default function Home() {
 
                 {mounted && (
                   <Select<Option, false>
-                    options={options.filter(
-                      (option) =>
-                        !pet.petType ||
-                        option.petType.toLowerCase() === pet.petType
-                    )}
+                    options={options}
                     value={
                       options.find(
                         (option) => option.value === pet.breed
                       ) || null
                     }
                     onChange={(selected) => {
+                      if (!selected) {
+                        updatePet(index, {
+                          breed: "",
+                          petType: null,
+                        });
+                        return;
+                      }
+
                       updatePet(index, {
-                        breed: selected?.value || "",
+                        breed: selected.value,
+                        petType:
+                          selected.petType.toLowerCase() === "cat"
+                            ? "cat"
+                            : "dog",
                       });
                     }}
                     styles={selectStyles}
