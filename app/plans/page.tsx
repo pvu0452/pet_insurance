@@ -44,6 +44,7 @@ const plans: Record<
 export default function PlanComparisonPage() {
   const router = useRouter();
   const [petDetails, setPetDetails] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
   const getPetAge = (dob: string) => {
     if (!dob) return "";
 
@@ -105,15 +106,13 @@ export default function PlanComparisonPage() {
 
 
   useEffect(() => {
+    const storedPet = sessionStorage.getItem("petDetails");
 
-    const storedPet =
-      sessionStorage.getItem("petDetails");
-
-
-    if(storedPet){
+    if (storedPet) {
       setPetDetails(JSON.parse(storedPet));
     }
 
+    setMounted(true);
   }, []);
 
   const [excess, setExcess] = useState(250);
@@ -310,13 +309,35 @@ setPrices(newPrices);
 };
 
 useEffect(() => {
-  if (petDetails) {
+  if (mounted && petDetails) {
     fetchAllPrices();
   }
-}, [petDetails, excess, limit, benefit]);
+}, [mounted, petDetails, excess, limit, benefit]);
 
   return (
     <div className="min-h-screen">
+
+      {(!mounted || loading) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+
+          <div className="bg-white rounded-2xl shadow-xl px-8 py-7 text-center mx-4">
+
+            {/* Loading spinner */}
+            <div className="w-10 h-10 border-4 border-gray-200 border-t-gray-800 rounded-full animate-spin mx-auto mb-4"></div>
+
+            <h2 className="text-lg font-bold text-gray-900">
+              Calculating your quote
+            </h2>
+
+            <p className="text-sm text-gray-500 mt-1">
+              Please wait while we calculate your premiums.
+            </p>
+
+          </div>
+
+        </div>
+      )}
+
       <div className="max-w-2xl mx-auto px-4 py-6">
 
         {/* LOGO */}
