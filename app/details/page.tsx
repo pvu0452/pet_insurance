@@ -258,6 +258,7 @@ export default function DetailsPage() {
       body: JSON.stringify({
         unit_amount: (cover?.price * 100),
         productName: "Pet Insurance Quote",
+        customer_email: customer.email,
       }),
     });
     
