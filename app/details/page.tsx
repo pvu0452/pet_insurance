@@ -158,7 +158,6 @@ export default function DetailsPage() {
       JSON.stringify(checkoutData)
     );
 
-
     alert("Checkout ready for Stripe");
     const res = await fetch("/api/create-checkout-session", {
       method: "POST",
@@ -166,7 +165,7 @@ export default function DetailsPage() {
       "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        unit_amount: 2500, // $25.00 in cents
+        unit_amount: (cover?.price * 100),
         productName: "Pet Insurance Quote",
       }),
     });
