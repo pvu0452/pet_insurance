@@ -91,7 +91,19 @@ export default function Home() {
       },
     ]);
   };
+  
+  // -----------------------------
+  // REMOVE ANOTHER PET IF ADDED BY ACCIDENT
+  // -----------------------------
+  const removePet = (index: number) => {
+  setPets((currentPets) =>
+    currentPets.filter((_, i) => i !== index)
+  );
 
+  setErrors((currentErrors) =>
+    currentErrors.filter((_, i) => i !== index)
+  );
+};
   // -----------------------------
   // UPDATE PET
   // -----------------------------
@@ -292,7 +304,7 @@ export default function Home() {
 
         newAutocomplete.setAttribute(
           "placeholder",
-          "e.g. Brisbane, QLD"
+          "e.g. 123 Queen Street, Brisbane QLD 4000"
         );
 
         // Check again before adding it.
@@ -516,18 +528,56 @@ export default function Home() {
               }}
             >
               {/* PET TITLE */}
-              <h3
+              <div
                 style={{
-                  color: "#111",
-                  fontSize: 24,
-                  fontWeight: 700,
-                  textAlign: "center",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
                   marginBottom: 22,
-                  letterSpacing: "-0.5px",
                 }}
               >
-                Pet {index + 1}
-              </h3>
+                <h3
+                  style={{
+                    color: "#111",
+                    fontSize: 24,
+                    fontWeight: 700,
+                    margin: 0,
+                    letterSpacing: "-0.5px",
+                  }}
+                >
+                  Pet {index + 1}
+                </h3>
+
+                {/* REMOVE PET */}
+                {index > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => removePet(index)}
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      width: 32,
+                      height: 32,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "#f3f4f6",
+                      color: "#555",
+                      fontSize: 24,
+                      lineHeight: 1,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    aria-label={`Remove Pet ${index + 1}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
 
               {/* PET TYPE */}
               <div>
@@ -805,16 +855,45 @@ export default function Home() {
           style={{
             marginTop: 25,
             width: "100%",
-            padding: 14,
-            borderRadius: 10,
+            padding: "8px",
+            borderRadius: 8,
             border: "none",
-            background: "#eaac2a",
-            color: "#111",
+            background: "#f42868",
+            color: "#fff",
             cursor: "pointer",
             fontWeight: 600,
+            fontSize: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            boxShadow: "0 4px 10px rgba(244, 40, 104, 0.20)",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#e51f5d";
+            e.currentTarget.style.transform = "translateY(-1px)";
+            e.currentTarget.style.boxShadow =
+              "0 6px 14px rgba(244, 40, 104, 0.25)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "#f42868";
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow =
+              "0 4px 10px rgba(244, 40, 104, 0.20)";
           }}
         >
-          + Add Another Pet
+          <span
+            style={{
+              fontSize: 22,
+              fontWeight: 400,
+              lineHeight: 1,
+            }}
+          >
+            +
+          </span>
+
+          Add another pet
         </button>
 
        {/* =========================
