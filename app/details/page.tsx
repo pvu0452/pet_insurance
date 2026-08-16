@@ -1,16 +1,28 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
+import Select from "react-select";
 interface Option {
-  breed_name: string;
-  pet_type: string;
+  name: string;
+  value: string;
+  label: string;
+  petType: string;
+  petBreed: string;
 }
+interface Pet {
+  name: string;
+  petType: "cat" | "dog" | null;
+  gender: "male" | "female" | null;
+  breed: string;
+  dob: string;
+}
+
 export default function DetailsPage() {
 
+  const [loadingBreeds, setLoadingBreeds] = useState(true);
   const [options, setOptions] = useState<Option[]>([]);
   const [selectedOption, setSelectedOption] = useState("");
-  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const steps = ["Quote", "Plans", "Details"];
   const currentStep = 2;
 
@@ -38,13 +50,15 @@ export default function DetailsPage() {
   });
 
 
-  const [pet, setPet] = useState({
+  const [pets, setPets] = useState<Pet[]>([
+  {
     name: "",
-    species: "",
+    petType: null,
+    gender: null,
     breed: "",
     dob: "",
-    gender: "",
-  });
+  }
+]);
 
 
   const [cover, setCover] = useState<any>(null);
@@ -65,9 +79,22 @@ export default function DetailsPage() {
   const [coverConfirmed, setCoverConfirmed] = useState(false);
 
 
+  const updatePet = (
+    index: number,
+    changes: Partial<Pet>
+  ) => {
+    setPets((currentPets) =>
+      currentPets.map((pet, i) =>
+        i === index
+          ? { ...pet, ...changes }
+          : pet
+      )
+    );
+  };
+
 
  useEffect(() => {
-
+  setMounted(true);
   fetchOptions();
 
   const storedCover = sessionStorage.getItem("cover");
@@ -90,13 +117,13 @@ export default function DetailsPage() {
     console.log("PET DATA PARSED:", petData);
 
 
-    setPet({
-      name: "",
-      species: petData.petType || "",
-      breed: petData.breed || "",
-      dob: petData.dob || "",
-      gender: petData.gender || "",
-    });
+    setPets([{
+      name: petData.pets[0]?.name || "",
+      petType: petData.pets[0]?.petType || "",
+      breed: petData.pets[0]?.breed || "",
+      dob: petData.pets[0]?.dob || "",
+      gender: petData.pets[0]?.gender || "",
+    }]);
 
 
     setCustomer(prev => ({
@@ -109,18 +136,82 @@ export default function DetailsPage() {
 
 }, []);
 
+  const selectStyles = {
+    control: (base: any) => ({
+      ...base,
+      minHeight: "46px",
+      borderRadius: "10px",
+      border: "1px solid #ddd",
+      boxShadow: "none",
+      backgroundColor: "#fff",
+      "&:hover": {
+        borderColor: "#ddd",
+      },
+    }),
+
+    singleValue: (base: any) => ({
+      ...base,
+      color: "#111",
+    }),
+
+    input: (base: any) => ({
+      ...base,
+      color: "#111",
+    }),
+
+    placeholder: (base: any) => ({
+      ...base,
+      color: "#666",
+    }),
+
+    menu: (base: any) => ({
+      ...base,
+      backgroundColor: "#fff",
+    }),
+
+    option: (base: any, state: any) => ({
+      ...base,
+      color: "#111",
+      backgroundColor: state.isFocused
+        ? "#f3f3f3"
+        : "#fff",
+      cursor: "pointer",
+    }),
+  };
+
   const fetchOptions = async () => {
     try {
-      const response = await fetch("https://api4pet-dev-msac6e2qpq-ts.a.run.app/api/v1/category/pet-breed");
+      setLoadingBreeds(true);
+
+      const response = await fetch(
+        "https://api4pet-dev-msac6e2qpq-ts.a.run.app/api/v1/category/pet-breed"
+      );
+
       if (!response.ok) {
         throw new Error("Failed to fetch options");
       }
+
       const data = await response.json();
-      setOptions(data.data);
+
+      const options = data.data
+        .map((item: any) => ({
+          value: item.breed_name,
+          label: `${item.breed_name} (${item.pet_type})`,
+          petType: item.pet_type,
+          petBreed: item.breed_name,
+        }))
+        .sort((a: Option, b: Option) =>
+          a.petBreed.localeCompare(b.petBreed)
+        );
+
+      setOptions(options);
+      console.log("BREED OPTIONS:", options);
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoadingBreeds(false);
     }
-  }
+  };
 
 
   async function confirmPayment(){
@@ -133,7 +224,7 @@ export default function DetailsPage() {
     const checkoutData = {
 
       customer,
-      pet,
+      pets,
       cover,
 
       payment:
@@ -176,7 +267,7 @@ export default function DetailsPage() {
   }
 
 
-
+if (!mounted) return null;
 
 return (
 
@@ -324,14 +415,16 @@ className={inputStyle}
 <FormField label="Pet Name">
 
 <input
-value={pet.name}
-onChange={(e)=>
-setPet({
-...pet,
-name:e.target.value
-})
-}
-className={inputStyle}
+  value={pets[0]?.name ?? ""}
+  onChange={(e) =>
+    setPets([
+      {
+        ...pets[0],
+        name: e.target.value
+      }
+    ])
+  }
+  className={inputStyle}
 />
 
 </FormField>
@@ -341,9 +434,9 @@ className={inputStyle}
 <FormField label="Species">
 
 <input
-value={pet.species}
-readOnly
-className={inputStyle}
+  value={pets[0]?.petType ?? ""}
+  readOnly
+  className={inputStyle}
 />
 
 </FormField>
@@ -355,19 +448,35 @@ className={inputStyle}
 
 
 <FormField label="Breed">
-
-<select 
-value={selectedOption}
-onChange={(e) => setSelectedOption(e.target.value)}
->
-<option value="">Select...</option>
-
-{options.map((option) => (
-    <option key={option.breed_name} value={option.breed_name}>
-        {option.breed_name}
-    </option>
-))}
-</select>
+  <Select<Option, false>
+    options={options.filter(
+      (option) =>
+        !pets[0]?.petType ||
+        option.petType?.toLowerCase() === pets[0]?.petType?.toLowerCase()
+    )}
+    value={
+      options.find(
+        (option) => option.value === pets[0]?.breed
+      ) || null
+    }
+    onChange={(selected) => {
+      setPets([
+        {
+          ...pets[0],
+          breed: selected?.value || "",
+        }
+      ]);
+    }}
+    //styles={selectStyles}
+    isLoading={loadingBreeds}
+    placeholder="Select your pet's breed"
+    noOptionsMessage={() =>
+      loadingBreeds
+        ? "Loading breeds..."
+        : "No breeds found"
+    }
+    className={inputStyle}
+  />
 
 </FormField>
 
@@ -379,7 +488,7 @@ onChange={(e) => setSelectedOption(e.target.value)}
 <FormField label="Date of Birth">
 
 <input
-value={pet.dob}
+  value={pets[0]?.dob ?? ""}
 readOnly
 className={inputStyle}
 />
@@ -391,7 +500,7 @@ className={inputStyle}
 <FormField label="Sex">
 
 <input
-value={pet.gender}
+  value={pets[0]?.gender ?? ""}
 readOnly
 className={inputStyle}
 />
