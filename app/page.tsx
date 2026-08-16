@@ -28,6 +28,40 @@ export default function Home() {
   const [options, setOptions] = useState<Option[]>([]);
   const [mounted, setMounted] = useState(false);
   const [loadingBreeds, setLoadingBreeds] = useState(true);
+  const handleLogoClick = () => {
+    sessionStorage.removeItem("petDetails");
+    sessionStorage.removeItem("cover");
+
+    // Reset the page back to the initial state
+    setPets([
+      {
+        name: "",
+        petType: null,
+        gender: null,
+        breed: "",
+        dob: "",
+      },
+    ]);
+
+    setErrors([
+      {
+        name: false,
+        petType: false,
+        gender: false,
+        breed: false,
+        dob: "",
+      },
+    ]);
+
+    setAddress("");
+    setAddressDetails({
+      suburb: "",
+      state: "",
+      postcode: "",
+    });
+
+    setAddressError(false);
+  };
 
   // -----------------------------
   // PETS
@@ -584,14 +618,25 @@ export default function Home() {
           marginBottom: 20,
         }}
       >
-        <img
-          src="/was-logo.min.webp"
-          alt="logo"
+        <button
+          type="button"
+          onClick={handleLogoClick}
           style={{
-            width: 120,
-            opacity: 0.65,
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
           }}
-        />
+        >
+          <img
+            src="/was-logo.min.webp"
+            alt="WAS Insurance"
+            style={{
+              width: 120,
+              opacity: 0.65,
+            }}
+          />
+        </button>
       </div>
 
       {/* CARD */}
@@ -675,7 +720,7 @@ export default function Home() {
                     : pet.petType === "dog"
                     ? "🐶"
                     : ""}{" "}
-                  {pet.name || `Pet ${index + 1}`}
+                  {pet.name || (index === 0 ? "" : `Pet ${index + 1}`)}
                 </h3>
 
                 {/* REMOVE PET */}
