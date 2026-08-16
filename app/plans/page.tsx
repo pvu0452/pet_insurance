@@ -137,7 +137,9 @@ export default function PlanComparisonPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [selectedPlan, setSelectedPlan] = useState<PlanKey | null>(null);
+  const [selectedPlans, setSelectedPlans] = useState<Record<number, PlanKey>>({});
 
   async function getQuote(plan: PlanKey) {
 
@@ -314,7 +316,21 @@ useEffect(() => {
   }
 }, [mounted, petDetails, excess, limit, benefit]);
 
-  return (
+const totalPrice = petQuotes.upgraded.reduce((total, silverPet, index) => {
+  const selected = selectedPlans[index];
+
+  if (selected === "gold") {
+    return total + (petQuotes.gold[index]?.price ?? 0);
+  }
+
+  if (selected === "upgraded") {
+    return total + silverPet.price;
+  }
+
+  return total;
+}, 0);
+
+return (
     <div className="min-h-screen">
 
       {(!mounted || loading) && (
@@ -447,11 +463,13 @@ useEffect(() => {
               {/* COVERAGE HEADER */}
               <div className="px-4 py-4 flex items-end">
                 <div>
-                  <div className="text-sm font-bold text-gray-900">
+                  <div className="text-base font-bold text-gray-900">
                     Coverage
                   </div>
-                  <div className="text-[10px] text-gray-500 mt-0.5">
-                    What's included
+                  <div className="text-[13px] text-gray-500 mt-0.5">
+                    {petDetails?.pets?.length > 1
+                      ? "Select a plan for all pets"
+                      : "What's included"}
                   </div>
                 </div>
               </div>
@@ -464,7 +482,18 @@ useEffect(() => {
                 return (
                   <div
                     key={p}
-                    onClick={() => setSelectedPlan(p)}
+                    onClick={() => {
+                      setSelectedPlan(p);
+
+                      setSelectedPlans(
+                        Object.fromEntries(
+                          petDetails?.pets?.map((_: any, index: number) => [
+                            index,
+                            p,
+                          ]) ?? []
+                        )
+                      );
+                    }}
                     className={`
                       relative
                       px-3
@@ -617,6 +646,15 @@ useEffect(() => {
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedPlan("upgraded");
+
+                        setSelectedPlans(
+                          Object.fromEntries(
+                            petDetails?.pets?.map((_: any, index: number) => [
+                              index,
+                              "upgraded",
+                            ]) ?? []
+                          )
+                        );
                       }}
                       className={`
                         flex
@@ -648,6 +686,15 @@ useEffect(() => {
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedPlan("gold");
+
+                        setSelectedPlans(
+                          Object.fromEntries(
+                            petDetails?.pets?.map((_: any, index: number) => [
+                              index,
+                              "gold",
+                            ]) ?? []
+                          )
+                        );
                       }}
                       className={`
                         flex
@@ -704,17 +751,39 @@ useEffect(() => {
             })}
 
           </div>
-          {/* PET PRICE BREAKDOWN */}
+
+          {/* OR DIVIDER */}
+          {petDetails?.pets?.length > 1 && (
+            <div className="my-8">
+
+              <div className="flex items-center gap-4">
+                <div className="flex-1 h-px bg-gray-300"></div>
+
+                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-800 shadow-md">
+                  <span className="text-sm font-extrabold text-white">
+                    OR
+                  </span>
+                </div>
+
+                <div className="flex-1 h-px bg-gray-300"></div>
+              </div>
+
+              <p className="text-center text-sm font-semibold text-gray-800 mt-3">
+                Choose different plans for each pet
+              </p>
+
+            </div>
+          )}
         {petDetails?.pets?.length > 1 && (
           <div className="mt-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
 
             <div className="px-4 py-4 bg-gray-50 border-b border-gray-200">
               <h3 className="text-sm font-bold text-gray-900">
-                Pet price breakdown
+                Compare Plans for Each Pet
               </h3>
 
-              <p className="text-[10px] text-gray-500 mt-1">
-                Monthly premium for each pet
+              <p className="text-[13px] text-gray-500 mt-1">
+                Optional: Select Silver or Gold for each pet. You can mix and match plans.
               </p>
             </div>
 
@@ -731,7 +800,18 @@ useEffect(() => {
 
               {/* SILVER HEADER */}
               <div
-                onClick={() => setSelectedPlan("upgraded")}
+                onClick={() => {
+                  setSelectedPlan("upgraded");
+
+                  setSelectedPlans(
+                    Object.fromEntries(
+                      petDetails?.pets?.map((_: any, index: number) => [
+                        index,
+                        "upgraded",
+                      ]) ?? []
+                    )
+                  );
+                }}
                 className={`
                   px-4 py-3
                   text-[10px]
@@ -742,7 +822,9 @@ useEffect(() => {
                   border-gray-200
                   transition
                   ${
-                    selectedPlan === "upgraded"
+                    petDetails?.pets?.some(
+                      (_: any, index: number) => selectedPlans[index] === "upgraded"
+                    )
                       ? "bg-gray-800 text-white"
                       : "bg-slate-200/80 text-gray-700 hover:bg-slate-200"
                   }
@@ -753,7 +835,18 @@ useEffect(() => {
 
               {/* GOLD HEADER */}
               <div
-                onClick={() => setSelectedPlan("gold")}
+                onClick={() => {
+                  setSelectedPlan("gold");
+
+                  setSelectedPlans(
+                    Object.fromEntries(
+                      petDetails?.pets?.map((_: any, index: number) => [
+                        index,
+                        "gold",
+                      ]) ?? []
+                    )
+                  );
+}}
                 className={`
                   px-4 py-3
                   text-[10px]
@@ -764,7 +857,9 @@ useEffect(() => {
                   border-gray-200
                   transition
                   ${
-                    selectedPlan === "gold"
+                    petDetails?.pets?.some(
+                      (_: any, index: number) => selectedPlans[index] === "gold"
+                    )
                       ? "bg-gray-800 text-white"
                       : "bg-amber-100/80 text-gray-700 hover:bg-amber-100"
                   }
@@ -803,7 +898,12 @@ useEffect(() => {
 
                   {/* SILVER PRICE */}
                   <div
-                    onClick={() => setSelectedPlan("upgraded")}
+                    onClick={() => {
+                      setSelectedPlans((current) => ({
+                        ...current,
+                        [index]: "upgraded",
+                      }));
+                    }}
                     className={`
                       px-4 py-3
                       text-center
@@ -812,7 +912,7 @@ useEffect(() => {
                       border-gray-100
                       transition
                       ${
-                        selectedPlan === "upgraded"
+                        selectedPlans[index] === "upgraded"
                           ? "bg-slate-200/70"
                           : "bg-slate-50/20 hover:bg-slate-100"
                       }
@@ -825,7 +925,12 @@ useEffect(() => {
 
                   {/* GOLD PRICE */}
                   <div
-                    onClick={() => setSelectedPlan("gold")}
+                    onClick={() => {
+                      setSelectedPlans((current) => ({
+                        ...current,
+                        [index]: "gold",
+                      }));
+                    }}
                     className={`
                       px-4 py-3
                       text-center
@@ -834,7 +939,7 @@ useEffect(() => {
                       border-gray-100
                       transition
                       ${
-                        selectedPlan === "gold"
+                        selectedPlans[index] === "gold"
                           ? "bg-amber-100/60"
                           : "bg-amber-50/30 hover:bg-amber-100/50"
                       }
@@ -850,63 +955,21 @@ useEffect(() => {
             })}
 
             {/* TOTAL */}
-            <div className="grid grid-cols-[25%_25%_25%_25%] bg-gray-50 border-t border-gray-200">
+            <div className="px-4 py-5 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
 
-              {/* TOTAL LABEL */}
-              <div className="px-4 py-4">
-                <span className="text-sm font-semibold text-gray-900">
+              <div>
+                <div className="text-sm font-semibold text-gray-900">
                   Total
-                </span>
-              </div>
-
-              {/* EMPTY BREED COLUMN */}
-              <div></div>
-
-              {/* SILVER TOTAL */}
-              <div
-                onClick={() => setSelectedPlan("upgraded")}
-                className={`
-                  px-4 py-4
-                  text-center
-                  cursor-pointer
-                  border-l
-                  border-gray-200
-                  transition
-                  ${
-                    selectedPlan === "upgraded"
-                      ? "bg-slate-200/70"
-                      : "bg-gray-50 hover:bg-slate-100"
-                  }
-                `}
-              >
-                <div className="text-sm font-bold text-gray-900">
-                  ${prices.upgraded?.toFixed(2)}
                 </div>
 
                 <div className="text-[10px] text-gray-500">
-                  per month
+                  Monthly premium
                 </div>
               </div>
 
-              {/* GOLD TOTAL */}
-              <div
-                onClick={() => setSelectedPlan("gold")}
-                className={`
-                  px-4 py-4
-                  text-center
-                  cursor-pointer
-                  border-l
-                  border-gray-200
-                  transition
-                  ${
-                    selectedPlan === "gold"
-                      ? "bg-amber-100/60"
-                      : "bg-gray-50 hover:bg-amber-50"
-                  }
-                `}
-              >
-                <div className="text-sm font-bold text-gray-900">
-                  ${prices.gold?.toFixed(2)}
+              <div className="text-right">
+                <div className="text-xl font-extrabold text-gray-900">
+                  ${totalPrice.toFixed(2)}
                 </div>
 
                 <div className="text-[10px] text-gray-500">
@@ -919,30 +982,59 @@ useEffect(() => {
           </div>
         )}
         
-        {/* NEXT BUTTON */}
-        <div className="mt-6">
-          <button
-            onClick={() => {
-              if (!selectedPlan) return alert("Select a plan first");
+        {/* BACK / NEXT BUTTONS */}
+<div className="mt-6 flex gap-3">
 
-              sessionStorage.setItem(
-                "cover",
-                JSON.stringify({
-                  plan: selectedPlan,
-                  limit,
-                  excess,
-                  benefit,
-                  price: prices[selectedPlan],
-                })
-              );
+  {/* BACK */}
+  <button
+    onClick={() => {
+      sessionStorage.setItem(
+        "cover",
+        JSON.stringify({
+          plans: selectedPlans,
+          limit,
+          excess,
+          benefit,
+          price: totalPrice,
+        })
+      );
 
-              router.push("/details");
-            }}
-            className="w-full bg-amber-400 hover:bg-amber-500 text-gray-900 py-3 rounded-xl font-semibold transition"
-          >
-            Next
-          </button>
-        </div>
+      router.push("/");
+    }}
+    className="w-1/3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 py-3 rounded-xl font-semibold transition"
+  >
+    Back
+  </button>
+
+  {/* NEXT */}
+  <button
+    onClick={() => {
+      if (
+        !petDetails?.pets?.length ||
+        Object.keys(selectedPlans).length !== petDetails.pets.length
+      ) {
+        return alert("Select a plan for each pet");
+      }
+
+      sessionStorage.setItem(
+        "cover",
+        JSON.stringify({
+          plans: selectedPlans,
+          limit,
+          excess,
+          benefit,
+          price: totalPrice,
+        })
+      );
+
+      router.push("/details");
+    }}
+    className="flex-1 bg-amber-400 hover:bg-amber-500 text-gray-900 py-3 rounded-xl font-semibold transition"
+  >
+    Next
+  </button>
+
+</div>
 
       </div>
     </div>
