@@ -679,7 +679,7 @@ export default function Home() {
           width: "100%",
           maxWidth: 520,
           display: "flex",
-          justifyContent: "flex-start",
+          justifyContent: "center",
           marginBottom: 20,
         }}
       >
