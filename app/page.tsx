@@ -170,7 +170,7 @@ export default function Home() {
   };
 
   // -----------------------------
-  // MANUAL FALLBACK ADDRESS PARSER
+  // MANUAL FALLBACK ADDRESS PARSER (IF GOOGLE MAPS FAILS)
   // -----------------------------
   const parseManualAddress = (value: string) => {
     const upper = value.toUpperCase().trim();
@@ -874,7 +874,7 @@ export default function Home() {
               {/* GENDER */}
               <div style={{ marginTop: 25 }}>
                 <span style={labelStyle}>
-                  Gender:
+                  Gender
                 </span>
 
                 <div
