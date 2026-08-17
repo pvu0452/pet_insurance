@@ -106,31 +106,46 @@ export default function DetailsPage() {
 
 
   if (storedCover) {
-    setCover(JSON.parse(storedCover));
+    try {
+      const coverData = JSON.parse(storedCover);
+
+      console.log("COVER DATA PARSED:", coverData);
+
+      setCover(coverData);
+    } catch (error) {
+      console.error("INVALID COVER JSON:", storedCover);
+      console.error(error);
+    }
   }
 
-
   if (storedPet) {
+    try {
+      const petData = JSON.parse(storedPet);
 
-    const petData = JSON.parse(storedPet);
+      console.log("PET DATA PARSED:", petData);
 
-    console.log("PET DATA PARSED:", petData);
+      setPets(
+        petData.pets?.map((pet: Pet) => ({
+          name: pet.name || "",
+          petType: pet.petType || null,
+          breed: pet.breed || "",
+          dob: pet.dob || "",
+          gender: pet.gender || null,
+        })) || []
+      );
 
+      setCustomer((prev) => ({
+        ...prev,
+        address: petData.address || "",
+      }));
 
-    setPets([{
-      name: petData.pets[0]?.name || "",
-      petType: petData.pets[0]?.petType || "",
-      breed: petData.pets[0]?.breed || "",
-      dob: petData.pets[0]?.dob || "",
-      gender: petData.pets[0]?.gender || "",
-    }]);
-
-
-    setCustomer(prev => ({
-      ...prev,
-      address: petData.address || "",
-    }));
-
+    } catch (error) {
+      console.error(
+        "Invalid petDetails in sessionStorage:",
+        storedPet,
+        error
+      );
+    }
   }
 
 
