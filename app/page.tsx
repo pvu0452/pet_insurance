@@ -89,6 +89,7 @@ export default function Home() {
   const [googleMapsFailed, setGoogleMapsFailed] = useState(false);
 
   const addressContainerRef = useRef<HTMLDivElement>(null);
+  const petRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // -----------------------------
   // ERRORS
@@ -206,7 +207,7 @@ export default function Home() {
 
     setErrors(newErrors);
 
-    const hasPetErrors = newErrors.some(
+    const firstInvalidPetIndex = newErrors.findIndex(
       (error) =>
         error.name ||
         error.petType ||
@@ -215,11 +216,30 @@ export default function Home() {
         error.dob
     );
 
+    const hasPetErrors = firstInvalidPetIndex !== -1;
+
     const hasAddressError =
       address.trim() === "" ||
       addressDetails.state === "";
 
     setAddressError(hasAddressError);
+
+    // Scroll to the first error
+    if (firstInvalidPetIndex !== -1) {
+      requestAnimationFrame(() => {
+        petRefs.current[firstInvalidPetIndex]?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    } else if (hasAddressError) {
+      requestAnimationFrame(() => {
+        addressContainerRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    }
 
     // Stop if anything is invalid
     if (hasPetErrors || hasAddressError) {
@@ -277,16 +297,16 @@ export default function Home() {
   // -----------------------------
   // SELECT STYLES
   // -----------------------------
-  const selectStyles = {
-    control: (base: any) => ({
+  const selectStyles = (hasError: boolean) => ({
+    control: (base: any, state: any) => ({
       ...base,
       minHeight: "46px",
       borderRadius: "10px",
-      border: "1px solid #ddd",
+      border: `1px solid ${hasError ? "red" : "#ddd"}`,
       boxShadow: "none",
       backgroundColor: "#fff",
       "&:hover": {
-        borderColor: "#ddd",
+        borderColor: hasError ? "red" : "#ddd",
       },
     }),
 
@@ -318,7 +338,7 @@ export default function Home() {
         : "#fff",
       cursor: "pointer",
     }),
-  };
+  });
 
 
   useEffect(() => {
@@ -392,6 +412,9 @@ export default function Home() {
 
         const newAutocomplete =
           new PlaceAutocompleteElement();
+
+        newAutocomplete.style.width = "100%";
+        newAutocomplete.style.display = "block";
       
         autocomplete = newAutocomplete;
 
@@ -686,6 +709,9 @@ export default function Home() {
           return (
             <div
               key={index}
+              ref={(el) => {
+                petRefs.current[index] = el;
+              }}
               style={{
                 marginTop: 25,
                 paddingTop:
@@ -817,7 +843,7 @@ export default function Home() {
                         pet.gender === "male"
                       ),
                       border: petError?.gender
-                        ? "2px solid red"
+                        ? "1px solid red"
                         : "1px solid #ddd",
                     }}
                     onClick={() =>
@@ -836,7 +862,7 @@ export default function Home() {
                         pet.gender === "female"
                       ),
                       border: petError?.gender
-                        ? "2px solid red"
+                        ? "1px solid red"
                         : "1px solid #ddd",
                     }}
                     onClick={() =>
@@ -893,7 +919,7 @@ export default function Home() {
                             : "dog",
                       });
                     }}
-                    styles={selectStyles}
+                    styles={selectStyles(!!petError?.breed)}
                     isLoading={loadingBreeds}
                     placeholder="Select your pet's breed"
                     noOptionsMessage={() =>
@@ -1096,6 +1122,14 @@ export default function Home() {
                   ref={addressContainerRef}
                   style={{
                     width: "100%",
+                    minHeight: 46,
+                    borderRadius: 10,
+                    border: addressError
+                      ? "1px solid red"
+                      : "1px solid #ddd",
+                    backgroundColor: "#fff",
+                    boxSizing: "border-box",
+                    overflow: "hidden",
                   }}
                 />
               )}
