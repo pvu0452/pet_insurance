@@ -419,26 +419,30 @@ export default function DetailsPage() {
       );
 
     // BUILD PRICING BREAKDOWN
-    const pricingPets = updatedPets.map((pet, index) => {
+    const pricingPets: {
+      name: string;
+      tier: "Silver" | "Gold";
+      price: number;
+    }[] = updatedPets.map((pet, index) => {
 
-  // Use the pet's CURRENT tier selection
-  const selectedPlan = pet.tier;
+      const selectedTier: "Silver" | "Gold" =
+        pet.tier === "Gold" ? "Gold" : "Silver";
 
-    const price =
-      selectedPlan === "Gold"
-        ? Number(
-            goldPets[index]?.premiums?.installment ?? 0
-          )
-        : Number(
-            silverPets[index]?.premiums?.installment ?? 0
-          );
+      const price =
+        selectedTier === "Gold"
+          ? Number(
+              goldPets[index]?.premiums?.installment ?? 0
+            )
+          : Number(
+              silverPets[index]?.premiums?.installment ?? 0
+            );
 
-    return {
-      name: pet.name || `Pet ${index + 1}`,
-      tier: pet.tier,
-      price: Number(price.toFixed(2)),
-    };
-  });
+      return {
+        name: pet.name || `Pet ${index + 1}`,
+        tier: selectedTier,
+        price: Number(price.toFixed(2)),
+      };
+    });
 
     const total = pricingPets.reduce(
       (sum, pet) => sum + pet.price,
@@ -537,6 +541,12 @@ function validateCustomerDetails() {
 
 
   async function confirmPayment() {
+
+  // Validate customer details first
+  if (!validateCustomerDetails()) {
+    return;
+  }
+
   if (
     !termsAccepted ||
     !privacyAccepted ||
@@ -589,7 +599,6 @@ function validateCustomerDetails() {
 
   } catch (error) {
     console.error("Checkout error:", error);
-    alert("Unable to start payment. Please try again.");
   }
 }
 
@@ -655,6 +664,7 @@ width:`${progress}%`
     <FormField label="Full Name">
 
       <input
+        id="customer-name"
         value={customer.name}
         onChange={(e) =>
           setCustomer({
@@ -662,8 +672,18 @@ width:`${progress}%`
             name: e.target.value
           })
         }
-        className={inputStyle}
+        className={`${inputStyle} ${
+          customerErrors.name
+            ? "border-red-500 focus:ring-red-500"
+            : ""
+        }`}
       />
+
+      {customerErrors.name && (
+        <p className="text-sm text-red-600 mt-1">
+          {customerErrors.name}
+        </p>
+      )}
 
     </FormField>
 
@@ -671,6 +691,7 @@ width:`${progress}%`
     <FormField label="Mobile Number">
 
       <input
+        id="customer-mobile"
         value={customer.mobile}
         onChange={(e) =>
           setCustomer({
@@ -678,8 +699,18 @@ width:`${progress}%`
             mobile: e.target.value
           })
         }
-        className={inputStyle}
+        className={`${inputStyle} ${
+          customerErrors.mobile
+            ? "border-red-500 focus:ring-red-500"
+            : ""
+        }`}
       />
+
+      {customerErrors.mobile && (
+        <p className="text-sm text-red-600 mt-1">
+          {customerErrors.mobile}
+        </p>
+      )}
 
     </FormField>
 
@@ -687,6 +718,7 @@ width:`${progress}%`
     <FormField label="Email">
 
       <input
+        id="customer-email"
         value={customer.email}
         onChange={(e) =>
           setCustomer({
@@ -694,8 +726,18 @@ width:`${progress}%`
             email: e.target.value
           })
         }
-        className={inputStyle}
+        className={`${inputStyle} ${
+          customerErrors.email
+            ? "border-red-500 focus:ring-red-500"
+            : ""
+        }`}
       />
+
+      {customerErrors.email && (
+        <p className="text-sm text-red-600 mt-1">
+          {customerErrors.email}
+        </p>
+      )}
 
     </FormField>
 
