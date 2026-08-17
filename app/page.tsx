@@ -290,16 +290,6 @@ export default function Home() {
 
     // Stop if anything is invalid
     if (hasPetErrors || hasAddressError) {
-      if (addressDetails.state === "") {
-        console.error(
-          "ADDRESS STATE IS MISSING:",
-          {
-            address,
-            addressDetails,
-          }
-        );
-      }
-
       return;
     }
 
