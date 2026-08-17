@@ -60,7 +60,7 @@ export default function Home() {
       postcode: "",
     });
 
-    setAddressError(false);
+    setAddressError("");
   };
 
   // -----------------------------
@@ -112,7 +112,7 @@ export default function Home() {
     },
   ]);
 
-  const [addressError, setAddressError] = useState(false);
+  const [addressError, setAddressError] = useState("");
 
   // -----------------------------
   // ADD ANOTHER PET
@@ -191,29 +191,21 @@ export default function Home() {
       ? postcodeMatch[1]
       : "";
 
-    let suburb = "";
-
-    if (stateMatch) {
-      const beforeState = upper
-        .substring(0, stateMatch.index)
-        .trim();
-
-      const parts = beforeState.split(",");
-
-      if (parts.length >= 2) {
-        suburb = parts[parts.length - 1].trim();
-      }
-    }
-
-    setAddressDetails({
-      suburb,
+    setAddressDetails((current) => ({
+      ...current,
       state,
       postcode,
-    });
+    }));
 
-    setAddressError(
-      value.trim() === "" || state === ""
-    );
+    if (value.trim() === "") {
+      setAddressError("Home Address is required");
+    } else if (state === "") {
+      setAddressError(
+        "Please enter a valid Australian address including the state."
+      );
+    } else {
+      setAddressError("");
+    }
   };
 
   // -----------------------------
@@ -265,11 +257,19 @@ export default function Home() {
 
     const hasPetErrors = firstInvalidPetIndex !== -1;
 
-    const hasAddressError =
-      address.trim() === "" ||
-      addressDetails.state === "";
+    let hasAddressError = false;
 
-    setAddressError(hasAddressError);
+    if (address.trim() === "") {
+      setAddressError("Home Address is required");
+      hasAddressError = true;
+    } else if (addressDetails.state === "") {
+      setAddressError(
+        "Please enter a valid Australian address including the state."
+      );
+      hasAddressError = true;
+    } else {
+      setAddressError("");
+    }
 
     // Scroll to the first error
     if (firstInvalidPetIndex !== -1) {
@@ -290,16 +290,6 @@ export default function Home() {
 
     // Stop if anything is invalid
     if (hasPetErrors || hasAddressError) {
-      if (addressDetails.state === "") {
-        console.error(
-          "ADDRESS STATE IS MISSING:",
-          {
-            address,
-            addressDetails,
-          }
-        );
-      }
-
       return;
     }
 
@@ -570,7 +560,7 @@ export default function Home() {
                   postcode,
                 });
 
-                setAddressError(false);
+                setAddressError("");
               }
             } catch (error) {
               console.error(
@@ -1188,7 +1178,7 @@ export default function Home() {
                     marginTop: 6,
                   }}
                 >
-                  Home Address is required
+                  {addressError}
                 </p>
               )}
             </div>
