@@ -61,6 +61,10 @@ export default function Home() {
     });
 
     setAddressError("");
+
+    if (autocompleteRef.current) {
+    autocompleteRef.current.value = "";
+    }
   };
 
   // -----------------------------
@@ -89,6 +93,7 @@ export default function Home() {
   const [googleMapsFailed, setGoogleMapsFailed] = useState(false);
 
   const addressContainerRef = useRef<HTMLDivElement>(null);
+  const autocompleteRef = useRef<any>(null);
   const petRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // -----------------------------
@@ -191,17 +196,39 @@ export default function Home() {
       ? postcodeMatch[1]
       : "";
 
-    setAddressDetails((current) => ({
-      ...current,
+    let suburb = "";
+
+    if (stateMatch) {
+      const beforeState = upper.substring(
+        0,
+        stateMatch.index
+      );
+
+      const parts = beforeState
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      if (parts.length >= 2) {
+        suburb = parts[parts.length - 1];
+      }
+    }
+
+    setAddressDetails({
+      suburb,
       state,
       postcode,
-    }));
+    });
 
     if (value.trim() === "") {
       setAddressError("Home Address is required");
     } else if (state === "") {
       setAddressError(
         "Please enter a valid Australian address including the state."
+      );
+    } else if (suburb === "") {
+      setAddressError(
+        "Please enter a valid address including the suburb."
       );
     } else {
       setAddressError("");
@@ -262,13 +289,15 @@ export default function Home() {
     if (address.trim() === "") {
       setAddressError("Home Address is required");
       hasAddressError = true;
-    } else if (addressDetails.state === "") {
+    } else if (
+      addressDetails.suburb === "" ||
+      addressDetails.state === "" ||
+      addressDetails.postcode === ""
+    ) {
       setAddressError(
-        "Please enter a valid Australian address including the state."
+        "Please enter a valid Australian address including suburb, state and postcode."
       );
       hasAddressError = true;
-    } else {
-      setAddressError("");
     }
 
     // Scroll to the first error
@@ -457,8 +486,9 @@ export default function Home() {
 
         newAutocomplete.style.width = "100%";
         newAutocomplete.style.display = "block";
-      
+
         autocomplete = newAutocomplete;
+        autocompleteRef.current = newAutocomplete;
 
         if (savedAddress) {
           newAutocomplete.value = savedAddress;
