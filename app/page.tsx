@@ -422,6 +422,11 @@ export default function Home() {
     const loadGoogleMaps = async () => {
       try {
         if (!googleMapsConfigured) {
+          console.log(
+            "Google Maps API key exists:",
+            !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+          );
+
           setGoogleMapsOptions({
             key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
             v: "weekly",
