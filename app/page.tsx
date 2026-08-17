@@ -170,6 +170,53 @@ export default function Home() {
   };
 
   // -----------------------------
+  // MANUAL FALLBACK ADDRESS PARSER
+  // -----------------------------
+  const parseManualAddress = (value: string) => {
+    const upper = value.toUpperCase().trim();
+
+    const stateMatch = upper.match(
+      /\b(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\b/
+    );
+
+    const postcodeMatch = upper.match(
+      /\b(\d{4})\b/
+    );
+
+    const state = stateMatch
+      ? stateMatch[1]
+      : "";
+
+    const postcode = postcodeMatch
+      ? postcodeMatch[1]
+      : "";
+
+    let suburb = "";
+
+    if (stateMatch) {
+      const beforeState = upper
+        .substring(0, stateMatch.index)
+        .trim();
+
+      const parts = beforeState.split(",");
+
+      if (parts.length >= 2) {
+        suburb = parts[parts.length - 1].trim();
+      }
+    }
+
+    setAddressDetails({
+      suburb,
+      state,
+      postcode,
+    });
+
+    setAddressError(
+      value.trim() === "" || state === ""
+    );
+  };
+
+  // -----------------------------
   // SUBMIT
   // -----------------------------
   const handleSubmit = () => {
@@ -1097,11 +1144,10 @@ export default function Home() {
                   type="text"
                   value={address}
                   onChange={(e) => {
-                    setAddress(e.target.value);
+                    const value = e.target.value;
 
-                    if (e.target.value.trim() !== "") {
-                      setAddressError(false);
-                    }
+                    setAddress(value);
+                    parseManualAddress(value);
                   }}
                   placeholder="e.g. 123 Queen Street, Brisbane QLD 4000"
                   style={{
