@@ -860,10 +860,17 @@ export default function Home() {
                   type="text"
                   value={pet.name}
                   onChange={(e) => {
-                    const value = e.target.value.replace(
+                    let value = e.target.value.replace(
                       /[^a-zA-Z\s'-]/g,
                       ""
                     );
+
+                    // Capitalise the first letter
+                    if (value.length > 0) {
+                      value =
+                        value.charAt(0).toUpperCase() +
+                        value.slice(1);
+                    }
 
                     updatePet(index, {
                       name: value,
