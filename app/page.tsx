@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Select from "react-select";
-import {importLibrary, setOptions as setGoogleMapsOptions,} from "@googlemaps/js-api-loader";
+import { importLibrary, setOptions as setGoogleMapsOptions, } from "@googlemaps/js-api-loader";
 
 let googleMapsConfigured = false;
 
@@ -63,7 +63,7 @@ export default function Home() {
     setAddressError("");
 
     if (autocompleteRef.current) {
-    autocompleteRef.current.value = "";
+      autocompleteRef.current.value = "";
     }
   };
 
@@ -100,7 +100,7 @@ export default function Home() {
   // ERRORS
   // -----------------------------
   const [errors, setErrors] = useState<
-    { 
+    {
       name: boolean;
       petType: boolean;
       gender: boolean;
@@ -145,19 +145,19 @@ export default function Home() {
       },
     ]);
   };
-  
+
   // -----------------------------
   // REMOVE ANOTHER PET IF ADDED BY ACCIDENT
   // -----------------------------
   const removePet = (index: number) => {
-  setPets((currentPets) =>
-    currentPets.filter((_, i) => i !== index)
-  );
+    setPets((currentPets) =>
+      currentPets.filter((_, i) => i !== index)
+    );
 
-  setErrors((currentErrors) =>
-    currentErrors.filter((_, i) => i !== index)
-  );
-};
+    setErrors((currentErrors) =>
+      currentErrors.filter((_, i) => i !== index)
+    );
+  };
   // -----------------------------
   // UPDATE PET
   // -----------------------------
@@ -467,8 +467,11 @@ export default function Home() {
         const { PlaceAutocompleteElement } =
           await importLibrary("places");
 
-        // If this effect has already been cleaned up,
-        // don't create the Google autocomplete.
+        console.log(
+          "Places library loaded:",
+          PlaceAutocompleteElement
+        );
+
         if (cancelled) {
           return;
         }
@@ -483,6 +486,11 @@ export default function Home() {
 
         const newAutocomplete =
           new PlaceAutocompleteElement();
+
+        console.log(
+          "Autocomplete created:",
+          newAutocomplete
+        );
 
         newAutocomplete.style.width = "100%";
         newAutocomplete.style.display = "block";
@@ -816,8 +824,8 @@ export default function Home() {
                   {pet.petType === "cat"
                     ? "🐱"
                     : pet.petType === "dog"
-                    ? "🐶"
-                    : ""}{" "}
+                      ? "🐶"
+                      : ""}{" "}
                   {pet.name || (index === 0 ? "" : `Pet ${index + 1}`)}
                 </h3>
 
@@ -1044,10 +1052,10 @@ export default function Home() {
                         current.map((error, i) =>
                           i === index
                             ? {
-                                ...error,
-                                dob:
-                                  "Date of Birth is required",
-                              }
+                              ...error,
+                              dob:
+                                "Date of Birth is required",
+                            }
                             : error
                         )
                       );
@@ -1072,13 +1080,13 @@ export default function Home() {
                       current.map((error, i) =>
                         i === index
                           ? {
-                              ...error,
-                              dob:
-                                selectedDate >
+                            ...error,
+                            dob:
+                              selectedDate >
                                 minimumDobDate
-                                  ? "Your pet must be at least 14 days old"
-                                  : "",
-                            }
+                                ? "Your pet must be at least 14 days old"
+                                : "",
+                          }
                           : error
                       )
                     );
@@ -1162,68 +1170,68 @@ export default function Home() {
           Add another pet
         </button>
 
-       {/* =========================
+        {/* =========================
               SHARED ADDRESS
             ========================== */}
 
-            <div style={{ marginTop: 20 }}>
-              <label style={labelStyle}>
-                Home Address
-              </label>
+        <div style={{ marginTop: 20 }}>
+          <label style={labelStyle}>
+            Home Address
+          </label>
 
-              {googleMapsFailed ? (
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => {
-                    const value = e.target.value;
+          {googleMapsFailed ? (
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => {
+                const value = e.target.value;
 
-                    setAddress(value);
-                    parseManualAddress(value);
-                  }}
-                  placeholder="e.g. 123 Queen Street, Brisbane QLD 4000"
-                  style={{
-                    width: "100%",
-                    padding: 12,
-                    borderRadius: 10,
-                    border: addressError
-                      ? "1px solid red"
-                      : "1px solid #ddd",
-                    backgroundColor: "#fff",
-                    color: "#111",
-                    outline: "none",
-                    boxSizing: "border-box",
-                  }}
-                />
-              ) : (
-                <div
-                  ref={addressContainerRef}
-                  style={{
-                    width: "100%",
-                    minHeight: 46,
-                    borderRadius: 10,
-                    border: addressError
-                      ? "1px solid red"
-                      : "1px solid #ddd",
-                    backgroundColor: "#fff",
-                    boxSizing: "border-box",
-                    overflow: "hidden",
-                  }}
-                />
-              )}
+                setAddress(value);
+                parseManualAddress(value);
+              }}
+              placeholder="e.g. 123 Queen Street, Brisbane QLD 4000"
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 10,
+                border: addressError
+                  ? "1px solid red"
+                  : "1px solid #ddd",
+                backgroundColor: "#fff",
+                color: "#111",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+          ) : (
+            <div
+              ref={addressContainerRef}
+              style={{
+                width: "100%",
+                minHeight: 46,
+                borderRadius: 10,
+                border: addressError
+                  ? "1px solid red"
+                  : "1px solid #ddd",
+                backgroundColor: "#fff",
+                boxSizing: "border-box",
+                overflow: "visible",
+              }}
+            />
+          )}
 
-              {addressError && (
-                <p
-                  style={{
-                    color: "red",
-                    fontSize: 12,
-                    marginTop: 6,
-                  }}
-                >
-                  {addressError}
-                </p>
-              )}
-            </div>
+          {addressError && (
+            <p
+              style={{
+                color: "red",
+                fontSize: 12,
+                marginTop: 6,
+              }}
+            >
+              {addressError}
+            </p>
+          )}
+        </div>
         {/* =========================
             GENERATE QUOTE
         ========================== */}
