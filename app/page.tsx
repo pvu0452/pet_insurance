@@ -230,6 +230,10 @@ export default function Home() {
       setAddressError(
         "Please enter a valid address including the suburb."
       );
+    } else if (postcode === "") {
+      setAddressError(
+        "Please enter a valid address including the postcode."
+      );
     } else {
       setAddressError("");
     }
