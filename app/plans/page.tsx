@@ -359,7 +359,7 @@ return (
         {/* LOGO */}
         <img
           src="/was-logo.min.webp"
-          className="w-28 opacity-70 mb-4"
+            className="w-28 opacity-70 mb-4 mx-auto"
         />
 
         {/* PROGRESS BAR */}

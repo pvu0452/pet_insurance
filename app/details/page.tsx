@@ -618,7 +618,7 @@ text-gray-900
 
 <img
 src="/was-logo.min.webp"
-className="w-28 opacity-70 mb-5"
+className="w-28 opacity-70 mb-4 mx-auto"
 />
 
 
