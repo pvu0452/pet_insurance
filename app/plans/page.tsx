@@ -8,12 +8,12 @@ import { useRouter } from "next/navigation";
 type PlanKey = "upgraded" | "gold";
 
 type PetQuote = {
-        name: string;
-        type: string;
-        breed: string;
-        age: string;
-        price: number;
-      };
+  name: string;
+  type: string;
+  breed: string;
+  age: string;
+  price: number;
+};
 /* -----------------------------
    FEATURES
 ------------------------------*/
@@ -34,8 +34,8 @@ const plans: Record<
   PlanKey,
   { label: string; included: number[] }
 > = {
-  upgraded: { label: "Silver", included: [0,1,2,3] },
-  gold: { label: "Gold", included: [0,1,2,3,4,5,6] },
+  upgraded: { label: "Silver", included: [0, 1, 2, 3] },
+  gold: { label: "Gold", included: [0, 1, 2, 3, 4, 5, 6] },
 };
 
 /* -----------------------------
@@ -78,30 +78,25 @@ export default function PlanComparisonPage() {
         diffTime / (1000 * 60 * 60 * 24)
       );
 
-      return `${totalDays} ${
-        totalDays === 1 ? "day" : "days"
-      }`;
+      return `${totalDays} ${totalDays === 1 ? "day" : "days"
+        }`;
     }
 
     // Less than 1 year old
     if (years === 0) {
-      return `${months} ${
-        months === 1 ? "month" : "months"
-      }`;
+      return `${months} ${months === 1 ? "month" : "months"
+        }`;
     }
 
     // 1 year or older
     if (months === 0) {
-      return `${years} ${
-        years === 1 ? "year" : "years"
-      }`;
+      return `${years} ${years === 1 ? "year" : "years"
+        }`;
     }
 
-    return `${years} ${
-      years === 1 ? "year" : "years"
-    }, ${months} ${
-      months === 1 ? "month" : "months"
-    }`;
+    return `${years} ${years === 1 ? "year" : "years"
+      }, ${months} ${months === 1 ? "month" : "months"
+      }`;
   };
 
 
@@ -121,9 +116,9 @@ export default function PlanComparisonPage() {
 
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [prices, setPrices] = useState<Record<PlanKey, number | null>>({
-  upgraded: null,
-  gold: null,
-});
+    upgraded: null,
+    gold: null,
+  });
 
   const [petQuotes, setPetQuotes] = useState<Record<PlanKey, PetQuote[]>>({
     upgraded: [],
@@ -153,19 +148,19 @@ export default function PlanComparisonPage() {
     const product =
       plan === "gold"
         ? {
-            gold: {
-              annual_limit: limit,
-              benefit_percentage: benefit,
-              annual_excess: excess,
-            },
-          }
+          gold: {
+            annual_limit: limit,
+            benefit_percentage: benefit,
+            annual_excess: excess,
+          },
+        }
         : {
-            [plan]: {
-              annual_limit: limit,
-              benefit_percentage: benefit,
-              annual_excess: excess,
-            },
-          };
+          [plan]: {
+            annual_limit: limit,
+            benefit_percentage: benefit,
+            annual_excess: excess,
+          },
+        };
 
 
     const payload = {
@@ -223,15 +218,15 @@ export default function PlanComparisonPage() {
 
     return res.json();
   }
-  
+
   const fetchAllPrices = async () => {
     try {
       setLoading(true);
       setError(null);
 
       const planKeys: PlanKey[] = ["upgraded", "gold"];
-      
-      
+
+
 
       const results = await Promise.all(
         planKeys.map(async (plan) => {
@@ -244,93 +239,92 @@ export default function PlanComparisonPage() {
 
           const apiPlan = plan;
 
-            console.log(
-              "PRICE OBJECT:",
-              JSON.stringify(res[apiPlan], null, 2)
-            );
-const quotePets = res[apiPlan]?.data?.quote?.pets ?? [];
+          console.log(
+            "PRICE OBJECT:",
+            JSON.stringify(res[apiPlan], null, 2)
+          );
+          const quotePets = res[apiPlan]?.data?.quote?.pets ?? [];
 
-const petQuoteData: PetQuote[] = quotePets.map(
-  (quotePet: any, index: number) => {
-    const originalPet = petDetails?.pets?.[index];
+          const petQuoteData: PetQuote[] = quotePets.map(
+            (quotePet: any, index: number) => {
+              const originalPet = petDetails?.pets?.[index];
 
-    return {
-      name: originalPet?.name || `Pet ${index + 1}`,
+              return {
+                name: originalPet?.name,
+                type:
+                  originalPet?.petType === "dog"
+                    ? "Dog"
+                    : "Cat",
 
-      type:
-        originalPet?.petType === "dog"
-          ? "Dog"
-          : "Cat",
+                breed: originalPet?.breed || "",
 
-      breed: originalPet?.breed || "",
+                age: getPetAge(originalPet?.dob),
 
-      age: getPetAge(originalPet?.dob),
+                price: Number(
+                  (quotePet.premiums?.installment ?? 0).toFixed(2)
+                ),
+              };
+            }
+          );
 
-      price: Number(
-        (quotePet.premiums?.installment ?? 0).toFixed(2)
-      ),
-    };
-  }
-);
+          const price = petQuoteData.reduce(
+            (total, pet) => total + pet.price,
+            0
+          );
 
-const price = petQuoteData.reduce(
-  (total, pet) => total + pet.price,
-  0
-);
+          return {
+            plan,
+            price: Number(price.toFixed(2)),
+            petQuotes: petQuoteData,
+          };
+        })
+      );
 
-return {
-  plan,
-  price: Number(price.toFixed(2)),
-  petQuotes: petQuoteData,
-};
-})
-);
+      const newPrices: Record<PlanKey, number | null> = {
+        upgraded: null,
+        gold: null,
+      };
 
-const newPrices: Record<PlanKey, number | null> = {
-  upgraded: null,
-  gold: null,
-};
+      results.forEach(({ plan, price, petQuotes }) => {
+        newPrices[plan] = price;
 
-results.forEach(({ plan, price, petQuotes }) => {
-  newPrices[plan] = price;
+        setPetQuotes((current) => ({
+          ...current,
+          [plan]: petQuotes,
+        }));
+      });
 
-  setPetQuotes((current) => ({
-    ...current,
-    [plan]: petQuotes,
-  }));
-});
+      setPrices(newPrices);
 
-setPrices(newPrices);
+    } catch (e) {
+      setError("Failed to fetch quote");
+    } finally {
+      setLoading(false);
+    }
 
-} catch (e) {
-  setError("Failed to fetch quote");
-} finally {
-  setLoading(false);
-}
+  };
 
-};
+  useEffect(() => {
+    if (mounted && petDetails) {
+      fetchAllPrices();
+    }
+  }, [mounted, petDetails, excess, limit, benefit]);
 
-useEffect(() => {
-  if (mounted && petDetails) {
-    fetchAllPrices();
-  }
-}, [mounted, petDetails, excess, limit, benefit]);
+  const totalPrice = petQuotes.upgraded.reduce((total, silverPet, index) => {
+    const selected = selectedPlans[index];
 
-const totalPrice = petQuotes.upgraded.reduce((total, silverPet, index) => {
-  const selected = selectedPlans[index];
+    if (selected === "gold") {
+      return total + (petQuotes.gold[index]?.price ?? 0);
+    }
 
-  if (selected === "gold") {
-    return total + (petQuotes.gold[index]?.price ?? 0);
-  }
+    if (selected === "upgraded") {
+      return total + silverPet.price;
+    }
 
-  if (selected === "upgraded") {
-    return total + silverPet.price;
-  }
+    return total;
+  }, 0);
 
-  return total;
-}, 0);
-
-return (
+  return (
     <div className="min-h-screen">
 
       {(!mounted || loading) && (
@@ -359,7 +353,7 @@ return (
         {/* LOGO */}
         <img
           src="/was-logo.min.webp"
-            className="w-28 opacity-70 mb-4 mx-auto"
+          className="w-28 opacity-70 mb-4"
         />
 
         {/* PROGRESS BAR */}
@@ -395,14 +389,14 @@ return (
               className="mt-1 w-full p-2 border rounded-lg bg-white text-gray-900"
             >
               {Array.from({ length: 26 }, (_, i) => {
-              const value = 5000 + i * 1000;
+                const value = 5000 + i * 1000;
 
-              return (
-                <option key={value} value={value}>
-                  ${value.toLocaleString()}
-                </option>
-              );
-            })}
+                return (
+                  <option key={value} value={value}>
+                    ${value.toLocaleString()}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -424,7 +418,7 @@ return (
                   </option>
                 );
               })}
-          
+
             </select>
           </div>
 
@@ -451,300 +445,174 @@ return (
 
         </div>
 
-      
 
 
-          {/* COVERAGE */}
-          <div className="mt-5 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        {/* COVERAGE */}
+        <div className="mt-20 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-visible">
 
-            {/* TABLE HEADER */}
-            <div className="grid grid-cols-[1.2fr_0.9fr_0.9fr] sm:grid-cols-3 bg-gray-50 border-b border-gray-200">
+        {/* COVERAGE HEADER AREA */}
+        <div className="relative">
 
-              {/* COVERAGE HEADER */}
-              <div className="px-4 py-4 flex items-end">
-                <div>
-                  <div className="text-base font-bold text-gray-900">
-                    Coverage
-                  </div>
-                  <div className="text-[13px] text-gray-500 mt-0.5">
-                    {petDetails?.pets?.length > 1
-                      ? "Select a plan for all pets"
-                      : "What's included"}
-                  </div>
-                </div>
+          {/* CARD BEHIND SILVER + GOLD */}
+          <div
+            className="
+              absolute
+              right-0
+              -top-15
+              w-[66.66%]
+              h-24
+              bg-[#0b2347]
+              border
+              border-[#0b2347]
+              rounded-t-2xl
+              shadow-md
+              z-0
+              flex
+              items-start
+              justify-center
+              text-center
+              pt-1
+            "
+>
+            <div>
+              <div className="text-base font-bold text-white">
+                Choose your plan
               </div>
 
-              {/* PLAN HEADERS */}
-              {(Object.keys(plans) as PlanKey[]).map((p) => {
-                const isSelected = selectedPlan === p;
-                const isGold = p === "gold";
+              <div className="text-sm text-white/90 mt-0.5">
+                {petDetails?.pets?.length > 1
+                  ? "Select a plan for all pets"
+                  : "Select a plan to continue"}
+              </div>
+            </div>
+          </div>
 
-                return (
-                  <div
-                    key={p}
-                    onClick={() => {
-                      setSelectedPlan(p);
+          {/* TABLE HEADER IN FRONT */}
+          <div
+            className="
+              relative
+              z-10
+              grid
+              grid-cols-[1.2fr_0.9fr_0.9fr]
+              sm:grid-cols-3
+              bg-gray-50
+              border-b
+              border-gray-200
+              rounded-tl-2xl
+            "
+          >
 
-                      setSelectedPlans(
-                        Object.fromEntries(
-                          petDetails?.pets?.map((_: any, index: number) => [
-                            index,
-                            p,
-                          ]) ?? []
-                        )
-                      );
-                    }}
-                    className={`
-                      relative
-                      px-3
-                      py-4
-                      text-center
-                      cursor-pointer
-                      border-l
-                      border-gray-200
-                      transition
-                      ${
-                        isSelected
-                          ? "bg-gray-800 text-white"
-                          : isGold
-                              ? "bg-amber-100/80 hover:bg-amber-100"
-                              : "bg-slate-200/80 hover:bg-slate-200"
-                      }
-                    `}
-                  >
+            {/* COVERAGE HEADER */}
+            <div className="px-4 py-4 flex items-end">
+              <div>
+                <div className="text-base font-bold text-gray-900">
+                  Coverage
+                </div>
 
-                    {/* RECOMMENDED */}
-                    {isGold && (
-                      <div className="absolute -top-0 left-1/2 -translate-x-1/2">
-                        <span
-                          className={`
-                            text-[9px]
-                            font-semibold
-                            px-2
-                            py-0.5
-                            rounded-full
-                            whitespace-nowrap
-                            ${
-                              isSelected
-                                ? "bg-white text-gray-800"
-                                : "bg-gray-800 text-white"
-                            }
-                          `}
-                        >
-                          Recommended
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="mt-2">
-                      <div
-                        className={`text-sm font-bold ${
-                          isSelected ? "text-white" : "text-gray-900"
-                        }`}
-                      >
-                        {plans[p].label}
-                      </div>
-
-                      <div
-                        className={`mt-1 text-lg font-extrabold ${
-                          isSelected ? "text-white" : "text-gray-900"
-                        }`}
-                      >
-                        {loading || prices[p] === null
-                          ? "..."
-                          : `$${prices[p]?.toFixed(2)}`}
-                      </div>
-
-                      <div
-                        className={`text-[10px] ${
-                          isSelected
-                            ? "text-white/70"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        per month
-                      </div>
-                    </div>
-
-                  </div>
-                );
-              })}
-
+                <div className="text-[13px] text-gray-500 mt-0.5">
+                  {petDetails?.pets?.length > 1
+                    ? "Select a plan for all pets"
+                    : "What's included"}
+                </div>
+              </div>
             </div>
 
-            {/* COVERAGE ROWS */}
-            {features.map((f, i) => {
-              const isOpen = expandedRow === i;
+            {/* SILVER / GOLD */}
+            {(Object.keys(plans) as PlanKey[]).map((p) => {
+              const isSelected = selectedPlan === p;
+              const isGold = p === "gold";
 
               return (
-                <div key={i}>
+                <div
+                  key={p}
+                  onClick={() => {
+                    setSelectedPlan(p);
 
-                  {/* ROW */}
-                  <div
-                    onClick={() =>
-                      setExpandedRow(isOpen ? null : i)
+                    setSelectedPlans(
+                      Object.fromEntries(
+                        petDetails?.pets?.map((_: any, index: number) => [
+                          index,
+                          p,
+                        ]) ?? []
+                      )
+                    );
+                  }}
+                  className={`
+                    relative
+                    px-3
+                    py-4
+                    text-center
+                    cursor-pointer
+                    border-l
+                    border-gray-200
+                    transition
+                    ${
+                      isSelected
+                        ? "bg-gray-800 text-white"
+                        : isGold
+                          ? "bg-amber-100/80 hover:bg-amber-100"
+                          : "bg-slate-200/80 hover:bg-slate-200"
                     }
-                    className={`
-                      grid
-                      grid-cols-[1.2fr_0.9fr_0.9fr]
-                      sm:grid-cols-3
-                      items-stretch
-                      border-b
-                      border-gray-100
-                      last:border-b-0
-                      cursor-pointer
-                      transition
-                      ${
-                        isOpen
-                          ? "bg-gray-200"
-                          : "hover:bg-gray-50"
-                      }
-                    `}
-                  >
+                  `}
+                >
 
-                    {/* FEATURE NAME */}
-                    <div className="px-4 py-4 flex items-center">
-                      <div className="flex items-center justify-between w-full">
+                  {isGold && (
+                    <div className="absolute -top-0 left-1/2 -translate-x-1/2">
+                      <span
+                        className={`
+                          text-[9px]
+                          font-semibold
+                          px-2
+                          py-0.5
+                          rounded-full
+                          whitespace-nowrap
+                          ${
+                            isSelected
+                              ? "bg-white text-gray-800"
+                              : "bg-gray-800 text-white"
+                          }
+                        `}
+                      >
+                        Recommended
+                      </span>
+                    </div>
+                  )}
 
-                        <span className="text-sm font-medium text-gray-900">
-                          {f.short}
-                        </span>
+                  <div className="mt-2">
 
-                        <span
-                          className={`
-                            flex items-center justify-center
-                            w-5 h-5
-                            rounded-full
-                            bg-gray-100
-                            text-gray-500
-                            flex-shrink-0
-                            transition-transform
-                            duration-200
-                            ${isOpen ? "rotate-180" : ""}
-                          `}
-                        >
-                          <svg
-                            className="w-3 h-3"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M6 9l6 6 6-6"
-                            />
-                          </svg>
-                        </span>
-
-                      </div>
+                    <div
+                      className={`text-sm font-bold ${
+                        isSelected
+                          ? "text-white"
+                          : "text-gray-900"
+                      }`}
+                    >
+                      {plans[p].label}
                     </div>
 
-                    {/* SILVER */}
                     <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedPlan("upgraded");
-
-                        setSelectedPlans(
-                          Object.fromEntries(
-                            petDetails?.pets?.map((_: any, index: number) => [
-                              index,
-                              "upgraded",
-                            ]) ?? []
-                          )
-                        );
-                      }}
-                      className={`
-                        flex
-                        items-center
-                        justify-center
-                        border-l
-                        border-gray-100
-                        transition
-                        ${
-                          selectedPlan === "upgraded"
-                            ? "bg-slate-200/70"
-                            : "bg-slate-50/20"
-                        }
-                      `}
+                      className={`mt-1 text-lg font-extrabold ${
+                        isSelected
+                          ? "text-white"
+                          : "text-gray-900"
+                      }`}
                     >
-                      {plans.upgraded.included.includes(i) ? (
-                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold">
-                          ✓
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">
-                          —
-                        </span>
-                      )}
+                      {loading || prices[p] === null
+                        ? "..."
+                        : `$${prices[p]?.toFixed(2)}`}
                     </div>
 
-                    {/* GOLD */}
                     <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedPlan("gold");
-
-                        setSelectedPlans(
-                          Object.fromEntries(
-                            petDetails?.pets?.map((_: any, index: number) => [
-                              index,
-                              "gold",
-                            ]) ?? []
-                          )
-                        );
-                      }}
-                      className={`
-                        flex
-                        items-center
-                        justify-center
-                        border-l
-                        border-gray-100
-                        transition
-                        ${
-                          selectedPlan === "gold"
-                            ? "bg-amber-100/60"
-                            : "bg-amber-50/30"
-                        }
-                      `}
+                      className={`text-[10px] ${
+                        isSelected
+                          ? "text-white/70"
+                          : "text-gray-500"
+                      }`}
                     >
-                      {plans.gold.included.includes(i) ? (
-                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold">
-                          ✓
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">
-                          —
-                        </span>
-                      )}
+                      per month
                     </div>
 
                   </div>
-
-                  {/* DESCRIPTION */}
-                  {isOpen && (
-                    <div className="px-4 py-4 bg-blue-50 border-b border-blue-100">
-                      <div className="flex items-start gap-3">
-
-                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
-                          i
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-semibold text-blue-900 mb-1">
-                            About {f.short} coverage
-                          </p>
-
-                          <p className="text-xs leading-relaxed text-blue-800">
-                            {f.full}
-                          </p>
-                        </div>
-
-                      </div>
-                    </div>
-                  )}
 
                 </div>
               );
@@ -752,42 +620,211 @@ return (
 
           </div>
 
-          {/* OR DIVIDER */}
-          {petDetails?.pets?.length > 1 && (
-            <div className="my-8">
+        </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex-1 h-px bg-gray-300"></div>
+          {/* COVERAGE ROWS */}
+          {features.map((f, i) => {
+            const isOpen = expandedRow === i;
 
-                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-800 shadow-md">
-                  <span className="text-sm font-extrabold text-white">
-                    OR
-                  </span>
+            return (
+              <div key={i}>
+
+                {/* ROW */}
+                <div
+                  onClick={() =>
+                    setExpandedRow(isOpen ? null : i)
+                  }
+                  className={`
+            grid
+            grid-cols-[1.2fr_0.9fr_0.9fr]
+            sm:grid-cols-3
+            items-stretch
+            border-b
+            border-gray-100
+            last:border-b-0
+            cursor-pointer
+            transition
+            ${isOpen
+                      ? "bg-gray-200"
+                      : "hover:bg-gray-50"
+                    }
+          `}
+                >
+
+                  {/* FEATURE NAME */}
+                  <div className="px-4 py-4 flex items-center">
+                    <div className="flex items-center justify-between w-full">
+
+                      <span className="text-sm font-medium text-gray-900">
+                        {f.short}
+                      </span>
+
+                      <span
+                        className={`
+                  flex items-center justify-center
+                  w-5 h-5
+                  rounded-full
+                  bg-gray-100
+                  text-gray-500
+                  flex-shrink-0
+                  transition-transform
+                  duration-200
+                  ${isOpen ? "rotate-180" : ""}
+                `}
+                      >
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M6 9l6 6 6-6"
+                          />
+                        </svg>
+                      </span>
+
+                    </div>
+                  </div>
+
+                  {/* SILVER */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPlan("upgraded");
+
+                      setSelectedPlans(
+                        Object.fromEntries(
+                          petDetails?.pets?.map((_: any, index: number) => [
+                            index,
+                            "upgraded",
+                          ]) ?? []
+                        )
+                      );
+                    }}
+                    className={`
+              flex
+              items-center
+              justify-center
+              border-l
+              border-gray-100
+              transition
+              ${selectedPlan === "upgraded"
+                        ? "bg-slate-200/70"
+                        : "bg-slate-50/20"
+                      }
+            `}
+                  >
+                    {plans.upgraded.included.includes(i) ? (
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold">
+                        ✓
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">
+                        —
+                      </span>
+                    )}
+                  </div>
+
+                  {/* GOLD */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPlan("gold");
+
+                      setSelectedPlans(
+                        Object.fromEntries(
+                          petDetails?.pets?.map((_: any, index: number) => [
+                            index,
+                            "gold",
+                          ]) ?? []
+                        )
+                      );
+                    }}
+                    className={`
+              flex
+              items-center
+              justify-center
+              border-l
+              border-gray-100
+              transition
+              ${selectedPlan === "gold"
+                        ? "bg-amber-100/60"
+                        : "bg-amber-50/30"
+                      }
+            `}
+                  >
+                    {plans.gold.included.includes(i) ? (
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold">
+                        ✓
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">
+                        —
+                      </span>
+                    )}
+                  </div>
+
                 </div>
 
-                <div className="flex-1 h-px bg-gray-300"></div>
+                {/* DESCRIPTION */}
+                {isOpen && (
+                  <div className="px-4 py-4 bg-blue-50 border-b border-blue-100">
+                    <div className="flex items-start gap-3">
+
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
+                        i
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold text-blue-900 mb-1">
+                          About {f.short} coverage
+                        </p>
+
+                        <p className="text-xs leading-relaxed text-blue-800">
+                          {f.full}
+                        </p>
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            );
+          })}
+
+        </div>
+
+        {/* OR DIVIDER */}
+        {petDetails?.pets?.length > 1 && (
+          <div className="my-8">
+
+            <div className="flex items-center gap-4">
+              <div className="flex-1 h-px bg-gray-300"></div>
+
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-800 shadow-md">
+                <span className="text-sm font-extrabold text-white">
+                  OR
+                </span>
               </div>
 
-              <p className="text-center text-sm font-semibold text-gray-800 mt-3">
-                Choose different plans for each pet
-              </p>
-
+              <div className="flex-1 h-px bg-gray-300"></div>
             </div>
-          )}
+
+            <p className="text-center text-sm font-semibold text-gray-800 mt-3">
+              Choose different plans for each pet
+            </p>
+
+          </div>
+        )}
         {petDetails?.pets?.length > 1 && (
-          <div className="mt-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-
-            <div className="px-4 py-4 bg-gray-50 border-b border-gray-200">
-              <h3 className="text-sm font-bold text-gray-900">
-                Compare Plans for Each Pet
-              </h3>
-
-              <p className="text-[13px] text-gray-500 mt-1">
-                Optional: Select Silver or Gold for each pet. You can mix and match plans.
-              </p>
-            </div>
-
+          <>
             {/* TABLE HEADER */}
+
             <div className="grid grid-cols-[25%_25%_25%_25%] bg-gray-50 border-b border-gray-200">
 
               <div className="px-4 py-3 text-[10px] font-semibold text-gray-500">
@@ -821,12 +858,11 @@ return (
                   border-l
                   border-gray-200
                   transition
-                  ${
-                    petDetails?.pets?.some(
-                      (_: any, index: number) => selectedPlans[index] === "upgraded"
-                    )
-                      ? "bg-gray-800 text-white"
-                      : "bg-slate-200/80 text-gray-700 hover:bg-slate-200"
+                  ${petDetails?.pets?.some(
+                  (_: any, index: number) => selectedPlans[index] === "upgraded"
+                )
+                    ? "bg-gray-800 text-white"
+                    : "bg-slate-200/80 text-gray-700 hover:bg-slate-200"
                   }
                 `}
               >
@@ -846,7 +882,7 @@ return (
                       ]) ?? []
                     )
                   );
-}}
+                }}
                 className={`
                   px-4 py-3
                   text-[10px]
@@ -856,12 +892,11 @@ return (
                   border-l
                   border-gray-200
                   transition
-                  ${
-                    petDetails?.pets?.some(
-                      (_: any, index: number) => selectedPlans[index] === "gold"
-                    )
-                      ? "bg-gray-800 text-white"
-                      : "bg-amber-100/80 text-gray-700 hover:bg-amber-100"
+                  ${petDetails?.pets?.some(
+                  (_: any, index: number) => selectedPlans[index] === "gold"
+                )
+                    ? "bg-gray-800 text-white"
+                    : "bg-amber-100/80 text-gray-700 hover:bg-amber-100"
                   }
                 `}
               >
@@ -911,10 +946,9 @@ return (
                       border-l
                       border-gray-100
                       transition
-                      ${
-                        selectedPlans[index] === "upgraded"
-                          ? "bg-slate-200/70"
-                          : "bg-slate-50/20 hover:bg-slate-100"
+                      ${selectedPlans[index] === "upgraded"
+                        ? "bg-slate-200/70"
+                        : "bg-slate-50/20 hover:bg-slate-100"
                       }
                     `}
                   >
@@ -938,10 +972,9 @@ return (
                       border-l
                       border-gray-100
                       transition
-                      ${
-                        selectedPlans[index] === "gold"
-                          ? "bg-amber-100/60"
-                          : "bg-amber-50/30 hover:bg-amber-100/50"
+                      ${selectedPlans[index] === "gold"
+                        ? "bg-amber-100/60"
+                        : "bg-amber-50/30 hover:bg-amber-100/50"
                       }
                     `}
                   >
@@ -978,65 +1011,64 @@ return (
               </div>
 
             </div>
-
-          </div>
+          </>
         )}
-        
+
         {/* BACK / NEXT BUTTONS */}
-<div className="mt-6 flex gap-3">
+        <div className="mt-6 flex gap-3">
 
-  {/* BACK */}
-  <button
-    onClick={() => {
-      sessionStorage.setItem(
-        "cover",
-        JSON.stringify({
-          plans: selectedPlans,
-          limit,
-          excess,
-          benefit,
-          price: totalPrice,
-        })
-      );
+          {/* BACK */}
+          <button
+            onClick={() => {
+              sessionStorage.setItem(
+                "cover",
+                JSON.stringify({
+                  plans: selectedPlans,
+                  limit,
+                  excess,
+                  benefit,
+                  price: totalPrice,
+                })
+              );
 
-      router.push("/");
-    }}
-    className="w-1/3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 py-3 rounded-xl font-semibold transition"
-  >
-    Back
-  </button>
+              router.push("/");
+            }}
+            className="w-1/3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 py-3 rounded-xl font-semibold transition"
+          >
+            Back
+          </button>
 
-  {/* NEXT */}
-  <button
-    onClick={() => {
-      if (
-        !petDetails?.pets?.length ||
-        Object.keys(selectedPlans).length !== petDetails.pets.length
-      ) {
-        return alert("Select a plan for each pet");
-      }
+          {/* NEXT */}
+          <button
+            onClick={() => {
+              if (
+                !petDetails?.pets?.length ||
+                Object.keys(selectedPlans).length !== petDetails.pets.length
+              ) {
+                return alert("Select a plan for each pet");
+              }
 
-      sessionStorage.setItem(
-        "cover",
-        JSON.stringify({
-          plans: selectedPlans,
-          limit,
-          excess,
-          benefit,
-          price: totalPrice,
-        })
-      );
+              sessionStorage.setItem(
+                "cover",
+                JSON.stringify({
+                  plans: selectedPlans,
+                  limit,
+                  excess,
+                  benefit,
+                  price: totalPrice,
+                })
+              );
 
-      router.push("/details");
-    }}
-    className="flex-1 bg-amber-400 hover:bg-amber-500 text-gray-900 py-3 rounded-xl font-semibold transition"
-  >
-    Next
-  </button>
+              router.push("/details");
+            }}
+            className="flex-1 bg-amber-400 hover:bg-amber-500 text-gray-900 py-3 rounded-xl font-semibold transition"
+          >
+            Next
+          </button>
 
-</div>
+        </div>
 
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
