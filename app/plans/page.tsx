@@ -352,8 +352,9 @@ export default function PlanComparisonPage() {
 
         {/* LOGO */}
         <img
-          src="/was-logo.min.webp"
-          className="w-28 opacity-70 mb-4"
+       src="/was-logo.min.webp"
+       className="w-28 opacity-70 mb-4 mx-auto block"
+       alt="WAS Insurance"
         />
 
         {/* PROGRESS BAR */}
