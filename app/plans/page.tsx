@@ -825,13 +825,13 @@ export default function PlanComparisonPage() {
           <>
             {/* TABLE HEADER */}
 
-            <div className="grid grid-cols-[25%_25%_25%_25%] bg-gray-50 border-b border-gray-200">
+            <div className="grid grid-cols-[25%_25%_25%_25%] bg-white border-b border-gray-100 last:border-b-0">
 
-              <div className="px-4 py-3 text-[10px] font-semibold text-gray-500">
+              <div className="px-4 py-3 bg-gray-50 text-[10px] font-semibold text-gray-500">
                 Pet
               </div>
 
-              <div className="px-4 py-3 text-[10px] font-semibold text-gray-500">
+              <div className="px-4 py-3 bg-gray-50 text-[10px] font-semibold text-gray-500">
                 Breed
               </div>
 
@@ -912,7 +912,7 @@ export default function PlanComparisonPage() {
               return (
                 <div
                   key={index}
-                  className="grid grid-cols-[25%_25%_25%_25%] border-b border-gray-100 last:border-b-0"
+                  className="grid grid-cols-[25%_25%_25%_25%] bg-white border-b border-gray-100 last:border-b-0"
                 >
 
                   {/* PET */}
