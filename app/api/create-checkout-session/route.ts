@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   const randomNumber = Math.floor(100000 + Math.random() * 900000);
-  const quoteId = `WAS-${randomNumber}`;
+  const policyId = `WAS-${randomNumber}`;
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     customer_email: body.customer_email,
 
     metadata: {
-      quoteId: quoteId,
+      policyId: policyId,
     },
 
     line_items: [
@@ -34,12 +34,12 @@ export async function POST(request: Request) {
       },
     ],
 
-    success_url: `${domain}/success?quoteId=${quoteId}`,
+    success_url: `${domain}/success?policyId=${policyId}`,
     cancel_url: `${domain}/cancel`,
   });
 
   return NextResponse.json({
     url: session.url,
-    quoteId: quoteId,
+    policyId: policyId,
   });
 }
