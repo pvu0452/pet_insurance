@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
+const domain = process.env.NEXT_PUBLIC_BASE_URL
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 export async function POST(requqest: Request) {
   const body = await requqest.json();
@@ -20,8 +22,8 @@ export async function POST(requqest: Request) {
         quantity: 1,
       }
     ],
-    success_url: "http://localhost:3000/success",
-    cancel_url: "http://localhost:3000/cancel",
+    success_url: `${domain}/success`,
+    cancel_url: `${domain}/cancel`,
   });
   return NextResponse.json({ url: session.url });
 }
