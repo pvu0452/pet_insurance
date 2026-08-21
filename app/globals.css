@@ -29,19 +29,9 @@ body {
   background: white;
 }
 
+/* Google address autocomplete */
 gmp-place-autocomplete {
-  color-scheme: light !important;
-}
-
-.address-autocomplete {
   width: 100%;
   display: block;
-}
-
-/* Mobile */
-@media (max-width: 600px) {
-  .address-autocomplete {
-    width: 100%;
-    max-width: 100%;
-  }
+  color-scheme: light !important;
 }
