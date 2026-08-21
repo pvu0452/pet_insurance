@@ -150,7 +150,7 @@ export default function DetailsPage() {
   if (state && postcode) {
     const suburbMatch = address.match(
       new RegExp(
-        `,\\s*(.*?)\\s+${state}\\s+${postcode}\\s*$`,
+        `,\\s*(.*?)\\s+${state}\\s+${postcode}(?:,\\s*[^,]+)?\\s*$`,
         "i"
       )
     );
@@ -232,15 +232,15 @@ export default function DetailsPage() {
       );
 
       const address = petData.address || "";
-
       const parsedAddress = parseAddress(address);
+      const googleAddress = petData.addressDetails || {};
 
-      setCustomer(prev => ({
+      setCustomer((prev) => ({
         ...prev,
         address,
-        suburb: parsedAddress.suburb,
-        state: parsedAddress.state,
-        postcode: parsedAddress.postcode,
+        suburb: googleAddress.suburb || parsedAddress.suburb,
+        state: googleAddress.state || parsedAddress.state,
+        postcode: googleAddress.postcode || parsedAddress.postcode,
       }));
     }
   }, []);
