@@ -1,21 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 
 export default function PlanComparisonPage() {
 const router = useRouter();
-const [quoteId, setQuoteId] = useState("");
+const searchParams = useSearchParams();
+const quoteId = searchParams.get("quoteId");
+
 
 useEffect(() => {
   // Generate a random 6-digit insurance quote ID
-  const randomNumber = Math.floor(100000 + Math.random() * 900000);
-
-  const generatedQuoteId = `WAS-${randomNumber}`;
-
-  setQuoteId(generatedQuoteId);
-
-  // Clear ALL session storage
+  
   sessionStorage.clear();
 }, []);
 
