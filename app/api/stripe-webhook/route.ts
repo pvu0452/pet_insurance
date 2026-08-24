@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
-
+console.log("Resend key exists:", !!process.env.RESEND_API_KEY);
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const resend = new Resend(process.env.RESEND_API_KEY);
