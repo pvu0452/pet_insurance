@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
-console.log("Resend key exists:", !!process.env.RESEND_API_KEY);
+const apiKey = process.env.RESEND_API_KEY;
+
+if (!apiKey) {
+    throw new Error("RESEND_API_KEY is missing from the Vercel runtime");
+}
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const resend = new Resend(process.env.RESEND_API_KEY);
