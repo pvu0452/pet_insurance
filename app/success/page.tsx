@@ -1,40 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
-export default function PlanComparisonPage() {
+function SuccessPageContent() {
   const router = useRouter();
-  const [PolicyNum, setPolicyNum] = useState("");
-  const [copied, setCopied] = useState(false);
+  const searchParams = useSearchParams();
+  const quoteId = searchParams.get("quoteId");
 
   useEffect(() => {
-    // Generate a random 6-digit insurance PolicyNum
-    const randomNumber = Math.floor(100000 + Math.random() * 900000);
-
-    const generatedPolicyNum = `WAS-${randomNumber}`;
-
-    setPolicyNum(generatedPolicyNum);
-
-    // Clear ALL session storage
     sessionStorage.clear();
   }, []);
-
-  // Copy Policy Number to clipboard
-  const handleCopy = async () => {
-    if (!PolicyNum) return;
-
-    try {
-      await navigator.clipboard.writeText(PolicyNum);
-      setCopied(true);
-
-      setTimeout(() => {
-        setCopied(false);
-      }, 2000);
-    } catch (error) {
-      console.error("Failed to copy Policy Number:", error);
-    }
-  };
 
   return (
     <div
@@ -45,10 +21,9 @@ export default function PlanComparisonPage() {
     >
       <div className="max-w-2xl mx-auto px-4 py-6">
 
-        {/* WAS LOGO */}
         <button
           type="button"
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/details")}
           className="block mx-auto mb-10"
           aria-label="Return to details"
         >
@@ -59,7 +34,6 @@ export default function PlanComparisonPage() {
           />
         </button>
 
-        {/* SUCCESS CARD */}
         <div
           className="
             bg-white
@@ -70,8 +44,6 @@ export default function PlanComparisonPage() {
             overflow-hidden
           "
         >
-
-          {/* HEADER */}
           <div
             className="
               px-6
@@ -82,8 +54,6 @@ export default function PlanComparisonPage() {
               border-gray-200
             "
           >
-
-            {/* SUCCESS ICON */}
             <div
               className="
                 mx-auto
@@ -102,7 +72,6 @@ export default function PlanComparisonPage() {
               ✓
             </div>
 
-            {/* SUCCESS MESSAGE */}
             <h1
               className="
                 text-2xl
@@ -122,13 +91,10 @@ export default function PlanComparisonPage() {
             >
               Thank you for purchasing your pet insurance with WAS Insurance.
             </p>
-
           </div>
 
-          {/* CONTENT */}
           <div className="p-6">
 
-            {/* Policy Number CARD */}
             <div
               className="
                 border
@@ -139,7 +105,6 @@ export default function PlanComparisonPage() {
                 bg-white
               "
             >
-
               <p
                 className="
                   text-sm
@@ -147,7 +112,7 @@ export default function PlanComparisonPage() {
                   text-gray-500
                 "
               >
-                Your Insurance Policy Number
+                Your Insurance Quote ID
               </p>
 
               <p
@@ -159,7 +124,7 @@ export default function PlanComparisonPage() {
                   tracking-wide
                 "
               >
-                {PolicyNum || "Generating..."}
+                {quoteId || "Generating..."}
               </p>
 
               <p
@@ -169,41 +134,10 @@ export default function PlanComparisonPage() {
                   mt-3
                 "
               >
-                Please keep this Policy Number for your records.
+                Please keep this quote ID for your records.
               </p>
-
-              {/* COPY BUTTON */}
-              <button
-                type="button"
-                onClick={handleCopy}
-                disabled={!PolicyNum}
-                className={`
-                  mt-4
-                  px-6
-                  py-2.5
-                  rounded-full
-                  font-semibold
-                  text-sm
-                  transition
-                  duration-200
-                  ${
-                    copied
-                      ? "bg-green-600 text-white"
-                      : "bg-gray-900 text-white hover:bg-gray-700"
-                  }
-                  ${
-                    !PolicyNum
-                      ? "opacity-50 cursor-not-allowed"
-                      : "cursor-pointer"
-                  }
-                `}
-              >
-                {copied ? "✓ Copied!" : "Copy Policy Number"}
-              </button>
-
             </div>
 
-            {/* CONFIRMATION MESSAGE */}
             <div
               className="
                 mt-6
@@ -214,7 +148,6 @@ export default function PlanComparisonPage() {
                 p-5
               "
             >
-
               <p
                 className="
                   text-sm
@@ -234,17 +167,21 @@ export default function PlanComparisonPage() {
                   mt-3
                 "
               >
-                Your Policy Number is shown above. Please keep it for your records.
+                Your quote ID is shown above. Please keep it for your records.
               </p>
-
             </div>
 
           </div>
-
         </div>
-
       </div>
-
     </div>
+  );
+}
+
+export default function PlanComparisonPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SuccessPageContent />
+    </Suspense>
   );
 }
