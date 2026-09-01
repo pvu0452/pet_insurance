@@ -1,16 +1,15 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 function SuccessPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const quoteId = searchParams.get("quoteId");
 
-  useEffect(() => {
-    sessionStorage.clear();
-  }, []);
+  const quoteId =
+    searchParams.get("quoteId") ||
+    searchParams.get("policyId");
 
   return (
     <div
@@ -44,6 +43,7 @@ function SuccessPageContent() {
             overflow-hidden
           "
         >
+
           <div
             className="
               px-6
@@ -54,6 +54,7 @@ function SuccessPageContent() {
               border-gray-200
             "
           >
+
             <div
               className="
                 mx-auto
@@ -91,6 +92,7 @@ function SuccessPageContent() {
             >
               Thank you for purchasing your pet insurance with WAS Insurance.
             </p>
+
           </div>
 
           <div className="p-6">
@@ -105,6 +107,7 @@ function SuccessPageContent() {
                 bg-white
               "
             >
+
               <p
                 className="
                   text-sm
@@ -124,7 +127,7 @@ function SuccessPageContent() {
                   tracking-wide
                 "
               >
-                {quoteId || "Generating..."}
+                {quoteId || "Quote ID unavailable"}
               </p>
 
               <p
@@ -134,8 +137,9 @@ function SuccessPageContent() {
                   mt-3
                 "
               >
-                Please keep this quote ID for your records.
+                Please keep this Quote ID for your records.
               </p>
+
             </div>
 
             <div
@@ -148,6 +152,7 @@ function SuccessPageContent() {
                 p-5
               "
             >
+
               <p
                 className="
                   text-sm
@@ -167,18 +172,20 @@ function SuccessPageContent() {
                   mt-3
                 "
               >
-                Your quote ID is shown above. Please keep it for your records.
+                Your Quote ID is shown above. Please keep it for your records.
               </p>
+
             </div>
 
           </div>
+
         </div>
       </div>
     </div>
   );
 }
 
-export default function PlanComparisonPage() {
+export default function SuccessPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <SuccessPageContent />
