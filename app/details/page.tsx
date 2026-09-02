@@ -106,42 +106,43 @@ export default function DetailsPage() {
 
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [informationConfirmed, setInformationConfirmed] = useState(false);
-  const [premiumConfirmed, setPremiumConfirmed] = useState(false);
+  const [informationConfirmed, setInformationConfirmed] =
+    useState(false);
+  const [premiumConfirmed, setPremiumConfirmed] =
+    useState(false);
 
-  const [openTerms, setOpenTerms] = useState<string | null>(null);
+  const [openTerms, setOpenTerms] =
+    useState<string | null>(null);
 
-  // Pet editing
-  const [editingPet, setEditingPet] = useState<number | null>(null);
+  const [editingPet, setEditingPet] =
+    useState<number | null>(null);
 
-  // Track whether a pricing-related pet field was changed
-  const [pricingChangedPets, setPricingChangedPets] = useState<number[]>([]);
+  const [pricingChangedPets, setPricingChangedPets] =
+    useState<number[]>([]);
 
-  // Popup for warning before editing
-  const [showEditWarning, setShowEditWarning] = useState(false);
+  const [showEditWarning, setShowEditWarning] =
+    useState(false);
 
-  // Pet that the user wants to edit
-  const [petToEdit, setPetToEdit] = useState<number | null>(null);
+  const [petToEdit, setPetToEdit] =
+    useState<number | null>(null);
 
-  // Address editing
-  const [editingAddress, setEditingAddress] = useState(false);
+  const [editingAddress, setEditingAddress] =
+    useState(false);
 
-  // Popup for warning before editing address
-  const [showAddressEditWarning, setShowAddressEditWarning] = useState(false);
+  const [showAddressEditWarning, setShowAddressEditWarning] =
+    useState(false);
 
   function parseAddress(address: string) {
     let suburb = "";
     let state = "";
     let postcode = "";
 
-    // Find postcode
     const postcodeMatch = address.match(/\b\d{4}\b/);
 
     if (postcodeMatch) {
       postcode = postcodeMatch[0];
     }
 
-    // Find state
     const stateMatch = address.match(
       /\b(NSW|QLD|VIC|WA|SA|TAS|NT|ACT)\b/i
     );
@@ -150,9 +151,6 @@ export default function DetailsPage() {
       state = stateMatch[1].toUpperCase();
     }
 
-    // Find suburb
-    // Example:
-    // "123 queen street, Calamvale QLD 4116"
     if (state && postcode) {
       const suburbMatch = address.match(
         new RegExp(
@@ -173,10 +171,15 @@ export default function DetailsPage() {
     };
   }
 
-  const updatePet = (index: number, changes: Partial<Pet>) => {
+  const updatePet = (
+    index: number,
+    changes: Partial<Pet>
+  ) => {
     setPets((currentPets) =>
       currentPets.map((pet, i) =>
-        i === index ? { ...pet, ...changes } : pet
+        i === index
+          ? { ...pet, ...changes }
+          : pet
       )
     );
 
@@ -187,7 +190,9 @@ export default function DetailsPage() {
       "gender" in changes
     ) {
       setPricingChangedPets((current) =>
-        current.includes(index) ? current : [...current, index]
+        current.includes(index)
+          ? current
+          : [...current, index]
       );
     }
   };
@@ -240,29 +245,36 @@ export default function DetailsPage() {
         return;
       }
 
-      const firstPetSettings = cover.petSettings?.["0"];
+      const firstPetSettings =
+        cover.petSettings?.["0"];
 
       if (
         !firstPetSettings?.limit ||
         !firstPetSettings?.benefit ||
         !firstPetSettings?.excess
       ) {
-        console.error("Incomplete cover information:", cover);
+        console.error(
+          "Incomplete cover information:",
+          cover
+        );
+
         setPricingLoading(false);
         return;
       }
 
-      const today = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Australia/Brisbane",
-      }).format(new Date());
+      const today = new Intl.DateTimeFormat(
+        "en-CA",
+        {
+          timeZone: "Australia/Brisbane",
+        }
+      ).format(new Date());
 
-      const storedPet = sessionStorage.getItem("petDetails");
+      const storedPet =
+        sessionStorage.getItem("petDetails");
 
       if (!storedPet) {
         throw new Error("Pet details not found");
       }
-
-      const petData = JSON.parse(storedPet);
 
       console.log("PRICING ADDRESS:", {
         address: updatedCustomer.address,
@@ -279,138 +291,199 @@ export default function DetailsPage() {
           state: updatedCustomer.state,
           postcode: updatedCustomer.postcode,
           email:
-            updatedCustomer.email || "pet@wiseandsilent.com",
+            updatedCustomer.email ||
+            "pet@wiseandsilent.com",
         },
 
-        pets: updatedPets.map((pet, index) => ({
-          pet_no: String(index),
+        pets: updatedPets.map(
+          (pet, index) => ({
+            pet_no: String(index),
+            pet_name: pet.name,
 
-          pet_name: pet.name,
+            pet_type:
+              pet.petType === "dog"
+                ? "Dog"
+                : pet.petType === "cat"
+                ? "Cat"
+                : "",
 
-          pet_type:
-            pet.petType === "dog"
-              ? "Dog"
-              : pet.petType === "cat"
-              ? "Cat"
-              : "",
+            pet_sex:
+              pet.gender === "male"
+                ? "Male"
+                : pet.gender === "female"
+                ? "Female"
+                : "",
 
-          pet_sex:
-            pet.gender === "male"
-              ? "Male"
-              : pet.gender === "female"
-              ? "Female"
-              : "",
-
-          pet_breed: pet.breed,
-          pet_dob: pet.dob,
-          policy_start_date: today,
-        })),
+            pet_breed: pet.breed,
+            pet_dob: pet.dob,
+            policy_start_date: today,
+          })
+        ),
       };
 
       // SILVER
-      const silverResponse = await fetch("/api/quote", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          ...basePayload,
-
-          upgraded: {
-            annual_limit: firstPetSettings.limit,
-            benefit_percentage: firstPetSettings.benefit,
-            annual_excess: firstPetSettings.excess,
+      const silverResponse = await fetch(
+        "/api/quote",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        }),
-      });
 
-      const silverData = await silverResponse.json();
+          body: JSON.stringify({
+            ...basePayload,
+
+            upgraded: {
+              annual_limit:
+                firstPetSettings.limit,
+
+              benefit_percentage:
+                firstPetSettings.benefit,
+
+              annual_excess:
+                firstPetSettings.excess,
+            },
+          }),
+        }
+      );
+
+      const silverData =
+        await silverResponse.json();
 
       // GOLD
-      const goldResponse = await fetch("/api/quote", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          ...basePayload,
-
-          gold: {
-            annual_limit: firstPetSettings.limit,
-            benefit_percentage: firstPetSettings.benefit,
-            annual_excess: firstPetSettings.excess,
+      const goldResponse = await fetch(
+        "/api/quote",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        }),
-      });
 
-      const goldData = await goldResponse.json();
+          body: JSON.stringify({
+            ...basePayload,
 
-      console.log("UPDATED SILVER:", silverData);
-      console.log("UPDATED GOLD:", goldData);
+            gold: {
+              annual_limit:
+                firstPetSettings.limit,
 
-      // SILVER TOTAL
+              benefit_percentage:
+                firstPetSettings.benefit,
+
+              annual_excess:
+                firstPetSettings.excess,
+            },
+          }),
+        }
+      );
+
+      const goldData =
+        await goldResponse.json();
+
+      console.log(
+        "UPDATED SILVER:",
+        silverData
+      );
+
+      console.log(
+        "UPDATED GOLD:",
+        goldData
+      );
+
       const silverPets =
-        silverData?.upgraded?.data?.quote?.pets || [];
+        silverData?.upgraded?.data?.quote?.pets ||
+        [];
 
-      const silverTotal = silverPets.reduce(
-        (total: number, pet: any) =>
-          total +
-          Number(pet?.premiums?.installment ?? 0),
-        0
-      );
+      const silverTotal =
+        silverPets.reduce(
+          (total: number, pet: any) =>
+            total +
+            Number(
+              pet?.premiums?.installment ?? 0
+            ),
+          0
+        );
 
-      // GOLD TOTAL
       const goldPets =
-        goldData?.gold?.data?.quote?.pets || [];
+        goldData?.gold?.data?.quote?.pets ||
+        [];
 
-      const goldTotal = goldPets.reduce(
-        (total: number, pet: any) =>
-          total +
-          Number(pet?.premiums?.installment ?? 0),
-        0
+      const goldTotal =
+        goldPets.reduce(
+          (total: number, pet: any) =>
+            total +
+            Number(
+              pet?.premiums?.installment ?? 0
+            ),
+          0
+        );
+
+      console.log(
+        "SILVER TOTAL:",
+        silverTotal
       );
 
-      console.log("SILVER TOTAL:", silverTotal);
-      console.log("GOLD TOTAL:", goldTotal);
+      console.log(
+        "GOLD TOTAL:",
+        goldTotal
+      );
 
-      // BUILD PRICING BREAKDOWN
       const pricingPets: {
         name: string;
         tier: "Silver" | "Gold";
         price: number;
-      }[] = updatedPets.map((pet, index) => {
-        const selectedTier: "Silver" | "Gold" =
-          pet.tier === "Gold" ? "Gold" : "Silver";
+      }[] = updatedPets.map(
+        (pet, index) => {
+          const selectedTier:
+            | "Silver"
+            | "Gold" =
+            pet.tier === "Gold"
+              ? "Gold"
+              : "Silver";
 
-        const price =
-          selectedTier === "Gold"
-            ? Number(
-                goldPets[index]?.premiums?.installment ?? 0
-              )
-            : Number(
-                silverPets[index]?.premiums?.installment ?? 0
-              );
+          const price =
+            selectedTier === "Gold"
+              ? Number(
+                  goldPets[index]
+                    ?.premiums
+                    ?.installment ?? 0
+                )
+              : Number(
+                  silverPets[index]
+                    ?.premiums
+                    ?.installment ?? 0
+                );
 
-        return {
-          name: pet.name || `Pet ${index + 1}`,
-          tier: selectedTier,
-          price: Number(price.toFixed(2)),
-        };
-      });
+          return {
+            name:
+              pet.name ||
+              `Pet ${index + 1}`,
+
+            tier: selectedTier,
+
+            price: Number(
+              price.toFixed(2)
+            ),
+          };
+        }
+      );
 
       const total = pricingPets.reduce(
-        (sum, pet) => sum + pet.price,
+        (sum, pet) =>
+          sum + pet.price,
         0
       );
 
       setPricing({
         pets: pricingPets,
-        total: Number(total.toFixed(2)),
+        total: Number(
+          total.toFixed(2)
+        ),
       });
     } catch (error) {
-      console.error("PRICING REFRESH ERROR:", error);
+      console.error(
+        "PRICING REFRESH ERROR:",
+        error
+      );
     } finally {
       setPricingLoading(false);
     }
@@ -423,34 +496,41 @@ export default function DetailsPage() {
       email: "",
     };
 
-    // Full Name
     if (!customer.name.trim()) {
-      errors.name = "Please enter your full name.";
+      errors.name =
+        "Please enter your full name.";
     }
 
-    // Mobile Number
-    const cleanedMobile = customer.mobile.replace(/\D/g, "");
+    const cleanedMobile =
+      customer.mobile.replace(/\D/g, "");
 
     if (!cleanedMobile) {
-      errors.mobile = "Please enter your mobile number.";
-    } else if (cleanedMobile.length !== 10) {
-      errors.mobile = "Mobile number must be 10 digits.";
+      errors.mobile =
+        "Please enter your mobile number.";
+    } else if (
+      cleanedMobile.length !== 10
+    ) {
+      errors.mobile =
+        "Mobile number must be 10 digits.";
     }
 
-    // Email
-    const email = customer.email.trim();
+    const email =
+      customer.email.trim();
 
     if (!email) {
-      errors.email = "Please enter your email address.";
+      errors.email =
+        "Please enter your email address.";
     } else if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        email
+      )
     ) {
-      errors.email = "Please enter a valid email address.";
+      errors.email =
+        "Please enter a valid email address.";
     }
 
     setCustomerErrors(errors);
 
-    // Scroll to first error
     if (errors.name) {
       document
         .getElementById("customer-name")
@@ -488,7 +568,6 @@ export default function DetailsPage() {
   }
 
   async function confirmPayment() {
-    // Validate customer details first
     if (!validateCustomerDetails()) {
       return;
     }
@@ -524,7 +603,8 @@ export default function DetailsPage() {
           method: "POST",
 
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
 
           body: JSON.stringify({
@@ -532,14 +612,17 @@ export default function DetailsPage() {
               (pricing.total ?? 0) * 100
             ),
 
-            productName: "Pet Insurance Quote",
+            productName:
+              "Pet Insurance Quote",
 
-            customer_email: customer.email,
+            customer_email:
+              customer.email,
           }),
         }
       );
 
-      const responseText = await res.text();
+      const responseText =
+        await res.text();
 
       if (!res.ok) {
         throw new Error(
@@ -547,7 +630,8 @@ export default function DetailsPage() {
         );
       }
 
-      const data = JSON.parse(responseText);
+      const data =
+        JSON.parse(responseText);
 
       if (!data.url) {
         throw new Error(
@@ -555,9 +639,13 @@ export default function DetailsPage() {
         );
       }
 
-      window.location.href = data.url;
+      window.location.href =
+        data.url;
     } catch (error) {
-      console.error("Checkout error:", error);
+      console.error(
+        "Checkout error:",
+        error
+      );
     }
   }
 
@@ -572,48 +660,63 @@ export default function DetailsPage() {
     const storedPet =
       sessionStorage.getItem("petDetails");
 
-    console.log("COVER STORAGE:", storedCover);
-    console.log("PET STORAGE:", storedPet);
+    console.log(
+      "COVER STORAGE:",
+      storedCover
+    );
 
-    const coverData: Cover | null = storedCover
-      ? JSON.parse(storedCover)
-      : null;
+    console.log(
+      "PET STORAGE:",
+      storedPet
+    );
+
+    const coverData: Cover | null =
+      storedCover
+        ? JSON.parse(storedCover)
+        : null;
 
     if (coverData) {
       setCover(coverData);
     }
 
-        <img
-        src="/was-logo.min.webp"
-        className="w-28 opacity-70 mb-4 mx-auto block"
-        alt="WAS Insurance"
-        />
+    if (storedPet) {
+      const petData =
+        JSON.parse(storedPet);
 
       setPets(
         petData.pets.map(
-          (pet: Pet, index: number) => ({
+          (
+            pet: Pet,
+            index: number
+          ) => ({
             name: pet.name || "",
+            petType:
+              pet.petType || null,
 
-            petType: pet.petType || null,
+            breed:
+              pet.breed || "",
 
-            breed: pet.breed || "",
+            dob:
+              pet.dob || "",
 
-            dob: pet.dob || "",
-
-            gender: pet.gender || null,
+            gender:
+              pet.gender || null,
 
             tier:
-              coverData?.plans?.[index] === "gold"
+              coverData?.plans?.[index] ===
+              "gold"
                 ? "Gold"
-                : coverData?.plans?.[index] ===
-                  "upgraded"
+                : coverData?.plans?.[
+                    index
+                  ] === "upgraded"
                 ? "Silver"
                 : "",
           })
         )
       );
 
-      const address = petData.address || "";
+      const address =
+        petData.address || "";
 
       const parsedAddress =
         parseAddress(address);
@@ -650,36 +753,46 @@ export default function DetailsPage() {
   }, [mounted, cover]);
 
   const selectStyles = {
-    control: (base: any, state: any) => ({
+    control: (
+      base: any,
+      state: any
+    ) => ({
       ...base,
 
       minHeight: "46px",
 
       borderRadius: "10px",
 
-      border: "1px solid #ddd",
+      border:
+        "1px solid #ddd",
 
       boxShadow: "none",
 
-      backgroundColor: state.isDisabled
-        ? "#f3f4f6"
-        : "#fff",
+      backgroundColor:
+        state.isDisabled
+          ? "#f3f4f6"
+          : "#fff",
 
       "&:hover": {
         borderColor: "#ddd",
       },
 
-      cursor: state.isDisabled
-        ? "not-allowed"
-        : "default",
+      cursor:
+        state.isDisabled
+          ? "not-allowed"
+          : "default",
     }),
 
-    singleValue: (base: any, state: any) => ({
+    singleValue: (
+      base: any,
+      state: any
+    ) => ({
       ...base,
 
-      color: state.isDisabled
-        ? "#6b7280"
-        : "#111",
+      color:
+        state.isDisabled
+          ? "#6b7280"
+          : "#111",
     }),
 
     input: (base: any) => ({
@@ -687,12 +800,16 @@ export default function DetailsPage() {
       color: "#111",
     }),
 
-    placeholder: (base: any, state: any) => ({
+    placeholder: (
+      base: any,
+      state: any
+    ) => ({
       ...base,
 
-      color: state.isDisabled
-        ? "#9ca3af"
-        : "#666",
+      color:
+        state.isDisabled
+          ? "#9ca3af"
+          : "#666",
     }),
 
     menu: (base: any) => ({
@@ -700,14 +817,18 @@ export default function DetailsPage() {
       backgroundColor: "#fff",
     }),
 
-    option: (base: any, state: any) => ({
+    option: (
+      base: any,
+      state: any
+    ) => ({
       ...base,
 
       color: "#111",
 
-      backgroundColor: state.isFocused
-        ? "#f3f3f3"
-        : "#fff",
+      backgroundColor:
+        state.isFocused
+          ? "#f3f3f3"
+          : "#fff",
 
       cursor: "pointer",
     }),
@@ -718,6 +839,7 @@ export default function DetailsPage() {
   return (
     <div className="min-h-screen text-gray-900">
       <div className="max-w-2xl mx-auto px-4 py-6">
+
         <img
           src="/was-logo.min.webp"
           className="w-28 opacity-70 mb-4 mx-auto"
@@ -728,7 +850,9 @@ export default function DetailsPage() {
         <div className="mb-8">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
             {steps.map((step) => (
-              <span key={step}>{step}</span>
+              <span key={step}>
+                {step}
+              </span>
             ))}
           </div>
 
@@ -745,6 +869,7 @@ export default function DetailsPage() {
         {/* CUSTOMER */}
         <Section title="Your Details">
           <div className="space-y-4">
+
             <FormField label="Full Name">
               <input
                 id="customer-name"
@@ -816,6 +941,7 @@ export default function DetailsPage() {
                 </p>
               )}
             </FormField>
+
           </div>
         </Section>
 
@@ -827,7 +953,9 @@ export default function DetailsPage() {
               <button
                 type="button"
                 onClick={() =>
-                  setShowAddressEditWarning(true)
+                  setShowAddressEditWarning(
+                    true
+                  )
                 }
                 className="
                   text-sm
@@ -847,6 +975,7 @@ export default function DetailsPage() {
                 type="button"
                 onClick={async () => {
                   setEditingAddress(false);
+
                   await refreshPricing(
                     pets,
                     customer
@@ -871,17 +1000,22 @@ export default function DetailsPage() {
             value={customer.address}
             readOnly={!editingAddress}
             onChange={(e) => {
-              const newAddress = e.target.value;
+              const newAddress =
+                e.target.value;
 
               const {
                 suburb,
                 state,
                 postcode,
-              } = parseAddress(newAddress);
+              } =
+                parseAddress(
+                  newAddress
+                );
 
               setCustomer((prev) => ({
                 ...prev,
-                address: newAddress,
+                address:
+                  newAddress,
                 suburb,
                 state,
                 postcode,
@@ -906,263 +1040,339 @@ export default function DetailsPage() {
         {/* PETS */}
         <Section title="Your Pets">
           <div className="space-y-6">
-            {pets.map((pet, index) => (
-              <div
-                key={index}
-                className="border border-gray-200 rounded-xl p-4"
-              >
-                {/* Pet heading */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900">
-                      Pet {index + 1}
-                    </h3>
 
-                    <span className="text-gray-400">
-                      |
-                    </span>
+            {pets.map(
+              (pet, index) => (
+                <div
+                  key={index}
+                  className="border border-gray-200 rounded-xl p-4"
+                >
 
-                    <span className="text-sm font-medium text-gray-500">
-                      {pet.petType
-                        ? pet.petType
-                            .charAt(0)
-                            .toUpperCase() +
-                          pet.petType.slice(1)
-                        : "Select breed"}
-                    </span>
+                  {/* Pet heading */}
+                  <div className="flex items-center justify-between mb-4">
+
+                    <div className="flex items-center gap-2">
+
+                      <h3 className="font-semibold text-gray-900">
+                        Pet {index + 1}
+                      </h3>
+
+                      <span className="text-gray-400">
+                        |
+                      </span>
+
+                      <span className="text-sm font-medium text-gray-500">
+                        {pet.petType
+                          ? pet.petType
+                              .charAt(0)
+                              .toUpperCase() +
+                            pet.petType.slice(1)
+                          : "Select breed"}
+                      </span>
+
+                    </div>
+
+                    {editingPet !== index ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPetToEdit(index);
+                          setShowEditWarning(
+                            true
+                          );
+                        }}
+                        className="
+                          text-sm
+                          px-3
+                          py-1.5
+                          rounded-lg
+                          border
+                          border-gray-300
+                          text-gray-700
+                          hover:bg-gray-50
+                        "
+                      >
+                        🔒 Edit
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setEditingPet(
+                            null
+                          );
+
+                          if (
+                            pricingChangedPets.includes(
+                              index
+                            )
+                          ) {
+                            await refreshPricing(
+                              pets
+                            );
+
+                            setPricingChangedPets(
+                              (current) =>
+                                current.filter(
+                                  (
+                                    petIndex
+                                  ) =>
+                                    petIndex !==
+                                    index
+                                )
+                            );
+                          }
+                        }}
+                        className="
+                          text-sm
+                          px-3
+                          py-1.5
+                          rounded-lg
+                          bg-gray-800
+                          text-white
+                        "
+                      >
+                        Done
+                      </button>
+                    )}
+
                   </div>
 
-                  {editingPet !== index ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPetToEdit(index);
-                        setShowEditWarning(true);
-                      }}
-                      className="
-                        text-sm
-                        px-3
-                        py-1.5
-                        rounded-lg
-                        border
-                        border-gray-300
-                        text-gray-700
-                        hover:bg-gray-50
-                      "
-                    >
-                      🔒 Edit
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setEditingPet(null);
+                  {/* PET NAME + TIER */}
+                  <div className="grid grid-cols-2 gap-4">
 
-                        if (
-                          pricingChangedPets.includes(
-                            index
+                    {/* PET NAME */}
+                    <FormField label="Pet Name">
+                      <input
+                        value={pet.name}
+                        readOnly={
+                          editingPet !==
+                          index
+                        }
+                        onChange={(e) =>
+                          updatePet(
+                            index,
+                            {
+                              name: e.target
+                                .value,
+                            }
                           )
-                        ) {
-                          await refreshPricing(pets);
+                        }
+                        className={`
+                          ${inputStyle}
+                          ${
+                            editingPet !==
+                            index
+                              ? "bg-gray-100 cursor-not-allowed"
+                              : "bg-white text-gray-900"
+                          }
+                        `}
+                        style={{
+                          color:
+                            editingPet !==
+                            index
+                              ? "#6b7280"
+                              : "#111827",
+                        }}
+                      />
+                    </FormField>
 
-                          setPricingChangedPets(
-                            (current) =>
-                              current.filter(
-                                (petIndex) =>
-                                  petIndex !== index
-                              )
+                    {/* TIER */}
+                    <FormField label="Tier">
+                      <select
+                        value={pet.tier}
+                        disabled={
+                          editingPet !==
+                          index
+                        }
+                        onChange={(e) =>
+                          updatePet(
+                            index,
+                            {
+                              tier: e.target
+                                .value as
+                                | "Silver"
+                                | "Gold",
+                            }
+                          )
+                        }
+                        className={`
+                          ${inputStyle}
+                          ${
+                            editingPet !==
+                            index
+                              ? "bg-gray-100 cursor-not-allowed text-gray-600"
+                              : "bg-white text-gray-900 cursor-pointer"
+                          }
+                        `}
+                      >
+                        <option value="Silver">
+                          Silver
+                        </option>
+
+                        <option value="Gold">
+                          Gold
+                        </option>
+                      </select>
+                    </FormField>
+
+                  </div>
+
+                  {/* BREED */}
+                  <div className="mt-4">
+                    <FormField label="Breed">
+                      <Select<Option, false>
+                        options={options}
+
+                        value={
+                          options.find(
+                            (option) =>
+                              option.value ===
+                              pet.breed
+                          ) || null
+                        }
+
+                        onChange={(
+                          selected
+                        ) => {
+                          if (!selected) {
+                            updatePet(
+                              index,
+                              {
+                                breed: "",
+                                petType:
+                                  null,
+                              }
+                            );
+
+                            return;
+                          }
+
+                          updatePet(
+                            index,
+                            {
+                              breed:
+                                selected.value,
+
+                              petType:
+                                selected.petType
+                                  .toLowerCase() as
+                                  | "cat"
+                                  | "dog",
+                            }
                           );
+                        }}
+
+                        styles={
+                          selectStyles
                         }
-                      }}
-                      className="
-                        text-sm
-                        px-3
-                        py-1.5
-                        rounded-lg
-                        bg-gray-800
-                        text-white
-                      "
-                    >
-                      Done
-                    </button>
-                  )}
+
+                        isDisabled={
+                          editingPet !==
+                          index
+                        }
+
+                        isLoading={
+                          loadingBreeds
+                        }
+
+                        placeholder="Select breed"
+
+                        noOptionsMessage={() =>
+                          loadingBreeds
+                            ? "Loading breeds..."
+                            : "No breeds found"
+                        }
+                      />
+                    </FormField>
+                  </div>
+
+                  {/* DOB + SEX */}
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+
+                    <FormField label="Date of Birth">
+                      <input
+                        type="date"
+                        value={pet.dob}
+                        disabled={
+                          editingPet !==
+                          index
+                        }
+                        onChange={(e) =>
+                          updatePet(
+                            index,
+                            {
+                              dob: e.target
+                                .value,
+                            }
+                          )
+                        }
+                        className={`
+                          ${inputStyle}
+                          ${
+                            editingPet !==
+                            index
+                              ? "bg-gray-100 cursor-not-allowed"
+                              : "bg-white cursor-pointer"
+                          }
+                        `}
+                        style={{
+                          color:
+                            editingPet !==
+                            index
+                              ? "#6b7280"
+                              : "#111827",
+                        }}
+                      />
+                    </FormField>
+
+                    <FormField label="Sex">
+                      <select
+                        value={
+                          pet.gender || ""
+                        }
+                        disabled={
+                          editingPet !==
+                          index
+                        }
+                        onChange={(e) =>
+                          updatePet(
+                            index,
+                            {
+                              gender:
+                                e.target
+                                  .value as
+                                  | "male"
+                                  | "female",
+                            }
+                          )
+                        }
+                        className={`
+                          ${inputStyle}
+                          ${
+                            editingPet !==
+                            index
+                              ? "bg-gray-100 text-gray-600"
+                              : "bg-white text-gray-900 cursor-pointer"
+                          }
+                        `}
+                      >
+                        <option value="male">
+                          Male
+                        </option>
+
+                        <option value="female">
+                          Female
+                        </option>
+                      </select>
+                    </FormField>
+
+                  </div>
+
                 </div>
+              )
+            )}
 
-                {/* PET NAME + TIER */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* PET NAME */}
-                  <FormField label="Pet Name">
-                    <input
-                      value={pet.name}
-                      readOnly={
-                        editingPet !== index
-                      }
-                      onChange={(e) =>
-                        updatePet(index, {
-                          name: e.target.value,
-                        })
-                      }
-                      className={`
-                        ${inputStyle}
-                        ${
-                          editingPet !== index
-                            ? "bg-gray-100 cursor-not-allowed"
-                            : "bg-white text-gray-900"
-                        }
-                      `}
-                      style={{
-                        color:
-                          editingPet !== index
-                            ? "#6b7280"
-                            : "#111827",
-                      }}
-                    />
-                  </FormField>
-
-                  {/* TIER */}
-                  <FormField label="Tier">
-                    <select
-                      value={pet.tier}
-                      disabled={
-                        editingPet !== index
-                      }
-                      onChange={(e) =>
-                        updatePet(index, {
-                          tier: e.target.value as
-                            | "Silver"
-                            | "Gold",
-                        })
-                      }
-                      className={`
-                        ${inputStyle}
-                        ${
-                          editingPet !== index
-                            ? "bg-gray-100 cursor-not-allowed text-gray-600"
-                            : "bg-white text-gray-900 cursor-pointer"
-                        }
-                      `}
-                    >
-                      <option value="Silver">
-                        Silver
-                      </option>
-
-                      <option value="Gold">
-                        Gold
-                      </option>
-                    </select>
-                  </FormField>
-                </div>
-
-                {/* BREED */}
-                <div className="mt-4">
-                  <FormField label="Breed">
-                    <Select<Option, false>
-                      options={options}
-                      value={
-                        options.find(
-                          (option) =>
-                            option.value === pet.breed
-                        ) || null
-                      }
-                      onChange={(selected) => {
-                        if (!selected) {
-                          updatePet(index, {
-                            breed: "",
-                            petType: null,
-                          });
-
-                          return;
-                        }
-
-                        updatePet(index, {
-                          breed: selected.value,
-
-                          petType:
-                            selected.petType.toLowerCase() as
-                              | "cat"
-                              | "dog",
-                        });
-                      }}
-                      styles={selectStyles}
-                      isDisabled={
-                        editingPet !== index
-                      }
-                      isLoading={loadingBreeds}
-                      placeholder="Select breed"
-                      noOptionsMessage={() =>
-                        loadingBreeds
-                          ? "Loading breeds..."
-                          : "No breeds found"
-                      }
-                    />
-                  </FormField>
-                </div>
-
-                {/* DOB + SEX */}
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <FormField label="Date of Birth">
-                    <input
-                      type="date"
-                      value={pet.dob}
-                      disabled={
-                        editingPet !== index
-                      }
-                      onChange={(e) =>
-                        updatePet(index, {
-                          dob: e.target.value,
-                        })
-                      }
-                      className={`
-                        ${inputStyle}
-                        ${
-                          editingPet !== index
-                            ? "bg-gray-100 cursor-not-allowed"
-                            : "bg-white cursor-pointer"
-                        }
-                      `}
-                      style={{
-                        color:
-                          editingPet !== index
-                            ? "#6b7280"
-                            : "#111827",
-                      }}
-                    />
-                  </FormField>
-
-                  <FormField label="Sex">
-                    <select
-                      value={pet.gender || ""}
-                      disabled={
-                        editingPet !== index
-                      }
-                      onChange={(e) =>
-                        updatePet(index, {
-                          gender: e.target.value as
-                            | "male"
-                            | "female",
-                        })
-                      }
-                      className={`
-                        ${inputStyle}
-                        ${
-                          editingPet !== index
-                            ? "bg-gray-100 text-gray-600"
-                            : "bg-white text-gray-900 cursor-pointer"
-                        }
-                      `}
-                    >
-                      <option value="male">
-                        Male
-                      </option>
-
-                      <option value="female">
-                        Female
-                      </option>
-                    </select>
-                  </FormField>
-                </div>
-              </div>
-            ))}
           </div>
         </Section>
 
@@ -1178,6 +1388,7 @@ export default function DetailsPage() {
             mt-6
           "
         >
+
           {/* HEADER */}
           <div
             className="
@@ -1188,6 +1399,7 @@ export default function DetailsPage() {
               border-gray-200
             "
           >
+
             <h2
               className="
                 text-lg
@@ -1205,12 +1417,13 @@ export default function DetailsPage() {
                 mt-1
               "
             >
-              Your monthly premium based on your
-              selected plans.
+              Your monthly premium based on
+              your selected plans.
             </p>
 
             {cover && (
               <div className="mt-3 text-sm text-gray-600">
+
                 <p>
                   Annual Limit:{" "}
                   <span className="font-semibold text-gray-900">
@@ -1224,8 +1437,10 @@ export default function DetailsPage() {
                 <p>
                   Benefit:{" "}
                   <span className="font-semibold text-gray-900">
-                    {cover.petSettings?.["0"]
-                      ?.benefit ?? "N/A"}
+                    {cover.petSettings?.[
+                      "0"
+                    ]?.benefit ??
+                      "N/A"}
                     %
                   </span>
                 </p>
@@ -1240,13 +1455,17 @@ export default function DetailsPage() {
                       "N/A"}
                   </span>
                 </p>
+
               </div>
             )}
+
           </div>
 
           {/* TABLE */}
           <div className="overflow-x-auto">
+
             <table className="w-full text-sm table-fixed">
+
               <thead>
                 <tr
                   className="
@@ -1255,6 +1474,7 @@ export default function DetailsPage() {
                     bg-white
                   "
                 >
+
                   <th
                     className="
                       w-[40%]
@@ -1293,10 +1513,12 @@ export default function DetailsPage() {
                   >
                     Monthly Premium
                   </th>
+
                 </tr>
               </thead>
 
               <tbody>
+
                 {pricingLoading ? (
                   <tr>
                     <td
@@ -1312,62 +1534,72 @@ export default function DetailsPage() {
                     </td>
                   </tr>
                 ) : pricing.pets.length > 0 ? (
-                  pricing.pets.map((pet, index) => (
-                    <tr
-                      key={index}
-                      className="border-b border-gray-100"
-                    >
-                      <td
-                        className="
-                          px-5
-                          py-4
-                          font-medium
-                          text-gray-900
-                        "
+                  pricing.pets.map(
+                    (pet, index) => (
+                      <tr
+                        key={index}
+                        className="border-b border-gray-100"
                       >
-                        {pet.name ||
-                          `Pet ${index + 1}`}
-                      </td>
 
-                      <td
-                        className="
-                          px-5
-                          py-4
-                          text-left
-                        "
-                      >
-                        <span
-                          className={`
-                            inline-flex
-                            px-2.5
-                            py-1
-                            rounded-full
-                            text-xs
-                            font-semibold
-                            ${
-                              pet.tier === "Gold"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-gray-100 text-gray-700"
-                            }
-                          `}
+                        <td
+                          className="
+                            px-5
+                            py-4
+                            font-medium
+                            text-gray-900
+                          "
                         >
-                          {pet.tier}
-                        </span>
-                      </td>
+                          {pet.name ||
+                            `Pet ${
+                              index + 1
+                            }`}
+                        </td>
 
-                      <td
-                        className="
-                          px-5
-                          py-4
-                          text-right
-                          font-semibold
-                          text-gray-900
-                        "
-                      >
-                        ${pet.price.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))
+                        <td
+                          className="
+                            px-5
+                            py-4
+                            text-left
+                          "
+                        >
+                          <span
+                            className={`
+                              inline-flex
+                              px-2.5
+                              py-1
+                              rounded-full
+                              text-xs
+                              font-semibold
+                              ${
+                                pet.tier ===
+                                "Gold"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-gray-100 text-gray-700"
+                              }
+                            `}
+                          >
+                            {pet.tier}
+                          </span>
+                        </td>
+
+                        <td
+                          className="
+                            px-5
+                            py-4
+                            text-right
+                            font-semibold
+                            text-gray-900
+                          "
+                        >
+                          $
+                          {pet.price.toFixed(
+                            2
+                          )}
+                        </td>
+
+                      </tr>
+                    )
+                  )
                 ) : (
                   <tr>
                     <td
@@ -1383,11 +1615,13 @@ export default function DetailsPage() {
                     </td>
                   </tr>
                 )}
+
               </tbody>
 
               {/* TOTAL */}
               <tfoot>
                 <tr className="bg-gray-50">
+
                   <td
                     colSpan={2}
                     className="
@@ -1407,6 +1641,7 @@ export default function DetailsPage() {
                       text-right
                     "
                   >
+
                     <div
                       className="
                         text-xl
@@ -1414,7 +1649,8 @@ export default function DetailsPage() {
                         text-gray-900
                       "
                     >
-                      {pricing.total !== null
+                      {pricing.total !==
+                      null
                         ? `$${pricing.total.toFixed(
                             2
                           )}`
@@ -1430,9 +1666,12 @@ export default function DetailsPage() {
                     >
                       per month
                     </div>
+
                   </td>
+
                 </tr>
               </tfoot>
+
             </table>
           </div>
         </div>
@@ -1449,6 +1688,7 @@ export default function DetailsPage() {
             shadow-sm
           "
         >
+
           <div
             className="
               px-6
@@ -1458,6 +1698,7 @@ export default function DetailsPage() {
               border-amber-200
             "
           >
+
             <h2
               className="
                 text-lg
@@ -1475,14 +1716,18 @@ export default function DetailsPage() {
                 mt-1
               "
             >
-              Please review and acknowledge the
-              information below before purchasing.
+              Please review and acknowledge
+              the information below before
+              purchasing.
             </p>
+
           </div>
 
           <div className="divide-y divide-gray-200">
+
             {/* TERMS */}
             <div className="p-5">
+
               <button
                 type="button"
                 onClick={() =>
@@ -1508,14 +1753,17 @@ export default function DetailsPage() {
                   }
                 `}
               >
+
                 <div>
+
                   <h3
                     className="
                       font-semibold
                       text-gray-900
                     "
                   >
-                    Policy Terms & Conditions
+                    Policy Terms &
+                    Conditions
                   </h3>
 
                   <p
@@ -1525,16 +1773,20 @@ export default function DetailsPage() {
                       mt-1
                     "
                   >
-                    Click to read the important policy
+                    Click to read the
+                    important policy
                     information.
                   </p>
+
                 </div>
 
                 <span className="text-gray-500 text-lg">
-                  {openTerms === "terms"
+                  {openTerms ===
+                  "terms"
                     ? "▲"
                     : "▼"}
                 </span>
+
               </button>
 
               {openTerms === "terms" && (
@@ -1551,33 +1803,44 @@ export default function DetailsPage() {
                     leading-6
                   "
                 >
+
                   <p className="font-semibold text-gray-900 mb-2">
-                    Policy Terms & Conditions
+                    Policy Terms &
+                    Conditions
                   </p>
 
                   <p className="mb-3">
-                    Please review the full policy
-                    documentation before purchasing
-                    insurance. Your policy is subject
-                    to the terms, conditions, exclusions,
-                    limits and waiting periods described
-                    in the applicable policy documents.
+                    Please review the full
+                    policy documentation
+                    before purchasing
+                    insurance. Your policy
+                    is subject to the terms,
+                    conditions, exclusions,
+                    limits and waiting
+                    periods described in the
+                    applicable policy
+                    documents.
                   </p>
 
                   <p className="mb-3">
-                    Cover is subject to eligibility
-                    requirements and the information
-                    provided during the quotation and
-                    application process.
+                    Cover is subject to
+                    eligibility requirements
+                    and the information
+                    provided during the
+                    quotation and application
+                    process.
                   </p>
 
                   <p>
-                    Please ensure you understand the
-                    cover selected, including the annual
-                    limit, benefit percentage, excess,
-                    exclusions and applicable waiting
-                    periods.
+                    Please ensure you
+                    understand the cover
+                    selected, including the
+                    annual limit, benefit
+                    percentage, excess,
+                    exclusions and applicable
+                    waiting periods.
                   </p>
+
                 </div>
               )}
 
@@ -1590,6 +1853,7 @@ export default function DetailsPage() {
                   cursor-pointer
                 "
               >
+
                 <input
                   type="checkbox"
                   checked={termsAccepted}
@@ -1612,14 +1876,18 @@ export default function DetailsPage() {
                     text-gray-700
                   "
                 >
-                  I have read and agree to the Policy
-                  Terms & Conditions.
+                  I have read and agree to
+                  the Policy Terms &
+                  Conditions.
                 </span>
+
               </label>
+
             </div>
 
             {/* PRIVACY */}
             <div className="p-5">
+
               <button
                 type="button"
                 onClick={() =>
@@ -1645,7 +1913,9 @@ export default function DetailsPage() {
                   }
                 `}
               >
+
                 <div>
+
                   <h3
                     className="
                       font-semibold
@@ -1662,16 +1932,19 @@ export default function DetailsPage() {
                       mt-1
                     "
                   >
-                    Click to read how your information
-                    is handled.
+                    Click to read how your
+                    information is handled.
                   </p>
+
                 </div>
 
                 <span className="text-gray-500 text-lg">
-                  {openTerms === "privacy"
+                  {openTerms ===
+                  "privacy"
                     ? "▲"
                     : "▼"}
                 </span>
+
               </button>
 
               {openTerms === "privacy" && (
@@ -1688,6 +1961,7 @@ export default function DetailsPage() {
                     leading-6
                   "
                 >
+
                   <p
                     className="
                       font-semibold
@@ -1699,17 +1973,20 @@ export default function DetailsPage() {
                   </p>
 
                   <p className="mb-3">
-                    Your personal information may be
-                    collected and used to provide,
-                    administer and manage your insurance
+                    Your personal information
+                    may be collected and used
+                    to provide, administer
+                    and manage your insurance
                     application and policy.
                   </p>
 
                   <p>
-                    Your information may also be used
-                    where required to comply with legal
-                    and regulatory obligations.
+                    Your information may also
+                    be used where required to
+                    comply with legal and
+                    regulatory obligations.
                   </p>
+
                 </div>
               )}
 
@@ -1722,6 +1999,7 @@ export default function DetailsPage() {
                   cursor-pointer
                 "
               >
+
                 <input
                   type="checkbox"
                   checked={privacyAccepted}
@@ -1738,19 +2016,23 @@ export default function DetailsPage() {
                 />
 
                 <span className="text-sm text-gray-700">
-                  I acknowledge that I have read the
-                  Privacy Policy.
+                  I acknowledge that I have
+                  read the Privacy Policy.
                 </span>
+
               </label>
+
             </div>
 
             {/* INFORMATION */}
             <div className="p-5">
+
               <button
                 type="button"
                 onClick={() =>
                   setOpenTerms(
-                    openTerms === "information"
+                    openTerms ===
+                    "information"
                       ? null
                       : "information"
                   )
@@ -1765,20 +2047,24 @@ export default function DetailsPage() {
                   rounded-xl
                   transition
                   ${
-                    openTerms === "information"
+                    openTerms ===
+                    "information"
                       ? "bg-amber-100"
                       : "hover:bg-amber-100"
                   }
                 `}
               >
+
                 <div>
+
                   <h3
                     className="
                       font-semibold
                       text-gray-900
                     "
                   >
-                    Information Confirmation
+                    Information
+                    Confirmation
                   </h3>
 
                   <p
@@ -1788,19 +2074,24 @@ export default function DetailsPage() {
                       mt-1
                     "
                   >
-                    Confirm that your application details
-                    are correct.
+                    Confirm that your
+                    application details are
+                    correct.
                   </p>
+
                 </div>
 
                 <span className="text-gray-500 text-lg">
-                  {openTerms === "information"
+                  {openTerms ===
+                  "information"
                     ? "▲"
                     : "▼"}
                 </span>
+
               </button>
 
-              {openTerms === "information" && (
+              {openTerms ===
+                "information" && (
                 <div
                   className="
                     mt-4
@@ -1814,6 +2105,7 @@ export default function DetailsPage() {
                     leading-6
                   "
                 >
+
                   <p
                     className="
                       font-semibold
@@ -1825,12 +2117,16 @@ export default function DetailsPage() {
                   </p>
 
                   <p>
-                    Please check that your name, contact
-                    details, address and pet information
-                    are accurate. Incorrect information
-                    may affect your eligibility, premium
-                    or ability to make a claim.
+                    Please check that your
+                    name, contact details,
+                    address and pet
+                    information are accurate.
+                    Incorrect information may
+                    affect your eligibility,
+                    premium or ability to make
+                    a claim.
                   </p>
+
                 </div>
               )}
 
@@ -1843,9 +2139,12 @@ export default function DetailsPage() {
                   cursor-pointer
                 "
               >
+
                 <input
                   type="checkbox"
-                  checked={informationConfirmed}
+                  checked={
+                    informationConfirmed
+                  }
                   onChange={(e) =>
                     setInformationConfirmed(
                       e.target.checked
@@ -1859,19 +2158,24 @@ export default function DetailsPage() {
                 />
 
                 <span className="text-sm text-gray-700">
-                  I confirm that the information I have
-                  provided is accurate and complete.
+                  I confirm that the
+                  information I have provided
+                  is accurate and complete.
                 </span>
+
               </label>
+
             </div>
 
             {/* PREMIUM */}
             <div className="p-5">
+
               <button
                 type="button"
                 onClick={() =>
                   setOpenTerms(
-                    openTerms === "premium"
+                    openTerms ===
+                    "premium"
                       ? null
                       : "premium"
                   )
@@ -1892,7 +2196,9 @@ export default function DetailsPage() {
                   }
                 `}
               >
+
                 <div>
+
                   <h3
                     className="
                       font-semibold
@@ -1909,16 +2215,19 @@ export default function DetailsPage() {
                       mt-1
                     "
                   >
-                    Review your premium and payment
-                    frequency.
+                    Review your premium and
+                    payment frequency.
                   </p>
+
                 </div>
 
                 <span className="text-gray-500 text-lg">
-                  {openTerms === "premium"
+                  {openTerms ===
+                  "premium"
                     ? "▲"
                     : "▼"}
                 </span>
+
               </button>
 
               {openTerms === "premium" && (
@@ -1935,6 +2244,7 @@ export default function DetailsPage() {
                     leading-6
                   "
                 >
+
                   <p
                     className="
                       font-semibold
@@ -1946,12 +2256,15 @@ export default function DetailsPage() {
                   </p>
 
                   <p>
-                    Your displayed premium is the amount
-                    calculated based on the information
-                    and cover selected above. Payment
-                    frequency is monthly unless otherwise
+                    Your displayed premium
+                    is the amount calculated
+                    based on the information
+                    and cover selected above.
+                    Payment frequency is
+                    monthly unless otherwise
                     specified.
                   </p>
+
                 </div>
               )}
 
@@ -1964,9 +2277,12 @@ export default function DetailsPage() {
                   cursor-pointer
                 "
               >
+
                 <input
                   type="checkbox"
-                  checked={premiumConfirmed}
+                  checked={
+                    premiumConfirmed
+                  }
                   onChange={(e) =>
                     setPremiumConfirmed(
                       e.target.checked
@@ -1980,21 +2296,28 @@ export default function DetailsPage() {
                 />
 
                 <span className="text-sm text-gray-700">
-                  I understand the premium shown above
-                  and that payment will be processed
+                  I understand the premium
+                  shown above and that
+                  payment will be processed
                   monthly.
                 </span>
+
               </label>
+
             </div>
+
           </div>
         </div>
 
         {/* BACK / CONFIRM BUTTONS */}
         <div className="mt-6 flex gap-3">
+
           {/* BACK */}
           <button
             type="button"
-            onClick={() => router.push("/plans")}
+            onClick={() =>
+              router.push("/plans")
+            }
             className="
               w-1/3
               bg-white
@@ -2039,6 +2362,7 @@ export default function DetailsPage() {
           >
             Confirm and Pay
           </button>
+
         </div>
 
         {/* PET EDIT WARNING */}
@@ -2055,6 +2379,7 @@ export default function DetailsPage() {
               px-4
             "
           >
+
             <div
               className="
                 w-full
@@ -2065,7 +2390,9 @@ export default function DetailsPage() {
                 p-6
               "
             >
+
               <div className="flex items-center gap-3 mb-4">
+
                 <div
                   className="
                     w-10
@@ -2090,6 +2417,7 @@ export default function DetailsPage() {
                 >
                   Change pet details?
                 </h2>
+
               </div>
 
               <p
@@ -2099,8 +2427,9 @@ export default function DetailsPage() {
                   leading-6
                 "
               >
-                Changing your pet&apos;s details may
-                affect your insurance quote and pricing.
+                Changing your pet&apos;s
+                details may affect your
+                insurance quote and pricing.
               </p>
 
               <p
@@ -2111,15 +2440,20 @@ export default function DetailsPage() {
                   mt-2
                 "
               >
-                Your current quote is based on the
-                details entered earlier.
+                Your current quote is based
+                on the details entered
+                earlier.
               </p>
 
               <div className="flex gap-3 mt-6">
+
                 <button
                   type="button"
                   onClick={() => {
-                    setShowEditWarning(false);
+                    setShowEditWarning(
+                      false
+                    );
+
                     setPetToEdit(null);
                   }}
                   className="
@@ -2139,11 +2473,18 @@ export default function DetailsPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (petToEdit !== null) {
-                      setEditingPet(petToEdit);
+                    if (
+                      petToEdit !== null
+                    ) {
+                      setEditingPet(
+                        petToEdit
+                      );
                     }
 
-                    setShowEditWarning(false);
+                    setShowEditWarning(
+                      false
+                    );
+
                     setPetToEdit(null);
                   }}
                   className="
@@ -2158,7 +2499,9 @@ export default function DetailsPage() {
                 >
                   Continue
                 </button>
+
               </div>
+
             </div>
           </div>
         )}
@@ -2177,6 +2520,7 @@ export default function DetailsPage() {
               px-4
             "
           >
+
             <div
               className="
                 w-full
@@ -2187,7 +2531,9 @@ export default function DetailsPage() {
                 p-6
               "
             >
+
               <div className="flex items-center gap-3 mb-4">
+
                 <div
                   className="
                     w-10
@@ -2212,6 +2558,7 @@ export default function DetailsPage() {
                 >
                   Change your address?
                 </h2>
+
               </div>
 
               <p
@@ -2221,8 +2568,9 @@ export default function DetailsPage() {
                   leading-6
                 "
               >
-                Changing your address may affect your
-                insurance quote and pricing.
+                Changing your address may
+                affect your insurance quote
+                and pricing.
               </p>
 
               <p
@@ -2233,15 +2581,19 @@ export default function DetailsPage() {
                   mt-2
                 "
               >
-                Your current quote is based on the
-                address entered earlier.
+                Your current quote is based
+                on the address entered
+                earlier.
               </p>
 
               <div className="flex gap-3 mt-6">
+
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAddressEditWarning(false);
+                    setShowAddressEditWarning(
+                      false
+                    );
                   }}
                   className="
                     flex-1
@@ -2260,8 +2612,13 @@ export default function DetailsPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setEditingAddress(true);
-                    setShowAddressEditWarning(false);
+                    setEditingAddress(
+                      true
+                    );
+
+                    setShowAddressEditWarning(
+                      false
+                    );
                   }}
                   className="
                     flex-1
@@ -2275,10 +2632,13 @@ export default function DetailsPage() {
                 >
                   Continue
                 </button>
+
               </div>
+
             </div>
           </div>
         )}
+
       </div>
     </div>
   );
@@ -2304,7 +2664,9 @@ function Section({
         mb-5
       "
     >
+
       <div className="flex items-center justify-between mb-4">
+
         <h2
           className="
             font-semibold
@@ -2316,9 +2678,11 @@ function Section({
         </h2>
 
         {action}
+
       </div>
 
       {children}
+
     </div>
   );
 }
@@ -2332,6 +2696,7 @@ function FormField({
 }) {
   return (
     <div>
+
       <label
         className="
           block
@@ -2345,6 +2710,7 @@ function FormField({
       </label>
 
       {children}
+
     </div>
   );
 }
