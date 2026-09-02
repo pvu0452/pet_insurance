@@ -583,8 +583,11 @@ export default function DetailsPage() {
       setCover(coverData);
     }
 
-    if (storedPet) {
-      const petData = JSON.parse(storedPet);
+        <img
+        src="/was-logo.min.webp"
+        className="w-28 opacity-70 mb-4 mx-auto block"
+        alt="WAS Insurance"
+        />
 
       setPets(
         petData.pets.map(

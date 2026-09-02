@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.1",
+    "@stripe/cli": "^1.50.3",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-select": "^5.10.2",
+    "resend": "^6.21.0",
     "stripe": "^22.5.0"
   },
   "devDependencies": {
