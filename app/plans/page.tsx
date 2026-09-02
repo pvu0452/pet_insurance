@@ -480,14 +480,29 @@ export default function PlanComparisonPage() {
     petIndex: number,
     plan: PlanKey
   ) => {
-    setPetSettings((current) => ({
-      ...current,
+    setPetSettings((current) => {
+      const updated = {
+        ...current,
+      };
 
-      [petIndex]: {
-        ...current[petIndex],
-        plan,
-      },
-    }));
+      if (applyToAllPets) {
+        petDetails?.pets?.forEach(
+          (_: any, index: number) => {
+            updated[index] = {
+              ...updated[index],
+              plan,
+            };
+          }
+        );
+      } else {
+        updated[petIndex] = {
+          ...updated[petIndex],
+          plan,
+        };
+      }
+
+      return updated;
+    });
   };
 
   /* -----------------------------
@@ -502,14 +517,29 @@ export default function PlanComparisonPage() {
       | "excess",
     value: number
   ) => {
-    setPetSettings((current) => ({
-      ...current,
+    setPetSettings((current) => {
+      const updated = {
+        ...current,
+      };
 
-      [petIndex]: {
-        ...current[petIndex],
-        [field]: value,
-      },
-    }));
+      if (applyToAllPets) {
+        petDetails?.pets?.forEach(
+          (_: any, index: number) => {
+            updated[index] = {
+              ...updated[index],
+              [field]: value,
+            };
+          }
+        );
+      } else {
+        updated[petIndex] = {
+          ...updated[petIndex],
+          [field]: value,
+        };
+      }
+
+      return updated;
+    });
   };
 
   /* -----------------------------
