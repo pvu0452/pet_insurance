@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import {
   useRouter,
   useSearchParams,
@@ -79,7 +79,7 @@ const plans: Record<
    MAIN PAGE
 ------------------------------*/
 
-export default function PlanComparisonPage() {
+function PlanComparisonContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -2928,5 +2928,54 @@ export default function PlanComparisonPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Suspense wrapper for useSearchParams()
+export default function PlanComparisonPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div
+            className="
+              w-full
+              max-w-sm
+              bg-white
+              rounded-xl
+              border
+              border-gray-200
+              shadow-sm
+              p-8
+              text-center
+            "
+          >
+            <div
+              className="
+                w-10
+                h-10
+                border-4
+                border-gray-200
+                border-t-gray-800
+                rounded-full
+                animate-spin
+                mx-auto
+                mb-5
+              "
+            />
+
+            <h2 className="text-lg font-semibold text-gray-900">
+              Loading your plans
+            </h2>
+
+            <p className="text-sm text-gray-500 mt-2">
+              Please wait while we prepare your quote.
+            </p>
+          </div>
+        </div>
+      }
+    >
+      <PlanComparisonContent />
+    </Suspense>
   );
 }

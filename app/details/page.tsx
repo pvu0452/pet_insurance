@@ -1,8 +1,7 @@
 "use client";
 
-export const dynamic = "force-dynamic";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import {
   useRouter,
   useSearchParams,
@@ -51,7 +50,7 @@ interface Cover {
    MAIN PAGE
 ------------------------------*/
 
-export default function DetailsPage() {
+function DetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -3387,6 +3386,19 @@ export default function DetailsPage() {
   );
 }
 
+export default function DetailsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <DetailsContent />
+    </Suspense>
+  );
+}
 /* -----------------------------
    SECTION
 ------------------------------*/
