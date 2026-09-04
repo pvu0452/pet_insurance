@@ -1,11 +1,17 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import Select from "react-select";
 
+/* -----------------------------
+   TYPES
+------------------------------*/
+
 interface Option {
-  name: string;
   value: string;
   label: string;
   petType: string;
@@ -21,14 +27,16 @@ interface Pet {
   tier: "Silver" | "Gold" | "";
 }
 
+interface PetCoverSetting {
+  plan: string;
+  limit: number;
+  benefit: number;
+  excess: number;
+}
+
 interface Cover {
   petSettings: {
-    [key: string]: {
-      plan: string;
-      limit: number;
-      benefit: number;
-      excess: number;
-    };
+    [key: string]: PetCoverSetting;
   };
   plans: {
     [key: string]: string;
@@ -37,82 +45,93 @@ interface Cover {
   applyToAllPets: boolean;
 }
 
+/* -----------------------------
+   MAIN PAGE
+------------------------------*/
+
 export default function DetailsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [loadingBreeds, setLoadingBreeds] = useState(true);
-  const [options, setOptions] = useState<Option[]>([]);
-  const [mounted, setMounted] = useState(false);
+  /* -----------------------------
+     STATE
+  ------------------------------*/
 
-  const steps = ["Quote", "Plans", "Details"];
-  const currentStep = 2;
-  const progress = (currentStep / (steps.length - 1)) * 100;
+  const [loadingBreeds, setLoadingBreeds] =
+    useState(true);
 
-  const inputStyle = `
-    w-full
-    p-3
-    rounded-lg
-    border
-    border-gray-300
-    text-gray-900
-    placeholder-gray-400
-    focus:outline-none
-    focus:ring-2
-    focus:ring-gray-800
-  `;
+  const [options, setOptions] =
+    useState<Option[]>([]);
 
-  const [customer, setCustomer] = useState({
-    name: "",
-    mobile: "",
-    email: "",
-    address: "",
-    suburb: "",
-    state: "",
-    postcode: "",
-  });
-
-  const [customerErrors, setCustomerErrors] = useState({
-    name: "",
-    mobile: "",
-    email: "",
-  });
-
-  const [pets, setPets] = useState<Pet[]>([
-    {
-      name: "",
-      petType: null,
-      gender: null,
-      breed: "",
-      dob: "",
-      tier: "",
-    },
-  ]);
-
-  const [cover, setCover] = useState<Cover | null>(null);
-
-  const [pricing, setPricing] = useState<{
-    pets: {
-      name: string;
-      tier: "Silver" | "Gold";
-      price: number;
-    }[];
-    total: number | null;
-  }>({
-    pets: [],
-    total: null,
-  });
-
-  const [pricingLoading, setPricingLoading] = useState(false);
-
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [informationConfirmed, setInformationConfirmed] =
+  const [mounted, setMounted] =
     useState(false);
-  const [premiumConfirmed, setPremiumConfirmed] =
+
+  const [customer, setCustomer] =
+    useState({
+      firstName: "",
+      lastName: "",
+      mobile: "",
+      email: "",
+      address: "",
+      suburb: "",
+      state: "",
+      postcode: "",
+    });
+
+  const [customerErrors, setCustomerErrors] =
+    useState({
+      firstName: "",
+      lastName: "",
+      mobile: "",
+      email: "",
+    });
+
+  const [pets, setPets] =
+    useState<Pet[]>([
+      {
+        name: "",
+        petType: null,
+        gender: null,
+        breed: "",
+        dob: "",
+        tier: "",
+      },
+    ]);
+
+  const [cover, setCover] =
+    useState<Cover | null>(null);
+
+  const [pricing, setPricing] =
+    useState<{
+      pets: {
+        name: string;
+        tier: "Silver" | "Gold";
+        price: number;
+      }[];
+      total: number | null;
+    }>({
+      pets: [],
+      total: null,
+    });
+
+  const [pricingLoading, setPricingLoading] =
+    useState(false);
+
+  const [termsAccepted, setTermsAccepted] =
+    useState(false);
+
+  const [privacyAccepted, setPrivacyAccepted] =
     useState(false);
 
   const [openTerms, setOpenTerms] =
     useState<string | null>(null);
+
+  const [openReview, setOpenReview] =
+    useState(false);
+
+  /* -----------------------------
+     PET EDITING
+  ------------------------------*/
 
   const [editingPet, setEditingPet] =
     useState<number | null>(null);
@@ -126,41 +145,104 @@ export default function DetailsPage() {
   const [petToEdit, setPetToEdit] =
     useState<number | null>(null);
 
+  /* -----------------------------
+     COVER EDITING
+  ------------------------------*/
+
+  const [editingCover, setEditingCover] =
+    useState<number | null>(null);
+
+  const [coverToEdit, setCoverToEdit] =
+    useState<number | null>(null);
+
+  const [showCoverEditWarning, setShowCoverEditWarning] =
+    useState(false);
+
+  /* -----------------------------
+     ADDRESS EDITING
+  ------------------------------*/
+
   const [editingAddress, setEditingAddress] =
     useState(false);
 
   const [showAddressEditWarning, setShowAddressEditWarning] =
     useState(false);
 
+  /* -----------------------------
+     PROGRESS
+  ------------------------------*/
+
+  const steps = [
+    "Quote",
+    "Plans",
+    "Details",
+  ];
+
+  const currentStep = 2;
+
+  const progress =
+    (currentStep /
+      (steps.length - 1)) *
+    100;
+
+  /* -----------------------------
+     STYLES
+  ------------------------------*/
+
+  const inputStyle = `
+    w-full
+    h-12
+    px-4
+    rounded-xl
+    border
+    border-gray-300
+    text-sm
+    placeholder-gray-400
+    focus:outline-none
+    focus:ring-2
+    focus:ring-gray-800
+    focus:border-transparent
+    transition
+  `;
+
+  /* -----------------------------
+     ADDRESS PARSER
+  ------------------------------*/
+
   function parseAddress(address: string) {
     let suburb = "";
     let state = "";
     let postcode = "";
 
-    const postcodeMatch = address.match(/\b\d{4}\b/);
+    const postcodeMatch =
+      address.match(/\b\d{4}\b/);
 
     if (postcodeMatch) {
       postcode = postcodeMatch[0];
     }
 
-    const stateMatch = address.match(
-      /\b(NSW|QLD|VIC|WA|SA|TAS|NT|ACT)\b/i
-    );
+    const stateMatch =
+      address.match(
+        /\b(NSW|QLD|VIC|WA|SA|TAS|NT|ACT)\b/i
+      );
 
     if (stateMatch) {
-      state = stateMatch[1].toUpperCase();
+      state =
+        stateMatch[1].toUpperCase();
     }
 
     if (state && postcode) {
-      const suburbMatch = address.match(
-        new RegExp(
-          `,\\s*(.*?)\\s+${state}\\s+${postcode}(?:,\\s*[^,]+)?\\s*$`,
-          "i"
-        )
-      );
+      const suburbMatch =
+        address.match(
+          new RegExp(
+            `,\\s*(.*?)\\s+${state}\\s+${postcode}(?:,\\s*[^,]+)?\\s*$`,
+            "i"
+          )
+        );
 
       if (suburbMatch) {
-        suburb = suburbMatch[1].trim();
+        suburb =
+          suburbMatch[1].trim();
       }
     }
 
@@ -171,6 +253,10 @@ export default function DetailsPage() {
     };
   }
 
+  /* -----------------------------
+     UPDATE PET
+  ------------------------------*/
+
   const updatePet = (
     index: number,
     changes: Partial<Pet>
@@ -178,13 +264,15 @@ export default function DetailsPage() {
     setPets((currentPets) =>
       currentPets.map((pet, i) =>
         i === index
-          ? { ...pet, ...changes }
+          ? {
+              ...pet,
+              ...changes,
+            }
           : pet
       )
     );
 
     if (
-      "tier" in changes ||
       "breed" in changes ||
       "dob" in changes ||
       "gender" in changes
@@ -192,45 +280,152 @@ export default function DetailsPage() {
       setPricingChangedPets((current) =>
         current.includes(index)
           ? current
-          : [...current, index]
+          : [
+              ...current,
+              index,
+            ]
       );
     }
   };
+
+  /* -----------------------------
+     UPDATE COVER SETTING
+  ------------------------------*/
+
+  const updateCoverSetting = (
+    index: number,
+    changes: Partial<PetCoverSetting>
+  ) => {
+    setCover((currentCover) => {
+      if (!currentCover) {
+        return currentCover;
+      }
+
+      const currentSettings =
+        currentCover.petSettings?.[
+          String(index)
+        ];
+
+      if (!currentSettings) {
+        return currentCover;
+      }
+
+      const updatedSettings = {
+        ...currentSettings,
+        ...changes,
+      };
+
+      const updatedPlan =
+        updatedSettings.plan === "gold"
+          ? "gold"
+          : "upgraded";
+
+      return {
+        ...currentCover,
+
+        petSettings: {
+          ...currentCover.petSettings,
+
+          [String(index)]:
+            updatedSettings,
+        },
+
+        plans: {
+          ...currentCover.plans,
+
+          [String(index)]:
+            updatedPlan,
+        },
+      };
+    });
+
+    /* Keep legacy pet.tier synchronised */
+
+    if (changes.plan) {
+      setPets((currentPets) =>
+        currentPets.map(
+          (pet, petIndex) =>
+            petIndex === index
+              ? {
+                  ...pet,
+
+                  tier:
+                    changes.plan ===
+                    "gold"
+                      ? "Gold"
+                      : "Silver",
+                }
+              : pet
+        )
+      );
+    }
+  };
+
+  /* -----------------------------
+     FETCH BREEDS
+  ------------------------------*/
 
   async function fetchOptions() {
     try {
       setLoadingBreeds(true);
 
-      const response = await fetch(
-        "https://api4pet-dev-msac6e2qpq-ts.a.run.app/api/v1/category/pet-breed"
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch options");
-      }
-
-      const data = await response.json();
-
-      const options = data.data
-        .map((item: any) => ({
-          value: item.breed_name,
-          label: `${item.breed_name} (${item.pet_type})`,
-          petType: item.pet_type,
-          petBreed: item.breed_name,
-        }))
-        .sort((a: Option, b: Option) =>
-          a.petBreed.localeCompare(b.petBreed)
+      const response =
+        await fetch(
+          "https://api4pet-dev-msac6e2qpq-ts.a.run.app/api/v1/category/pet-breed"
         );
 
-      setOptions(options);
+      if (!response.ok) {
+        throw new Error(
+          "Failed to fetch options"
+        );
+      }
 
-      console.log("BREED OPTIONS:", options);
+      const data =
+        await response.json();
+
+      const breedOptions =
+        data.data
+          .map((item: any) => ({
+            value:
+              item.breed_name,
+
+            label:
+              `${item.breed_name} (${item.pet_type})`,
+
+            petType:
+              item.pet_type,
+
+            petBreed:
+              item.breed_name,
+          }))
+          .sort(
+            (
+              a: Option,
+              b: Option
+            ) =>
+              a.petBreed.localeCompare(
+                b.petBreed
+              )
+          );
+
+      setOptions(
+        breedOptions
+      );
+
+      console.log(
+        "BREED OPTIONS:",
+        breedOptions
+      );
     } catch (err) {
       console.error(err);
     } finally {
       setLoadingBreeds(false);
     }
   }
+
+  /* -----------------------------
+     REFRESH PRICING
+  ------------------------------*/
 
   async function refreshPricing(
     updatedPets: Pet[],
@@ -240,244 +435,264 @@ export default function DetailsPage() {
       setPricingLoading(true);
 
       if (!cover) {
-        console.error("No cover information found.");
-        setPricingLoading(false);
-        return;
-      }
-
-      const firstPetSettings =
-        cover.petSettings?.["0"];
-
-      if (
-        !firstPetSettings?.limit ||
-        !firstPetSettings?.benefit ||
-        !firstPetSettings?.excess
-      ) {
         console.error(
-          "Incomplete cover information:",
-          cover
+          "No cover information found."
         );
 
-        setPricingLoading(false);
         return;
       }
 
-      const today = new Intl.DateTimeFormat(
-        "en-CA",
+      const today =
+        new Intl.DateTimeFormat(
+          "en-CA",
+          {
+            timeZone:
+              "Australia/Brisbane",
+          }
+        ).format(new Date());
+
+      console.log(
+        "PRICING ADDRESS:",
         {
-          timeZone: "Australia/Brisbane",
-        }
-      ).format(new Date());
+          address:
+            updatedCustomer.address,
 
-      const storedPet =
-        sessionStorage.getItem("petDetails");
+          suburb:
+            updatedCustomer.suburb,
 
-      if (!storedPet) {
-        throw new Error("Pet details not found");
-      }
+          state:
+            updatedCustomer.state,
 
-      console.log("PRICING ADDRESS:", {
-        address: updatedCustomer.address,
-        suburb: updatedCustomer.suburb,
-        state: updatedCustomer.state,
-        postcode: updatedCustomer.postcode,
-      });
-
-      const basePayload = {
-        payment_frequency: "monthly",
-
-        customer: {
-          suburb: updatedCustomer.suburb,
-          state: updatedCustomer.state,
-          postcode: updatedCustomer.postcode,
-          email:
-            updatedCustomer.email ||
-            "pet@wiseandsilent.com",
-        },
-
-        pets: updatedPets.map(
-          (pet, index) => ({
-            pet_no: String(index),
-            pet_name: pet.name,
-
-            pet_type:
-              pet.petType === "dog"
-                ? "Dog"
-                : pet.petType === "cat"
-                ? "Cat"
-                : "",
-
-            pet_sex:
-              pet.gender === "male"
-                ? "Male"
-                : pet.gender === "female"
-                ? "Female"
-                : "",
-
-            pet_breed: pet.breed,
-            pet_dob: pet.dob,
-            policy_start_date: today,
-          })
-        ),
-      };
-
-      // SILVER
-      const silverResponse = await fetch(
-        "/api/quote",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            ...basePayload,
-
-            upgraded: {
-              annual_limit:
-                firstPetSettings.limit,
-
-              benefit_percentage:
-                firstPetSettings.benefit,
-
-              annual_excess:
-                firstPetSettings.excess,
-            },
-          }),
+          postcode:
+            updatedCustomer.postcode,
         }
       );
 
-      const silverData =
-        await silverResponse.json();
+      const pricingPets =
+        await Promise.all(
+          updatedPets.map(
+            async (
+              pet,
+              index
+            ) => {
+              const petSettings =
+                cover.petSettings?.[
+                  String(index)
+                ];
 
-      // GOLD
-      const goldResponse = await fetch(
-        "/api/quote",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+              /*
+               * Use null checks here instead of
+               * truthiness so a valid $0 excess
+               * is not treated as incomplete.
+               */
 
-          body: JSON.stringify({
-            ...basePayload,
-
-            gold: {
-              annual_limit:
-                firstPetSettings.limit,
-
-              benefit_percentage:
-                firstPetSettings.benefit,
-
-              annual_excess:
-                firstPetSettings.excess,
-            },
-          }),
-        }
-      );
-
-      const goldData =
-        await goldResponse.json();
-
-      console.log(
-        "UPDATED SILVER:",
-        silverData
-      );
-
-      console.log(
-        "UPDATED GOLD:",
-        goldData
-      );
-
-      const silverPets =
-        silverData?.upgraded?.data?.quote?.pets ||
-        [];
-
-      const silverTotal =
-        silverPets.reduce(
-          (total: number, pet: any) =>
-            total +
-            Number(
-              pet?.premiums?.installment ?? 0
-            ),
-          0
-        );
-
-      const goldPets =
-        goldData?.gold?.data?.quote?.pets ||
-        [];
-
-      const goldTotal =
-        goldPets.reduce(
-          (total: number, pet: any) =>
-            total +
-            Number(
-              pet?.premiums?.installment ?? 0
-            ),
-          0
-        );
-
-      console.log(
-        "SILVER TOTAL:",
-        silverTotal
-      );
-
-      console.log(
-        "GOLD TOTAL:",
-        goldTotal
-      );
-
-      const pricingPets: {
-        name: string;
-        tier: "Silver" | "Gold";
-        price: number;
-      }[] = updatedPets.map(
-        (pet, index) => {
-          const selectedTier:
-            | "Silver"
-            | "Gold" =
-            pet.tier === "Gold"
-              ? "Gold"
-              : "Silver";
-
-          const price =
-            selectedTier === "Gold"
-              ? Number(
-                  goldPets[index]
-                    ?.premiums
-                    ?.installment ?? 0
-                )
-              : Number(
-                  silverPets[index]
-                    ?.premiums
-                    ?.installment ?? 0
+              if (
+                petSettings?.limit == null ||
+                petSettings?.benefit == null ||
+                petSettings?.excess == null
+              ) {
+                console.error(
+                  `Incomplete cover information for Pet ${
+                    index + 1
+                  }:`,
+                  petSettings
                 );
 
-          return {
-            name:
-              pet.name ||
-              `Pet ${index + 1}`,
+                return {
+                  name:
+                    pet.name ||
+                    `Pet ${
+                      index + 1
+                    }`,
 
-            tier: selectedTier,
+                  tier:
+                    pet.tier ===
+                    "Gold"
+                      ? ("Gold" as const)
+                      : ("Silver" as const),
 
-            price: Number(
-              price.toFixed(2)
-            ),
-          };
-        }
+                  price: 0,
+                };
+              }
+
+              const planKey =
+                petSettings.plan ===
+                "gold"
+                  ? "gold"
+                  : "upgraded";
+
+              const payload = {
+                payment_frequency:
+                  "monthly",
+
+                customer: {
+                  suburb:
+                    updatedCustomer.suburb,
+
+                  state:
+                    updatedCustomer.state,
+
+                  postcode:
+                    updatedCustomer.postcode,
+
+                  email:
+                    updatedCustomer.email ||
+                    "pet@wiseandsilent.com",
+                },
+
+                pets: [
+                  {
+                    pet_no:
+                      String(index),
+
+                    pet_name:
+                      pet.name,
+
+                    pet_type:
+                      pet.petType ===
+                      "dog"
+                        ? "Dog"
+                        : pet.petType ===
+                          "cat"
+                        ? "Cat"
+                        : "",
+
+                    pet_sex:
+                      pet.gender ===
+                      "male"
+                        ? "Male"
+                        : pet.gender ===
+                          "female"
+                        ? "Female"
+                        : "",
+
+                    pet_breed:
+                      pet.breed,
+
+                    pet_dob:
+                      pet.dob,
+
+                    policy_start_date:
+                      today,
+                  },
+                ],
+
+                [planKey]: {
+                  annual_limit:
+                    petSettings.limit,
+
+                  benefit_percentage:
+                    petSettings.benefit,
+
+                  annual_excess:
+                    petSettings.excess,
+                },
+              };
+
+              console.log(
+                `PRICING REQUEST - Pet ${
+                  index + 1
+                }:`,
+                payload
+              );
+
+              const response =
+                await fetch(
+                  "/api/quote",
+                  {
+                    method:
+                      "POST",
+
+                    headers: {
+                      "Content-Type":
+                        "application/json",
+                    },
+
+                    body: JSON.stringify(
+                      payload
+                    ),
+                  }
+                );
+
+              if (!response.ok) {
+                throw new Error(
+                  `Quote request failed for Pet ${
+                    index + 1
+                  }`
+                );
+              }
+
+              const data =
+                await response.json();
+
+              console.log(
+                `PRICING RESPONSE - Pet ${
+                  index + 1
+                }:`,
+                data
+              );
+
+              const quotePet =
+                data?.[
+                  planKey
+                ]?.data?.quote
+                  ?.pets?.[0];
+
+              const price =
+                Number(
+                  quotePet
+                    ?.premiums
+                    ?.installment ??
+                    0
+                );
+
+              return {
+                name:
+                  pet.name ||
+                  `Pet ${
+                    index + 1
+                  }`,
+
+                tier:
+                  petSettings.plan ===
+                  "gold"
+                    ? ("Gold" as const)
+                    : ("Silver" as const),
+
+                price:
+                  Number(
+                    price.toFixed(2)
+                  ),
+              };
+            }
+          )
+        );
+
+      const total =
+        pricingPets.reduce(
+          (sum, pet) =>
+            sum + pet.price,
+          0
+        );
+
+      console.log(
+        "UPDATED PRICING:",
+        pricingPets
       );
 
-      const total = pricingPets.reduce(
-        (sum, pet) =>
-          sum + pet.price,
-        0
+      console.log(
+        "UPDATED TOTAL:",
+        total
       );
 
       setPricing({
-        pets: pricingPets,
-        total: Number(
-          total.toFixed(2)
-        ),
+        pets:
+          pricingPets,
+
+        total:
+          Number(
+            total.toFixed(2)
+          ),
       });
     } catch (error) {
       console.error(
@@ -489,16 +704,26 @@ export default function DetailsPage() {
     }
   }
 
+  /* -----------------------------
+     VALIDATE CUSTOMER
+  ------------------------------*/
+
   function validateCustomerDetails() {
     const errors = {
-      name: "",
+      firstName: "",
+      lastName: "",
       mobile: "",
       email: "",
     };
 
-    if (!customer.name.trim()) {
-      errors.name =
-        "Please enter your full name.";
+    if (!customer.firstName.trim()) {
+      errors.firstName =
+        "Please enter your first name.";
+    }
+
+    if (!customer.lastName.trim()) {
+      errors.lastName =
+        "Please enter your last name.";
     }
 
     const cleanedMobile =
@@ -531,9 +756,20 @@ export default function DetailsPage() {
 
     setCustomerErrors(errors);
 
-    if (errors.name) {
+    if (errors.firstName) {
       document
-        .getElementById("customer-name")
+        .getElementById("customer-first-name")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+      return false;
+    }
+
+    if (errors.lastName) {
+      document
+        .getElementById("customer-last-name")
         ?.scrollIntoView({
           behavior: "smooth",
           block: "center",
@@ -567,16 +803,337 @@ export default function DetailsPage() {
     return true;
   }
 
+  /* -----------------------------
+     SAVE DETAILS TO URL
+  ------------------------------*/
+
+  function buildPlansUrl() {
+    /*
+     * Start with the existing URL parameters.
+     *
+     * This is important because the URL already
+     * contains the quote/pet/cover information
+     * coming from Plans.
+     */
+    const params =
+      new URLSearchParams(
+        searchParams.toString()
+      );
+
+    /* -----------------------------
+        CUSTOMER NAME
+      ------------------------------*/
+
+      params.set(
+        "first_name",
+        customer.firstName
+      );
+
+      params.set(
+        "last_name",
+        customer.lastName
+      );
+
+    /* -----------------------------
+       CUSTOMER DETAILS
+    ------------------------------*/
+
+    params.set(
+      "email",
+      customer.email
+    );
+
+    params.set(
+      "mobile",
+      customer.mobile
+    );
+
+    params.set(
+      "address",
+      customer.address
+    );
+
+    params.set(
+      "region",
+      customer.suburb
+    );
+
+    params.set(
+      "state",
+      customer.state
+    );
+
+    params.set(
+      "postcode",
+      customer.postcode
+    );
+
+    /* -----------------------------
+       PAYMENT FREQUENCY
+    ------------------------------*/
+
+    if (
+      !params.get(
+        "payment_frequency"
+      )
+    ) {
+      params.set(
+        "payment_frequency",
+        "monthly"
+      );
+    }
+
+    /* -----------------------------
+       PRICE
+    ------------------------------*/
+
+    if (
+      pricing.total !== null
+    ) {
+      params.set(
+        "price",
+        pricing.total.toFixed(2)
+      );
+    } else if (
+      cover?.price != null
+    ) {
+      params.set(
+        "price",
+        cover.price.toFixed(2)
+      );
+    }
+
+    /* -----------------------------
+       PETS
+    ------------------------------*/
+
+    /*
+     * Rebuild the pets JSON using the
+     * current React state and current
+     * cover settings.
+     *
+     * This means if the user edited a pet
+     * or cover before pressing Back,
+     * those changes are retained.
+     */
+
+    const urlPets =
+      pets.map(
+        (pet, index) => {
+          const settings =
+            cover?.petSettings?.[
+              String(index)
+            ];
+
+          return {
+            pet_no:
+              String(index),
+
+            pet_name:
+              pet.name ?? "",
+
+            pet_type:
+              pet.petType ===
+              "dog"
+                ? "Dog"
+                : pet.petType ===
+                  "cat"
+                ? "Cat"
+                : "",
+
+            pet_sex:
+              pet.gender ===
+              "male"
+                ? "Male"
+                : pet.gender ===
+                  "female"
+                ? "Female"
+                : "",
+
+            pet_breed:
+              pet.breed ?? "",
+
+            pet_dob:
+              pet.dob ?? "",
+
+            policy_start_date:
+              new Intl.DateTimeFormat(
+                "en-CA",
+                {
+                  timeZone:
+                    "Australia/Brisbane",
+                }
+              ).format(
+                new Date()
+              ),
+
+            selectedPlan:
+              settings?.plan ??
+              null,
+
+            annual_limit:
+              settings?.limit ??
+              20000,
+
+            benefit_percentage:
+              settings?.benefit ??
+              80,
+
+            annual_excess:
+              settings?.excess ??
+              250,
+          };
+        }
+      );
+
+    params.set(
+      "pets",
+      JSON.stringify(
+        urlPets
+      )
+    );
+
+    /* -----------------------------
+       LEGACY / WAS COMPATIBILITY
+    ------------------------------*/
+
+    const firstPetSettings =
+      cover?.petSettings?.["0"];
+
+    params.set(
+      "annual_limit",
+      String(
+        firstPetSettings?.limit ??
+          20000
+      )
+    );
+
+    params.set(
+      "benefit_percentage",
+      String(
+        firstPetSettings?.benefit ??
+          80
+      )
+    );
+
+    params.set(
+      "annual_excess",
+      String(
+        firstPetSettings?.excess ??
+          250
+      )
+    );
+
+    params.set(
+      "selectedPlan",
+      firstPetSettings?.plan ??
+        ""
+    );
+
+    return `/plans?${params.toString()}`;
+  }
+
+  /* -----------------------------
+     SAVE DETAILS TO SESSION STORAGE
+  ------------------------------*/
+
+  function saveCustomerToStorage() {
+    try {
+      const storedPet =
+        sessionStorage.getItem(
+          "petDetails"
+        );
+
+      if (!storedPet) {
+        return;
+      }
+
+      const petData =
+        JSON.parse(
+          storedPet
+        );
+
+      const updatedPetData = {
+        ...petData,
+
+        /*
+         * Keep the original structure
+         * but update the address/customer
+         * information where appropriate.
+         */
+        address:
+          customer.address,
+
+        addressDetails: {
+          ...(petData.addressDetails ??
+            {}),
+
+          address:
+            customer.address,
+
+          suburb:
+            customer.suburb,
+
+          state:
+            customer.state,
+
+          postcode:
+            customer.postcode,
+        },
+      };
+
+      sessionStorage.setItem(
+        "petDetails",
+        JSON.stringify(
+          updatedPetData
+        )
+      );
+    } catch (error) {
+      console.error(
+        "Failed to save customer details:",
+        error
+      );
+    }
+  }
+
+  /* -----------------------------
+     BACK TO PLANS
+  ------------------------------*/
+
+  function goBackToPlans() {
+    /*
+     * Save the current customer details
+     * before navigating away.
+     */
+    saveCustomerToStorage();
+
+    /*
+     * Build the URL from the current
+     * state, preserving the existing
+     * quote parameters.
+     */
+    const plansUrl =
+      buildPlansUrl();
+
+    router.push(
+      plansUrl
+    );
+  }
+
+  /* -----------------------------
+     CONFIRM PAYMENT
+  ------------------------------*/
+
   async function confirmPayment() {
-    if (!validateCustomerDetails()) {
+    if (
+      !validateCustomerDetails()
+    ) {
       return;
     }
 
     if (
       !termsAccepted ||
-      !privacyAccepted ||
-      !informationConfirmed ||
-      !premiumConfirmed
+      !privacyAccepted
     ) {
       alert(
         "Please read and accept all required acknowledgements."
@@ -593,33 +1150,39 @@ export default function DetailsPage() {
 
     sessionStorage.setItem(
       "checkout",
-      JSON.stringify(checkoutData)
+      JSON.stringify(
+        checkoutData
+      )
     );
 
     try {
-      const res = await fetch(
-        "/api/create-checkout-session",
-        {
-          method: "POST",
+      const res =
+        await fetch(
+          "/api/create-checkout-session",
+          {
+            method:
+              "POST",
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          body: JSON.stringify({
-            unit_amount: Math.round(
-              (pricing.total ?? 0) * 100
-            ),
+            body: JSON.stringify({
+              unit_amount:
+                Math.round(
+                  (pricing.total ??
+                    0) * 100
+                ),
 
-            productName:
-              "Pet Insurance Quote",
+              productName:
+                "Pet Insurance Quote",
 
-            customer_email:
-              customer.email,
-          }),
-        }
-      );
+              customer_email:
+                customer.email,
+            }),
+          }
+        );
 
       const responseText =
         await res.text();
@@ -631,7 +1194,9 @@ export default function DetailsPage() {
       }
 
       const data =
-        JSON.parse(responseText);
+        JSON.parse(
+          responseText
+        );
 
       if (!data.url) {
         throw new Error(
@@ -649,16 +1214,24 @@ export default function DetailsPage() {
     }
   }
 
+  /* -----------------------------
+     INITIAL LOAD
+  ------------------------------*/
+
   useEffect(() => {
     setMounted(true);
 
     fetchOptions();
 
     const storedCover =
-      sessionStorage.getItem("cover");
+      sessionStorage.getItem(
+        "cover"
+      );
 
     const storedPet =
-      sessionStorage.getItem("petDetails");
+      sessionStorage.getItem(
+        "petDetails"
+      );
 
     console.log(
       "COVER STORAGE:",
@@ -670,87 +1243,335 @@ export default function DetailsPage() {
       storedPet
     );
 
-    const coverData: Cover | null =
+    const coverData:
+      | Cover
+      | null =
       storedCover
-        ? JSON.parse(storedCover)
+        ? JSON.parse(
+            storedCover
+          )
         : null;
 
     if (coverData) {
-      setCover(coverData);
+      setCover(
+        coverData
+      );
     }
+
+    /* -----------------------------
+       URL CUSTOMER DETAILS
+    ------------------------------*/
+
+    const urlFirstName =
+      searchParams.get(
+        "first_name"
+      ) ?? "";
+
+    const urlLastName =
+      searchParams.get(
+        "last_name"
+      ) ?? "";
+
+    const urlEmail =
+      searchParams.get(
+        "email"
+      ) ?? "";
+
+    const urlMobile =
+      searchParams.get(
+        "mobile"
+      ) ?? "";
+
+    const urlAddress =
+      searchParams.get(
+        "address"
+      ) ?? "";
+
+    const urlRegion =
+      searchParams.get(
+        "region"
+      ) ?? "";
+
+    const urlState =
+      searchParams.get(
+        "state"
+      ) ?? "";
+
+    const urlPostcode =
+      searchParams.get(
+        "postcode"
+      ) ?? "";
+
+    /* -----------------------------
+       URL PETS
+    ------------------------------*/
+
+    let urlPets:
+      | any[]
+      | null = null;
+
+    const urlPetsString =
+      searchParams.get(
+        "pets"
+      );
+
+    if (urlPetsString) {
+      try {
+        const parsed =
+          JSON.parse(
+            urlPetsString
+          );
+
+        if (
+          Array.isArray(parsed)
+        ) {
+          urlPets = parsed;
+        }
+      } catch (error) {
+        console.error(
+          "Failed to parse pets from URL:",
+          error
+        );
+      }
+    }
+
+    /* -----------------------------
+       PET DATA
+    ------------------------------*/
 
     if (storedPet) {
       const petData =
-        JSON.parse(storedPet);
+        JSON.parse(
+          storedPet
+        );
+
+      const storedPets =
+        Array.isArray(
+          petData?.pets
+        )
+          ? petData.pets
+          : [];
+
+      /*
+       * URL pets take priority when
+       * they exist.
+       */
+      const sourcePets =
+        urlPets ??
+        storedPets;
 
       setPets(
-        petData.pets.map(
+        sourcePets.map(
           (
-            pet: Pet,
+            pet: any,
             index: number
-          ) => ({
-            name: pet.name || "",
-            petType:
-              pet.petType || null,
+          ) => {
+            const storedPlan =
+              coverData
+                ?.plans?.[
+                index
+              ];
 
-            breed:
-              pet.breed || "",
+            const urlPlan =
+              pet?.selectedPlan;
 
-            dob:
-              pet.dob || "",
+            const plan =
+              urlPlan ??
+              storedPlan ??
+              "";
 
-            gender:
-              pet.gender || null,
+            return {
+              name:
+                pet?.pet_name ??
+                pet?.name ??
+                "",
 
-            tier:
-              coverData?.plans?.[index] ===
-              "gold"
-                ? "Gold"
-                : coverData?.plans?.[
-                    index
-                  ] === "upgraded"
-                ? "Silver"
-                : "",
-          })
+              petType:
+                (
+                  pet?.pet_type ??
+                  pet?.petType ??
+                  ""
+                ).toLowerCase() ===
+                "dog"
+                  ? "dog"
+                  : (
+                      pet?.pet_type ??
+                      pet?.petType ??
+                      ""
+                    ).toLowerCase() ===
+                    "cat"
+                  ? "cat"
+                  : null,
+
+              breed:
+                pet?.pet_breed ??
+                pet?.breed ??
+                "",
+
+              dob:
+                pet?.pet_dob ??
+                pet?.dob ??
+                "",
+
+              gender:
+                (
+                  pet?.pet_sex ??
+                  pet?.gender ??
+                  ""
+                ).toLowerCase() ===
+                "male"
+                  ? "male"
+                  : (
+                      pet?.pet_sex ??
+                      pet?.gender ??
+                      ""
+                    ).toLowerCase() ===
+                    "female"
+                  ? "female"
+                  : null,
+
+              tier:
+                plan === "gold"
+                  ? "Gold"
+                  : plan ===
+                    "upgraded"
+                  ? "Silver"
+                  : "",
+            };
+          }
         )
       );
 
-      const address =
-        petData.address || "";
+      /* -----------------------------
+         CUSTOMER FROM URL / STORAGE
+      ------------------------------*/
+
+      const storedAddress =
+        petData.address ??
+        "";
 
       const parsedAddress =
-        parseAddress(address);
+        parseAddress(
+          storedAddress
+        );
 
       const googleAddress =
-        petData.addressDetails || {};
+        petData.addressDetails ??
+        {};
 
-      setCustomer((prev) => ({
-        ...prev,
+      /*
+       * URL takes priority over
+       * sessionStorage.
+       */
+      const address =
+        urlAddress ||
+        storedAddress;
+
+      const suburb =
+        urlRegion ||
+        googleAddress.suburb ||
+        parsedAddress.suburb;
+
+      const state =
+        urlState ||
+        googleAddress.state ||
+        parsedAddress.state;
+
+      const postcode =
+        urlPostcode ||
+        googleAddress.postcode ||
+        parsedAddress.postcode;
+
+      const storageEmail =
+        petData.email ??
+        "";
+
+      const storageMobile =
+        petData.mobile ??
+        "";
+
+      setCustomer({
+        firstName:
+          urlFirstName,
+
+        lastName:
+          urlLastName,
+
+        email:
+          urlEmail ||
+          storageEmail,
+
+        mobile:
+          urlMobile ||
+          storageMobile,
 
         address,
 
+        suburb,
+
+        state,
+
+        postcode,
+      });
+    } else {
+      /*
+       * Even if petDetails is missing,
+       * still allow the URL to populate
+       * the customer fields.
+       */
+      setCustomer({
+        firstName:
+          urlFirstName,
+
+        lastName:
+          urlLastName,
+
+        email:
+          urlEmail,
+
+        mobile:
+          urlMobile,
+
+        address:
+          urlAddress,
+
         suburb:
-          googleAddress.suburb ||
-          parsedAddress.suburb,
+          urlRegion,
 
         state:
-          googleAddress.state ||
-          parsedAddress.state,
+          urlState,
 
         postcode:
-          googleAddress.postcode ||
-          parsedAddress.postcode,
-      }));
+          urlPostcode,
+      });
     }
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
+  /* -----------------------------
+     INITIAL / COVER PRICING
+  ------------------------------*/
 
-    if (pets.length > 0 && cover) {
-      refreshPricing(pets);
+  useEffect(() => {
+    if (!mounted) {
+      return;
     }
-  }, [mounted, cover]);
+
+    if (
+      pets.length > 0 &&
+      cover
+    ) {
+      refreshPricing(
+        pets
+      );
+    }
+  }, [
+    mounted,
+    cover,
+  ]);
+
+  /* -----------------------------
+     SELECT STYLES
+  ------------------------------*/
 
   const selectStyles = {
     control: (
@@ -759,14 +1580,17 @@ export default function DetailsPage() {
     ) => ({
       ...base,
 
-      minHeight: "46px",
+      minHeight:
+        "48px",
 
-      borderRadius: "10px",
+      borderRadius:
+        "12px",
 
       border:
-        "1px solid #ddd",
+        "1px solid #d1d5db",
 
-      boxShadow: "none",
+      boxShadow:
+        "none",
 
       backgroundColor:
         state.isDisabled
@@ -774,7 +1598,8 @@ export default function DetailsPage() {
           : "#fff",
 
       "&:hover": {
-        borderColor: "#ddd",
+        borderColor:
+          "#9ca3af",
       },
 
       cursor:
@@ -792,29 +1617,54 @@ export default function DetailsPage() {
       color:
         state.isDisabled
           ? "#6b7280"
-          : "#111",
+          : "#111827",
+
+      fontSize:
+        "14px",
     }),
 
-    input: (base: any) => ({
-      ...base,
-      color: "#111",
-    }),
-
-    placeholder: (
-      base: any,
-      state: any
+    input: (
+      base: any
     ) => ({
       ...base,
 
       color:
-        state.isDisabled
-          ? "#9ca3af"
-          : "#666",
+        "#111827",
+
+      fontSize:
+        "14px",
     }),
 
-    menu: (base: any) => ({
+    placeholder: (
+      base: any
+    ) => ({
       ...base,
-      backgroundColor: "#fff",
+
+      color:
+        "#6b7280",
+
+      fontSize:
+        "14px",
+    }),
+
+    menu: (
+      base: any
+    ) => ({
+      ...base,
+
+      backgroundColor:
+        "#fff",
+
+      borderRadius:
+        "12px",
+
+      overflow:
+        "hidden",
+
+      boxShadow:
+        "0 10px 25px rgba(0,0,0,0.12)",
+
+      zIndex: 50,
     }),
 
     option: (
@@ -823,42 +1673,135 @@ export default function DetailsPage() {
     ) => ({
       ...base,
 
-      color: "#111",
+      color:
+        "#111827",
 
       backgroundColor:
         state.isFocused
-          ? "#f3f3f3"
+          ? "#f3f4f6"
           : "#fff",
 
-      cursor: "pointer",
+      cursor:
+        "pointer",
+
+      fontSize:
+        "14px",
+
+      padding:
+        "10px 12px",
     }),
   };
 
-  if (!mounted) return null;
+  /* -----------------------------
+     LOADING
+  ------------------------------*/
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div
+          className="
+            w-full
+            max-w-sm
+            bg-white
+            rounded-xl
+            border
+            border-gray-200
+            shadow-sm
+            p-8
+            text-center
+          "
+        >
+          <div
+            className="
+              w-10
+              h-10
+              border-4
+              border-gray-200
+              border-t-gray-800
+              rounded-full
+              animate-spin
+              mx-auto
+              mb-5
+            "
+          />
+
+          <h2 className="text-lg font-semibold text-gray-900">
+            Loading your details
+          </h2>
+
+          <p className="text-sm text-gray-500 mt-2">
+            Please wait while we prepare your quote.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* -----------------------------
+     RENDER
+  ------------------------------*/
 
   return (
     <div className="min-h-screen text-gray-900">
       <div className="max-w-2xl mx-auto px-4 py-6">
 
+        {/* LOGO */}
+
         <img
           src="/was-logo.min.webp"
-          className="w-28 opacity-70 mb-4 mx-auto"
+          className="
+            w-28
+            opacity-70
+            mb-5
+            mx-auto
+            block
+          "
           alt="WAS Insurance"
         />
 
-        {/* Progress */}
+        {/* PAGE TITLE */}
+
+        <div className="text-center mb-7">
+          <h1 className="text-2xl font-semibold text-gray-900">
+            Your details
+          </h1>
+
+          <p className="mt-2 text-sm text-gray-500">
+            Review your information before completing your purchase.
+          </p>
+        </div>
+
+        {/* PROGRESS */}
+
         <div className="mb-8">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
-            {steps.map((step) => (
-              <span key={step}>
-                {step}
-              </span>
-            ))}
+            {steps.map(
+              (step) => (
+                <span
+                  key={step}
+                  className={
+                    step ===
+                    "Details"
+                      ? "font-semibold text-gray-900"
+                      : ""
+                  }
+                >
+                  {step}
+                </span>
+              )
+            )}
           </div>
 
-          <div className="h-2 bg-gray-200 rounded-full">
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-2 bg-gray-800 rounded-full"
+              className="
+                h-2
+                bg-gray-800
+                rounded-full
+                transition-all
+                duration-300
+              "
               style={{
                 width: `${progress}%`,
               }}
@@ -866,42 +1809,80 @@ export default function DetailsPage() {
           </div>
         </div>
 
-        {/* CUSTOMER */}
+        {/* CUSTOMER DETAILS */}
+
         <Section title="Your Details">
-          <div className="space-y-4">
+          <div className="space-y-5">
 
-            <FormField label="Full Name">
-              <input
-                id="customer-name"
-                value={customer.name}
-                onChange={(e) =>
-                  setCustomer({
-                    ...customer,
-                    name: e.target.value,
-                  })
-                }
-                className={`${inputStyle} ${
-                  customerErrors.name
-                    ? "border-red-500 focus:ring-red-500"
-                    : ""
-                }`}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-              {customerErrors.name && (
-                <p className="text-sm text-red-600 mt-1">
-                  {customerErrors.name}
-                </p>
-              )}
-            </FormField>
+  {/* FIRST NAME */}
+
+  <FormField label="First Name">
+    <input
+      id="customer-first-name"
+      value={customer.firstName}
+      onChange={(e) =>
+        setCustomer({
+          ...customer,
+          firstName:
+            e.target.value,
+        })
+      }
+      className={`${inputStyle} ${
+        customerErrors.firstName
+          ? "border-red-500 focus:ring-red-500"
+          : ""
+      }`}
+    />
+
+    {customerErrors.firstName && (
+      <ErrorMessage>
+        {customerErrors.firstName}
+      </ErrorMessage>
+    )}
+  </FormField>
+
+  {/* LAST NAME */}
+
+  <FormField label="Last Name">
+    <input
+      id="customer-last-name"
+      value={customer.lastName}
+      onChange={(e) =>
+        setCustomer({
+          ...customer,
+          lastName:
+            e.target.value,
+        })
+      }
+      className={`${inputStyle} ${
+        customerErrors.lastName
+          ? "border-red-500 focus:ring-red-500"
+          : ""
+      }`}
+    />
+
+    {customerErrors.lastName && (
+      <ErrorMessage>
+        {customerErrors.lastName}
+      </ErrorMessage>
+    )}
+  </FormField>
+
+</div>
 
             <FormField label="Mobile Number">
               <input
                 id="customer-mobile"
-                value={customer.mobile}
+                value={
+                  customer.mobile
+                }
                 onChange={(e) =>
                   setCustomer({
                     ...customer,
-                    mobile: e.target.value,
+                    mobile:
+                      e.target.value,
                   })
                 }
                 className={`${inputStyle} ${
@@ -912,20 +1893,24 @@ export default function DetailsPage() {
               />
 
               {customerErrors.mobile && (
-                <p className="text-sm text-red-600 mt-1">
+                <ErrorMessage>
                   {customerErrors.mobile}
-                </p>
+                </ErrorMessage>
               )}
             </FormField>
 
             <FormField label="Email">
               <input
                 id="customer-email"
-                value={customer.email}
+                type="email"
+                value={
+                  customer.email
+                }
                 onChange={(e) =>
                   setCustomer({
                     ...customer,
-                    email: e.target.value,
+                    email:
+                      e.target.value,
                   })
                 }
                 className={`${inputStyle} ${
@@ -936,1424 +1921,1356 @@ export default function DetailsPage() {
               />
 
               {customerErrors.email && (
-                <p className="text-sm text-red-600 mt-1">
+                <ErrorMessage>
                   {customerErrors.email}
-                </p>
+                </ErrorMessage>
               )}
             </FormField>
 
           </div>
         </Section>
 
-        {/* ADDRESS */}
-        <Section
-          title="Your Address"
-          action={
-            !editingAddress ? (
-              <button
-                type="button"
-                onClick={() =>
-                  setShowAddressEditWarning(
-                    true
-                  )
-                }
-                className="
-                  text-sm
-                  px-3
-                  py-1.5
-                  rounded-lg
-                  border
-                  border-gray-300
-                  text-gray-700
-                  hover:bg-gray-50
-                "
-              >
-                🔒 Edit
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={async () => {
-                  setEditingAddress(false);
+        {/* REVIEW YOUR DETAILS */}
 
-                  await refreshPricing(
-                    pets,
-                    customer
-                  );
-                }}
-                className="
-                  text-sm
-                  px-3
-                  py-1.5
-                  rounded-lg
-                  bg-gray-800
-                  text-white
-                "
-              >
-                🔓 Done
-              </button>
-            )
-          }
-        >
-          <input
-            type="text"
-            value={customer.address}
-            readOnly={!editingAddress}
-            onChange={(e) => {
-              const newAddress =
-                e.target.value;
-
-              const {
-                suburb,
-                state,
-                postcode,
-              } =
-                parseAddress(
-                  newAddress
-                );
-
-              setCustomer((prev) => ({
-                ...prev,
-                address:
-                  newAddress,
-                suburb,
-                state,
-                postcode,
-              }));
-            }}
-            className={`
-              ${inputStyle}
-              ${
-                !editingAddress
-                  ? "bg-gray-100 cursor-not-allowed"
-                  : "bg-white text-gray-900"
-              }
-            `}
-            style={{
-              color: !editingAddress
-                ? "#6b7280"
-                : "#111827",
-            }}
-          />
-        </Section>
-
-        {/* PETS */}
-        <Section title="Your Pets">
-          <div className="space-y-6">
-
-            {pets.map(
-              (pet, index) => (
-                <div
-                  key={index}
-                  className="border border-gray-200 rounded-xl p-4"
-                >
-
-                  {/* Pet heading */}
-                  <div className="flex items-center justify-between mb-4">
-
-                    <div className="flex items-center gap-2">
-
-                      <h3 className="font-semibold text-gray-900">
-                        Pet {index + 1}
-                      </h3>
-
-                      <span className="text-gray-400">
-                        |
-                      </span>
-
-                      <span className="text-sm font-medium text-gray-500">
-                        {pet.petType
-                          ? pet.petType
-                              .charAt(0)
-                              .toUpperCase() +
-                            pet.petType.slice(1)
-                          : "Select breed"}
-                      </span>
-
-                    </div>
-
-                    {editingPet !== index ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPetToEdit(index);
-                          setShowEditWarning(
-                            true
-                          );
-                        }}
-                        className="
-                          text-sm
-                          px-3
-                          py-1.5
-                          rounded-lg
-                          border
-                          border-gray-300
-                          text-gray-700
-                          hover:bg-gray-50
-                        "
-                      >
-                        🔒 Edit
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setEditingPet(
-                            null
-                          );
-
-                          if (
-                            pricingChangedPets.includes(
-                              index
-                            )
-                          ) {
-                            await refreshPricing(
-                              pets
-                            );
-
-                            setPricingChangedPets(
-                              (current) =>
-                                current.filter(
-                                  (
-                                    petIndex
-                                  ) =>
-                                    petIndex !==
-                                    index
-                                )
-                            );
-                          }
-                        }}
-                        className="
-                          text-sm
-                          px-3
-                          py-1.5
-                          rounded-lg
-                          bg-gray-800
-                          text-white
-                        "
-                      >
-                        Done
-                      </button>
-                    )}
-
-                  </div>
-
-                  {/* PET NAME + TIER */}
-                  <div className="grid grid-cols-2 gap-4">
-
-                    {/* PET NAME */}
-                    <FormField label="Pet Name">
-                      <input
-                        value={pet.name}
-                        readOnly={
-                          editingPet !==
-                          index
-                        }
-                        onChange={(e) =>
-                          updatePet(
-                            index,
-                            {
-                              name: e.target
-                                .value,
-                            }
-                          )
-                        }
-                        className={`
-                          ${inputStyle}
-                          ${
-                            editingPet !==
-                            index
-                              ? "bg-gray-100 cursor-not-allowed"
-                              : "bg-white text-gray-900"
-                          }
-                        `}
-                        style={{
-                          color:
-                            editingPet !==
-                            index
-                              ? "#6b7280"
-                              : "#111827",
-                        }}
-                      />
-                    </FormField>
-
-                    {/* TIER */}
-                    <FormField label="Tier">
-                      <select
-                        value={pet.tier}
-                        disabled={
-                          editingPet !==
-                          index
-                        }
-                        onChange={(e) =>
-                          updatePet(
-                            index,
-                            {
-                              tier: e.target
-                                .value as
-                                | "Silver"
-                                | "Gold",
-                            }
-                          )
-                        }
-                        className={`
-                          ${inputStyle}
-                          ${
-                            editingPet !==
-                            index
-                              ? "bg-gray-100 cursor-not-allowed text-gray-600"
-                              : "bg-white text-gray-900 cursor-pointer"
-                          }
-                        `}
-                      >
-                        <option value="Silver">
-                          Silver
-                        </option>
-
-                        <option value="Gold">
-                          Gold
-                        </option>
-                      </select>
-                    </FormField>
-
-                  </div>
-
-                  {/* BREED */}
-                  <div className="mt-4">
-                    <FormField label="Breed">
-                      <Select<Option, false>
-                        options={options}
-
-                        value={
-                          options.find(
-                            (option) =>
-                              option.value ===
-                              pet.breed
-                          ) || null
-                        }
-
-                        onChange={(
-                          selected
-                        ) => {
-                          if (!selected) {
-                            updatePet(
-                              index,
-                              {
-                                breed: "",
-                                petType:
-                                  null,
-                              }
-                            );
-
-                            return;
-                          }
-
-                          updatePet(
-                            index,
-                            {
-                              breed:
-                                selected.value,
-
-                              petType:
-                                selected.petType
-                                  .toLowerCase() as
-                                  | "cat"
-                                  | "dog",
-                            }
-                          );
-                        }}
-
-                        styles={
-                          selectStyles
-                        }
-
-                        isDisabled={
-                          editingPet !==
-                          index
-                        }
-
-                        isLoading={
-                          loadingBreeds
-                        }
-
-                        placeholder="Select breed"
-
-                        noOptionsMessage={() =>
-                          loadingBreeds
-                            ? "Loading breeds..."
-                            : "No breeds found"
-                        }
-                      />
-                    </FormField>
-                  </div>
-
-                  {/* DOB + SEX */}
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-
-                    <FormField label="Date of Birth">
-                      <input
-                        type="date"
-                        value={pet.dob}
-                        disabled={
-                          editingPet !==
-                          index
-                        }
-                        onChange={(e) =>
-                          updatePet(
-                            index,
-                            {
-                              dob: e.target
-                                .value,
-                            }
-                          )
-                        }
-                        className={`
-                          ${inputStyle}
-                          ${
-                            editingPet !==
-                            index
-                              ? "bg-gray-100 cursor-not-allowed"
-                              : "bg-white cursor-pointer"
-                          }
-                        `}
-                        style={{
-                          color:
-                            editingPet !==
-                            index
-                              ? "#6b7280"
-                              : "#111827",
-                        }}
-                      />
-                    </FormField>
-
-                    <FormField label="Sex">
-                      <select
-                        value={
-                          pet.gender || ""
-                        }
-                        disabled={
-                          editingPet !==
-                          index
-                        }
-                        onChange={(e) =>
-                          updatePet(
-                            index,
-                            {
-                              gender:
-                                e.target
-                                  .value as
-                                  | "male"
-                                  | "female",
-                            }
-                          )
-                        }
-                        className={`
-                          ${inputStyle}
-                          ${
-                            editingPet !==
-                            index
-                              ? "bg-gray-100 text-gray-600"
-                              : "bg-white text-gray-900 cursor-pointer"
-                          }
-                        `}
-                      >
-                        <option value="male">
-                          Male
-                        </option>
-
-                        <option value="female">
-                          Female
-                        </option>
-                      </select>
-                    </FormField>
-
-                  </div>
-
-                </div>
-              )
-            )}
-
-          </div>
-        </Section>
-
-        {/* PRICING */}
         <div
           className="
             bg-white
+            rounded-xl
             border
             border-gray-200
-            rounded-2xl
-            overflow-hidden
             shadow-sm
-            mt-6
+            overflow-hidden
+            mb-6
           "
         >
+          {/* ACCORDION HEADER */}
 
-          {/* HEADER */}
-          <div
-            className="
-              px-5
-              py-4
-              bg-gray-50
-              border-b
-              border-gray-200
-            "
-          >
-
-            <h2
-              className="
-                text-lg
-                font-semibold
-                text-gray-900
-              "
-            >
-              Your Pricing
-            </h2>
-
-            <p
-              className="
-                text-sm
-                text-gray-500
-                mt-1
-              "
-            >
-              Your monthly premium based on
-              your selected plans.
-            </p>
-
-            {cover && (
-              <div className="mt-3 text-sm text-gray-600">
-
-                <p>
-                  Annual Limit:{" "}
-                  <span className="font-semibold text-gray-900">
-                    {cover.petSettings?.[
-                      "0"
-                    ]?.limit?.toLocaleString() ??
-                      "N/A"}
-                  </span>
-                </p>
-
-                <p>
-                  Benefit:{" "}
-                  <span className="font-semibold text-gray-900">
-                    {cover.petSettings?.[
-                      "0"
-                    ]?.benefit ??
-                      "N/A"}
-                    %
-                  </span>
-                </p>
-
-                <p>
-                  Excess:{" "}
-                  <span className="font-semibold text-gray-900">
-                    $
-                    {cover.petSettings?.[
-                      "0"
-                    ]?.excess?.toLocaleString() ??
-                      "N/A"}
-                  </span>
-                </p>
-
-              </div>
-            )}
-
-          </div>
-
-          {/* TABLE */}
-          <div className="overflow-x-auto">
-
-            <table className="w-full text-sm table-fixed">
-
-              <thead>
-                <tr
-                  className="
-                    border-b
-                    border-gray-200
-                    bg-white
-                  "
-                >
-
-                  <th
-                    className="
-                      w-[40%]
-                      px-5
-                      py-3
-                      text-left
-                      font-semibold
-                      text-gray-500
-                    "
-                  >
-                    Pet
-                  </th>
-
-                  <th
-                    className="
-                      w-[25%]
-                      px-5
-                      py-3
-                      text-left
-                      font-semibold
-                      text-gray-500
-                    "
-                  >
-                    Tier
-                  </th>
-
-                  <th
-                    className="
-                      w-[35%]
-                      px-5
-                      py-3
-                      text-right
-                      font-semibold
-                      text-gray-500
-                    "
-                  >
-                    Monthly Premium
-                  </th>
-
-                </tr>
-              </thead>
-
-              <tbody>
-
-                {pricingLoading ? (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="
-                        px-5
-                        py-6
-                        text-center
-                        text-gray-500
-                      "
-                    >
-                      Calculating pricing...
-                    </td>
-                  </tr>
-                ) : pricing.pets.length > 0 ? (
-                  pricing.pets.map(
-                    (pet, index) => (
-                      <tr
-                        key={index}
-                        className="border-b border-gray-100"
-                      >
-
-                        <td
-                          className="
-                            px-5
-                            py-4
-                            font-medium
-                            text-gray-900
-                          "
-                        >
-                          {pet.name ||
-                            `Pet ${
-                              index + 1
-                            }`}
-                        </td>
-
-                        <td
-                          className="
-                            px-5
-                            py-4
-                            text-left
-                          "
-                        >
-                          <span
-                            className={`
-                              inline-flex
-                              px-2.5
-                              py-1
-                              rounded-full
-                              text-xs
-                              font-semibold
-                              ${
-                                pet.tier ===
-                                "Gold"
-                                  ? "bg-amber-100 text-amber-800"
-                                  : "bg-gray-100 text-gray-700"
-                              }
-                            `}
-                          >
-                            {pet.tier}
-                          </span>
-                        </td>
-
-                        <td
-                          className="
-                            px-5
-                            py-4
-                            text-right
-                            font-semibold
-                            text-gray-900
-                          "
-                        >
-                          $
-                          {pet.price.toFixed(
-                            2
-                          )}
-                        </td>
-
-                      </tr>
-                    )
-                  )
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="
-                        px-5
-                        py-6
-                        text-center
-                        text-gray-500
-                      "
-                    >
-                      No pricing available.
-                    </td>
-                  </tr>
-                )}
-
-              </tbody>
-
-              {/* TOTAL */}
-              <tfoot>
-                <tr className="bg-gray-50">
-
-                  <td
-                    colSpan={2}
-                    className="
-                      px-5
-                      py-5
-                      font-bold
-                      text-gray-900
-                    "
-                  >
-                    Total
-                  </td>
-
-                  <td
-                    className="
-                      px-5
-                      py-5
-                      text-right
-                    "
-                  >
-
-                    <div
-                      className="
-                        text-xl
-                        font-extrabold
-                        text-gray-900
-                      "
-                    >
-                      {pricing.total !==
-                      null
-                        ? `$${pricing.total.toFixed(
-                            2
-                          )}`
-                        : "$--"}
-                    </div>
-
-                    <div
-                      className="
-                        text-xs
-                        text-gray-500
-                        mt-0.5
-                      "
-                    >
-                      per month
-                    </div>
-
-                  </td>
-
-                </tr>
-              </tfoot>
-
-            </table>
-          </div>
-        </div>
-
-        {/* ACKNOWLEDGEMENTS */}
-        <div
-          className="
-            mt-6
-            rounded-2xl
-            border
-            border-amber-200
-            bg-amber-50
-            overflow-hidden
-            shadow-sm
-          "
-        >
-
-          <div
-            className="
-              px-6
-              py-5
-              bg-amber-100
-              border-b
-              border-amber-200
-            "
-          >
-
-            <h2
-              className="
-                text-lg
-                font-semibold
-                text-gray-900
-              "
-            >
-              Before you continue
-            </h2>
-
-            <p
-              className="
-                text-sm
-                text-amber-900
-                mt-1
-              "
-            >
-              Please review and acknowledge
-              the information below before
-              purchasing.
-            </p>
-
-          </div>
-
-          <div className="divide-y divide-gray-200">
-
-            {/* TERMS */}
-            <div className="p-5">
-
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenTerms(
-                    openTerms === "terms"
-                      ? null
-                      : "terms"
-                  )
-                }
-                className={`
-                  w-full
-                  flex
-                  items-center
-                  justify-between
-                  text-left
-                  p-3
-                  rounded-xl
-                  transition
-                  ${
-                    openTerms === "terms"
-                      ? "bg-amber-100"
-                      : "hover:bg-amber-100"
-                  }
-                `}
-              >
-
-                <div>
-
-                  <h3
-                    className="
-                      font-semibold
-                      text-gray-900
-                    "
-                  >
-                    Policy Terms &
-                    Conditions
-                  </h3>
-
-                  <p
-                    className="
-                      text-sm
-                      text-gray-500
-                      mt-1
-                    "
-                  >
-                    Click to read the
-                    important policy
-                    information.
-                  </p>
-
-                </div>
-
-                <span className="text-gray-500 text-lg">
-                  {openTerms ===
-                  "terms"
-                    ? "▲"
-                    : "▼"}
-                </span>
-
-              </button>
-
-              {openTerms === "terms" && (
-                <div
-                  className="
-                    mt-4
-                    p-4
-                    bg-gray-50
-                    border
-                    border-gray-200
-                    rounded-xl
-                    text-sm
-                    text-gray-700
-                    leading-6
-                  "
-                >
-
-                  <p className="font-semibold text-gray-900 mb-2">
-                    Policy Terms &
-                    Conditions
-                  </p>
-
-                  <p className="mb-3">
-                    Please review the full
-                    policy documentation
-                    before purchasing
-                    insurance. Your policy
-                    is subject to the terms,
-                    conditions, exclusions,
-                    limits and waiting
-                    periods described in the
-                    applicable policy
-                    documents.
-                  </p>
-
-                  <p className="mb-3">
-                    Cover is subject to
-                    eligibility requirements
-                    and the information
-                    provided during the
-                    quotation and application
-                    process.
-                  </p>
-
-                  <p>
-                    Please ensure you
-                    understand the cover
-                    selected, including the
-                    annual limit, benefit
-                    percentage, excess,
-                    exclusions and applicable
-                    waiting periods.
-                  </p>
-
-                </div>
-              )}
-
-              <label
-                className="
-                  flex
-                  items-center
-                  gap-3
-                  mt-4
-                  cursor-pointer
-                "
-              >
-
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(e) =>
-                    setTermsAccepted(
-                      e.target.checked
-                    )
-                  }
-                  className="
-                    w-5
-                    h-5
-                    accent-gray-800
-                    flex-shrink-0
-                  "
-                />
-
-                <span
-                  className="
-                    text-sm
-                    text-gray-700
-                  "
-                >
-                  I have read and agree to
-                  the Policy Terms &
-                  Conditions.
-                </span>
-
-              </label>
-
-            </div>
-
-            {/* PRIVACY */}
-            <div className="p-5">
-
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenTerms(
-                    openTerms === "privacy"
-                      ? null
-                      : "privacy"
-                  )
-                }
-                className={`
-                  w-full
-                  flex
-                  items-center
-                  justify-between
-                  text-left
-                  p-3
-                  rounded-xl
-                  transition
-                  ${
-                    openTerms === "privacy"
-                      ? "bg-amber-100"
-                      : "hover:bg-amber-100"
-                  }
-                `}
-              >
-
-                <div>
-
-                  <h3
-                    className="
-                      font-semibold
-                      text-gray-900
-                    "
-                  >
-                    Privacy Policy
-                  </h3>
-
-                  <p
-                    className="
-                      text-sm
-                      text-gray-500
-                      mt-1
-                    "
-                  >
-                    Click to read how your
-                    information is handled.
-                  </p>
-
-                </div>
-
-                <span className="text-gray-500 text-lg">
-                  {openTerms ===
-                  "privacy"
-                    ? "▲"
-                    : "▼"}
-                </span>
-
-              </button>
-
-              {openTerms === "privacy" && (
-                <div
-                  className="
-                    mt-4
-                    p-4
-                    bg-gray-50
-                    border
-                    border-gray-200
-                    rounded-xl
-                    text-sm
-                    text-gray-700
-                    leading-6
-                  "
-                >
-
-                  <p
-                    className="
-                      font-semibold
-                      text-gray-900
-                      mb-2
-                    "
-                  >
-                    Privacy Policy
-                  </p>
-
-                  <p className="mb-3">
-                    Your personal information
-                    may be collected and used
-                    to provide, administer
-                    and manage your insurance
-                    application and policy.
-                  </p>
-
-                  <p>
-                    Your information may also
-                    be used where required to
-                    comply with legal and
-                    regulatory obligations.
-                  </p>
-
-                </div>
-              )}
-
-              <label
-                className="
-                  flex
-                  items-center
-                  gap-3
-                  mt-4
-                  cursor-pointer
-                "
-              >
-
-                <input
-                  type="checkbox"
-                  checked={privacyAccepted}
-                  onChange={(e) =>
-                    setPrivacyAccepted(
-                      e.target.checked
-                    )
-                  }
-                  className="
-                    w-5
-                    h-5
-                    accent-gray-800
-                  "
-                />
-
-                <span className="text-sm text-gray-700">
-                  I acknowledge that I have
-                  read the Privacy Policy.
-                </span>
-
-              </label>
-
-            </div>
-
-            {/* INFORMATION */}
-            <div className="p-5">
-
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenTerms(
-                    openTerms ===
-                    "information"
-                      ? null
-                      : "information"
-                  )
-                }
-                className={`
-                  w-full
-                  flex
-                  items-center
-                  justify-between
-                  text-left
-                  p-3
-                  rounded-xl
-                  transition
-                  ${
-                    openTerms ===
-                    "information"
-                      ? "bg-amber-100"
-                      : "hover:bg-amber-100"
-                  }
-                `}
-              >
-
-                <div>
-
-                  <h3
-                    className="
-                      font-semibold
-                      text-gray-900
-                    "
-                  >
-                    Information
-                    Confirmation
-                  </h3>
-
-                  <p
-                    className="
-                      text-sm
-                      text-gray-500
-                      mt-1
-                    "
-                  >
-                    Confirm that your
-                    application details are
-                    correct.
-                  </p>
-
-                </div>
-
-                <span className="text-gray-500 text-lg">
-                  {openTerms ===
-                  "information"
-                    ? "▲"
-                    : "▼"}
-                </span>
-
-              </button>
-
-              {openTerms ===
-                "information" && (
-                <div
-                  className="
-                    mt-4
-                    p-4
-                    bg-gray-50
-                    border
-                    border-gray-200
-                    rounded-xl
-                    text-sm
-                    text-gray-700
-                    leading-6
-                  "
-                >
-
-                  <p
-                    className="
-                      font-semibold
-                      text-gray-900
-                      mb-2
-                    "
-                  >
-                    Your Information
-                  </p>
-
-                  <p>
-                    Please check that your
-                    name, contact details,
-                    address and pet
-                    information are accurate.
-                    Incorrect information may
-                    affect your eligibility,
-                    premium or ability to make
-                    a claim.
-                  </p>
-
-                </div>
-              )}
-
-              <label
-                className="
-                  flex
-                  items-center
-                  gap-3
-                  mt-4
-                  cursor-pointer
-                "
-              >
-
-                <input
-                  type="checkbox"
-                  checked={
-                    informationConfirmed
-                  }
-                  onChange={(e) =>
-                    setInformationConfirmed(
-                      e.target.checked
-                    )
-                  }
-                  className="
-                    w-5
-                    h-5
-                    accent-gray-800
-                  "
-                />
-
-                <span className="text-sm text-gray-700">
-                  I confirm that the
-                  information I have provided
-                  is accurate and complete.
-                </span>
-
-              </label>
-
-            </div>
-
-            {/* PREMIUM */}
-            <div className="p-5">
-
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenTerms(
-                    openTerms ===
-                    "premium"
-                      ? null
-                      : "premium"
-                  )
-                }
-                className={`
-                  w-full
-                  flex
-                  items-center
-                  justify-between
-                  text-left
-                  p-3
-                  rounded-xl
-                  transition
-                  ${
-                    openTerms === "premium"
-                      ? "bg-amber-100"
-                      : "hover:bg-amber-100"
-                  }
-                `}
-              >
-
-                <div>
-
-                  <h3
-                    className="
-                      font-semibold
-                      text-gray-900
-                    "
-                  >
-                    Premium & Payment
-                  </h3>
-
-                  <p
-                    className="
-                      text-sm
-                      text-gray-500
-                      mt-1
-                    "
-                  >
-                    Review your premium and
-                    payment frequency.
-                  </p>
-
-                </div>
-
-                <span className="text-gray-500 text-lg">
-                  {openTerms ===
-                  "premium"
-                    ? "▲"
-                    : "▼"}
-                </span>
-
-              </button>
-
-              {openTerms === "premium" && (
-                <div
-                  className="
-                    mt-4
-                    p-4
-                    bg-gray-50
-                    border
-                    border-gray-200
-                    rounded-xl
-                    text-sm
-                    text-gray-700
-                    leading-6
-                  "
-                >
-
-                  <p
-                    className="
-                      font-semibold
-                      text-gray-900
-                      mb-2
-                    "
-                  >
-                    Premium & Payment
-                  </p>
-
-                  <p>
-                    Your displayed premium
-                    is the amount calculated
-                    based on the information
-                    and cover selected above.
-                    Payment frequency is
-                    monthly unless otherwise
-                    specified.
-                  </p>
-
-                </div>
-              )}
-
-              <label
-                className="
-                  flex
-                  items-center
-                  gap-3
-                  mt-4
-                  cursor-pointer
-                "
-              >
-
-                <input
-                  type="checkbox"
-                  checked={
-                    premiumConfirmed
-                  }
-                  onChange={(e) =>
-                    setPremiumConfirmed(
-                      e.target.checked
-                    )
-                  }
-                  className="
-                    w-5
-                    h-5
-                    accent-gray-800
-                  "
-                />
-
-                <span className="text-sm text-gray-700">
-                  I understand the premium
-                  shown above and that
-                  payment will be processed
-                  monthly.
-                </span>
-
-              </label>
-
-            </div>
-
-          </div>
-        </div>
-
-        {/* BACK / CONFIRM BUTTONS */}
-        <div className="mt-6 flex gap-3">
-
-          {/* BACK */}
           <button
             type="button"
             onClick={() =>
-              router.push("/plans")
+              setOpenReview(
+                (current) =>
+                  !current
+              )
+            }
+            className="
+              w-full
+              flex
+              items-center
+              justify-between
+              gap-4
+              px-5
+              py-5
+              text-left
+              hover:bg-gray-50
+              transition
+            "
+          >
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Review your details
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-1">
+                {pets.length}{" "}
+                {pets.length === 1
+                  ? "pet"
+                  : "pets"}
+                {" · "}
+                {pricing.total !== null
+                  ? `$${pricing.total.toFixed(
+                      2
+                    )}/month`
+                  : "Premium calculating..."}
+              </p>
+            </div>
+
+            <span
+              className="
+                flex-shrink-0
+                w-8
+                h-8
+                rounded-full
+                bg-gray-100
+                border
+                border-gray-200
+                flex
+                items-center
+                justify-center
+                text-gray-500
+                text-xs
+              "
+            >
+              {openReview
+                ? "▲"
+                : "▼"}
+            </span>
+          </button>
+
+          {/* ACCORDION CONTENT */}
+
+          {openReview && (
+            <div className="border-t border-gray-200">
+
+              {/* YOUR ADDRESS */}
+
+              <div className="px-5 py-5 border-b border-gray-200">
+                <div className="flex items-center justify-between gap-4 mb-4">
+
+                  <div>
+                    <h2 className="font-semibold text-lg text-gray-900">
+                      Your Address
+                    </h2>
+
+                    <p className="text-sm text-gray-500 mt-1">
+                      {customer.address ||
+                        "No address provided"}
+                    </p>
+                  </div>
+
+                  {!editingAddress ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowAddressEditWarning(
+                          true
+                        )
+                      }
+                      className="
+                        flex-shrink-0
+                        text-sm
+                        px-3
+                        py-1.5
+                        rounded-lg
+                        border
+                        border-gray-300
+                        text-gray-700
+                        hover:bg-gray-50
+                        transition
+                      "
+                    >
+                      🔒 Edit
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setEditingAddress(
+                          false
+                        );
+
+                        await refreshPricing(
+                          pets,
+                          customer
+                        );
+                      }}
+                      className="
+                        flex-shrink-0
+                        text-sm
+                        px-3
+                        py-1.5
+                        rounded-lg
+                        bg-gray-800
+                        text-white
+                        hover:bg-gray-700
+                        transition
+                      "
+                    >
+                      Done
+                    </button>
+                  )}
+
+                </div>
+
+                <input
+                  type="text"
+                  value={
+                    customer.address
+                  }
+                  readOnly={
+                    !editingAddress
+                  }
+                  onChange={(e) => {
+                    const newAddress =
+                      e.target.value;
+
+                    const {
+                      suburb,
+                      state,
+                      postcode,
+                    } =
+                      parseAddress(
+                        newAddress
+                      );
+
+                    setCustomer(
+                      (prev) => ({
+                        ...prev,
+                        address:
+                          newAddress,
+                        suburb,
+                        state,
+                        postcode,
+                      })
+                    );
+                  }}
+                  className={`
+                    ${inputStyle}
+                    ${
+                      !editingAddress
+                        ? "bg-gray-100 cursor-not-allowed"
+                        : "bg-white"
+                    }
+                  `}
+                  style={{
+                    color:
+                      !editingAddress
+                        ? "#6b7280"
+                        : "#111827",
+                  }}
+                />
+              </div>
+
+              {/* YOUR PETS */}
+
+              <div className="px-5 py-5 border-b border-gray-200">
+
+                <div className="mb-4">
+                  <h2 className="font-semibold text-lg text-gray-900">
+                    Your Pets
+                  </h2>
+
+                  <p className="text-sm text-gray-500 mt-1">
+                    {pets.length}{" "}
+                    {pets.length === 1
+                      ? "pet"
+                      : "pets"}{" "}
+                    insured
+                  </p>
+                </div>
+
+                <div className="space-y-5">
+
+                  {pets.map(
+                    (pet, index) => (
+                      <div
+                        key={index}
+                        className="
+                          border
+                          border-gray-200
+                          rounded-xl
+                          p-4
+                          bg-gray-50/30
+                        "
+                      >
+
+                        {/* PET HEADER */}
+
+                        <div className="flex items-center justify-between gap-3 mb-5">
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+
+                              <h3 className="font-semibold text-gray-900">
+                                Pet{" "}
+                                {index +
+                                  1}
+                              </h3>
+
+                              <span className="text-gray-300">
+                                |
+                              </span>
+
+                              <span className="text-sm font-medium text-gray-500">
+                                {pet.petType
+                                  ? pet.petType
+                                      .charAt(
+                                        0
+                                      )
+                                      .toUpperCase() +
+                                    pet.petType.slice(
+                                      1
+                                    )
+                                  : "Pet"}
+                              </span>
+
+                            </div>
+
+                            {pet.name && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {pet.name}
+                              </p>
+                            )}
+                          </div>
+
+                          {editingPet !==
+                          index ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPetToEdit(
+                                  index
+                                );
+
+                                setShowEditWarning(
+                                  true
+                                );
+                              }}
+                              className="
+                                flex-shrink-0
+                                text-sm
+                                px-3
+                                py-1.5
+                                rounded-lg
+                                border
+                                border-gray-300
+                                text-gray-700
+                                hover:bg-gray-50
+                                transition
+                              "
+                            >
+                              🔒 Edit
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setEditingPet(
+                                  null
+                                );
+
+                                if (
+                                  pricingChangedPets.includes(
+                                    index
+                                  )
+                                ) {
+                                  await refreshPricing(
+                                    pets
+                                  );
+
+                                  setPricingChangedPets(
+                                    (
+                                      current
+                                    ) =>
+                                      current.filter(
+                                        (
+                                          petIndex
+                                        ) =>
+                                          petIndex !==
+                                          index
+                                      )
+                                  );
+                                }
+                              }}
+                              className="
+                                flex-shrink-0
+                                text-sm
+                                px-3
+                                py-1.5
+                                rounded-lg
+                                bg-gray-800
+                                text-white
+                                hover:bg-gray-700
+                                transition
+                              "
+                            >
+                              Done
+                            </button>
+                          )}
+
+                        </div>
+
+                        {/* PET NAME */}
+
+                        <FormField label="Pet Name">
+                          <input
+                            value={
+                              pet.name
+                            }
+                            readOnly={
+                              editingPet !==
+                              index
+                            }
+                            onChange={(e) =>
+                              updatePet(
+                                index,
+                                {
+                                  name:
+                                    e.target
+                                      .value,
+                                }
+                              )
+                            }
+                            className={`
+                              ${inputStyle}
+                              ${
+                                editingPet !==
+                                index
+                                  ? "bg-gray-100 cursor-not-allowed"
+                                  : "bg-white"
+                              }
+                            `}
+                            style={{
+                              color:
+                                editingPet !==
+                                index
+                                  ? "#6b7280"
+                                  : "#111827",
+                            }}
+                          />
+                        </FormField>
+
+                        {/* BREED */}
+
+                        <div className="mt-4">
+                          <FormField label="Breed">
+                            <Select<
+                              Option,
+                              false
+                            >
+                              options={
+                                options
+                              }
+
+                              value={
+                                options.find(
+                                  (
+                                    option
+                                  ) =>
+                                    option.value ===
+                                    pet.breed
+                                ) ||
+                                null
+                              }
+
+                              onChange={(
+                                selected
+                              ) => {
+                                if (
+                                  !selected
+                                ) {
+                                  updatePet(
+                                    index,
+                                    {
+                                      breed:
+                                        "",
+                                      petType:
+                                        null,
+                                    }
+                                  );
+
+                                  return;
+                                }
+
+                                updatePet(
+                                  index,
+                                  {
+                                    breed:
+                                      selected.value,
+
+                                    petType:
+                                      selected.petType.toLowerCase() as
+                                        | "cat"
+                                        | "dog",
+                                  }
+                                );
+                              }}
+
+                              styles={
+                                selectStyles
+                              }
+
+                              isDisabled={
+                                editingPet !==
+                                index
+                              }
+
+                              isLoading={
+                                loadingBreeds
+                              }
+
+                              placeholder="Select breed"
+
+                              noOptionsMessage={() =>
+                                loadingBreeds
+                                  ? "Loading breeds..."
+                                  : "No breeds found"
+                              }
+                            />
+                          </FormField>
+                        </div>
+
+                        {/* DOB + SEX */}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+
+                          <FormField label="Date of Birth">
+                            <input
+                              type="date"
+                              value={
+                                pet.dob
+                              }
+                              disabled={
+                                editingPet !==
+                                index
+                              }
+                              onChange={(e) =>
+                                updatePet(
+                                  index,
+                                  {
+                                    dob:
+                                      e.target
+                                        .value,
+                                  }
+                                )
+                              }
+                              className={`
+                                ${inputStyle}
+                                ${
+                                  editingPet !==
+                                  index
+                                    ? "bg-gray-100 cursor-not-allowed"
+                                    : "bg-white cursor-pointer"
+                                }
+                              `}
+                              style={{
+                                color:
+                                  editingPet !==
+                                  index
+                                    ? "#6b7280"
+                                    : "#111827",
+                              }}
+                            />
+                          </FormField>
+
+                          <FormField label="Sex">
+                            <select
+                              value={
+                                pet.gender ||
+                                ""
+                              }
+                              disabled={
+                                editingPet !==
+                                index
+                              }
+                              onChange={(e) =>
+                                updatePet(
+                                  index,
+                                  {
+                                    gender:
+                                      e.target
+                                        .value as
+                                        | "male"
+                                        | "female",
+                                  }
+                                )
+                              }
+                              className={`
+                                ${inputStyle}
+                                ${
+                                  editingPet !==
+                                  index
+                                    ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                    : "bg-white text-gray-900 cursor-pointer"
+                                }
+                              `}
+                            >
+                              <option value="">
+                                Select sex
+                              </option>
+
+                              <option value="male">
+                                Male
+                              </option>
+
+                              <option value="female">
+                                Female
+                              </option>
+                            </select>
+                          </FormField>
+
+                        </div>
+
+                      </div>
+                    )
+                  )}
+
+                </div>
+              </div>
+
+              {/* YOUR COVER */}
+
+              <div>
+
+                <div className="px-5 py-5 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Your cover
+                  </h2>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    {pets.length === 1
+                      ? "Your monthly premium and selected cover for your pet."
+                      : "Your monthly premium and selected cover for each pet."}
+                  </p>
+                </div>
+
+                {/* PET COVER ROWS */}
+
+                {pets.map(
+                  (pet, index) => {
+                    const petSettings =
+                      cover?.petSettings?.[
+                        String(index)
+                      ];
+
+                    const selectedPlan =
+                      petSettings?.plan;
+
+                    const price =
+                      pricing.pets[index]?.price ??
+                      null;
+
+                    return (
+                      <div
+                        key={index}
+                        className="
+                          px-5
+                          py-5
+                          border-b
+                          border-gray-200
+                          last:border-b-0
+                        "
+                      >
+
+                        {/* COVER TOP ROW */}
+
+                        <div className="flex items-start justify-between gap-4">
+
+                          <div className="min-w-0">
+                            <div className="text-base font-semibold text-gray-900">
+                              {pet.name ||
+                                `Pet ${
+                                  index +
+                                  1
+                                }`}
+                            </div>
+                          </div>
+
+                          {/* PRICE + EDIT */}
+
+                          <div className="flex-shrink-0 flex items-center gap-3">
+
+                            <div className="text-right">
+
+                              {pricingLoading ? (
+                                <span className="inline-flex items-center gap-2 text-xs text-gray-500">
+
+                                  <span
+                                    className="
+                                      w-3.5
+                                      h-3.5
+                                      border-2
+                                      border-gray-300
+                                      border-t-gray-700
+                                      rounded-full
+                                      animate-spin
+                                    "
+                                  />
+
+                                  Updating
+
+                                </span>
+                              ) : price !==
+                                null ? (
+                                <>
+                                  <div className="text-lg font-semibold text-gray-900">
+                                    $
+                                    {price.toFixed(
+                                      2
+                                    )}
+                                  </div>
+
+                                  <div className="text-[10px] text-gray-500">
+                                    per month
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="text-lg font-semibold text-gray-400">
+                                    —
+                                  </div>
+
+                                  <div className="text-[10px] text-gray-500">
+                                    Price unavailable
+                                  </div>
+                                </>
+                              )}
+
+                            </div>
+
+                            {/* COVER EDIT BUTTON */}
+
+                            {editingCover !==
+                            index ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCoverToEdit(
+                                    index
+                                  );
+
+                                  setShowCoverEditWarning(
+                                    true
+                                  );
+                                }}
+                                className="
+                                  flex-shrink-0
+                                  text-sm
+                                  px-3
+                                  py-1.5
+                                  rounded-lg
+                                  border
+                                  border-gray-300
+                                  text-gray-700
+                                  hover:bg-gray-50
+                                  transition
+                                "
+                              >
+                                🔒 Edit
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCover(
+                                    null
+                                  );
+                                }}
+                                className="
+                                  flex-shrink-0
+                                  text-sm
+                                  px-3
+                                  py-1.5
+                                  rounded-lg
+                                  bg-gray-800
+                                  text-white
+                                  hover:bg-gray-700
+                                  transition
+                                "
+                              >
+                                Done
+                              </button>
+                            )}
+
+                          </div>
+
+                        </div>
+
+                        {/* COVER OPTIONS */}
+
+                        {selectedPlan &&
+                          petSettings && (
+                            <div className="mt-4">
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                                {/* ANNUAL LIMIT */}
+
+                                <div className="
+                                  rounded-lg
+                                  bg-gray-50
+                                  border
+                                  border-gray-200
+                                  px-3
+                                  py-3
+                                ">
+                                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                    Annual limit
+                                  </label>
+
+                                  <select
+                                    value={
+                                      petSettings.limit
+                                    }
+                                    disabled={
+                                      editingCover !==
+                                      index
+                                    }
+                                    onChange={(e) =>
+                                      updateCoverSetting(
+                                        index,
+                                        {
+                                          limit:
+                                            Number(
+                                              e
+                                                .target
+                                                .value
+                                            ),
+                                        }
+                                      )
+                                    }
+                                    className={`
+                                      w-full
+                                      h-10
+                                      px-3
+                                      rounded-lg
+                                      border
+                                      border-gray-300
+                                      text-sm
+                                      font-semibold
+                                      focus:outline-none
+                                      focus:ring-2
+                                      focus:ring-gray-800
+                                      ${
+                                        editingCover !==
+                                        index
+                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                          : "bg-white text-gray-900 cursor-pointer"
+                                      }
+                                    `}
+                                  >
+                                    {Array.from(
+                                      {
+                                        length: 26,
+                                      },
+                                      (
+                                        _,
+                                        i
+                                      ) => {
+                                        const value =
+                                          5000 +
+                                          i *
+                                            1000;
+
+                                        return (
+                                          <option
+                                            key={
+                                              value
+                                            }
+                                            value={
+                                              value
+                                            }
+                                          >
+                                            $
+                                            {value.toLocaleString()}
+                                          </option>
+                                        );
+                                      }
+                                    )}
+                                  </select>
+                                </div>
+
+                                {/* BENEFIT */}
+
+                                <div className="
+                                  rounded-lg
+                                  bg-gray-50
+                                  border
+                                  border-gray-200
+                                  px-3
+                                  py-3
+                                ">
+                                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                    Benefit
+                                  </label>
+
+                                  <select
+                                    value={
+                                      petSettings.benefit
+                                    }
+                                    disabled={
+                                      editingCover !==
+                                      index
+                                    }
+                                    onChange={(e) =>
+                                      updateCoverSetting(
+                                        index,
+                                        {
+                                          benefit:
+                                            Number(
+                                              e
+                                                .target
+                                                .value
+                                            ),
+                                        }
+                                      )
+                                    }
+                                    className={`
+                                      w-full
+                                      h-10
+                                      px-3
+                                      rounded-lg
+                                      border
+                                      border-gray-300
+                                      text-sm
+                                      font-semibold
+                                      focus:outline-none
+                                      focus:ring-2
+                                      focus:ring-gray-800
+                                      ${
+                                        editingCover !==
+                                        index
+                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                          : "bg-white text-gray-900 cursor-pointer"
+                                      }
+                                    `}
+                                  >
+                                    {Array.from(
+                                      {
+                                        length: 7,
+                                      },
+                                      (
+                                        _,
+                                        i
+                                      ) => {
+                                        const value =
+                                          60 +
+                                          i *
+                                            5;
+
+                                        return (
+                                          <option
+                                            key={
+                                              value
+                                            }
+                                            value={
+                                              value
+                                            }
+                                          >
+                                            {value}%
+                                          </option>
+                                        );
+                                      }
+                                    )}
+                                  </select>
+                                </div>
+
+                                {/* ANNUAL EXCESS */}
+
+                                <div className="
+                                  rounded-lg
+                                  bg-gray-50
+                                  border
+                                  border-gray-200
+                                  px-3
+                                  py-3
+                                ">
+                                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                    Annual excess
+                                  </label>
+
+                                  <select
+                                    value={
+                                      petSettings.excess
+                                    }
+                                    disabled={
+                                      editingCover !==
+                                      index
+                                    }
+                                    onChange={(e) =>
+                                      updateCoverSetting(
+                                        index,
+                                        {
+                                          excess:
+                                            Number(
+                                              e
+                                                .target
+                                                .value
+                                            ),
+                                        }
+                                      )
+                                    }
+                                    className={`
+                                      w-full
+                                      h-10
+                                      px-3
+                                      rounded-lg
+                                      border
+                                      border-gray-300
+                                      text-sm
+                                      font-semibold
+                                      focus:outline-none
+                                      focus:ring-2
+                                      focus:ring-gray-800
+                                      ${
+                                        editingCover !==
+                                        index
+                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                          : "bg-white text-gray-900 cursor-pointer"
+                                      }
+                                    `}
+                                  >
+                                    {Array.from(
+                                      {
+                                        length: 21,
+                                      },
+                                      (
+                                        _,
+                                        i
+                                      ) => {
+                                        const value =
+                                          i *
+                                          50;
+
+                                        return (
+                                          <option
+                                            key={
+                                              value
+                                            }
+                                            value={
+                                              value
+                                            }
+                                          >
+                                            $
+                                            {value.toLocaleString()}
+                                          </option>
+                                        );
+                                      }
+                                    )}
+                                  </select>
+                                </div>
+
+                                {/* PLAN */}
+
+                                <div className="
+                                  rounded-lg
+                                  bg-gray-50
+                                  border
+                                  border-gray-200
+                                  px-3
+                                  py-3
+                                ">
+                                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                    Plan
+                                  </label>
+
+                                  <select
+                                    value={
+                                      petSettings.plan ===
+                                      "gold"
+                                        ? "gold"
+                                        : "upgraded"
+                                    }
+                                    disabled={
+                                      editingCover !==
+                                      index
+                                    }
+                                    onChange={(e) =>
+                                      updateCoverSetting(
+                                        index,
+                                        {
+                                          plan:
+                                            e
+                                              .target
+                                              .value,
+                                        }
+                                      )
+                                    }
+                                    className={`
+                                      w-full
+                                      h-10
+                                      px-3
+                                      rounded-lg
+                                      border
+                                      border-gray-300
+                                      text-sm
+                                      font-semibold
+                                      focus:outline-none
+                                      focus:ring-2
+                                      focus:ring-gray-800
+                                      ${
+                                        editingCover !==
+                                        index
+                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                          : "bg-white text-gray-900 cursor-pointer"
+                                      }
+                                    `}
+                                  >
+                                    <option value="upgraded">
+                                      Silver
+                                    </option>
+
+                                    <option value="gold">
+                                      Gold
+                                    </option>
+                                  </select>
+                                </div>
+
+                              </div>
+                            </div>
+                          )}
+
+                      </div>
+                    );
+                  }
+                )}
+
+                {/* TOTAL */}
+
+                <div
+                  className="
+                    bg-gray-50
+                    px-5
+                    py-5
+                  "
+                >
+                  <div className="flex items-center justify-between gap-4">
+
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">
+                        Total monthly premium
+                      </div>
+
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        For all insured pets
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+
+                      {pricingLoading ? (
+                        <span className="text-sm text-gray-500">
+                          Updating
+                        </span>
+                      ) : pricing.total !==
+                        null ? (
+                        <div className="text-2xl font-bold text-gray-900">
+                          $
+                          {pricing.total.toFixed(
+                            2
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-2xl font-bold text-gray-400">
+                          —
+                        </div>
+                      )}
+
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ACKNOWLEDGEMENTS */}
+
+        <div
+          className="
+            mt-6
+            bg-amber-50
+            rounded-xl
+            border
+            border-amber-200
+            shadow-sm
+            overflow-hidden
+            mb-6
+          "
+        >
+          <div className="divide-y divide-gray-200">
+
+            {/* IMPORTANT INFORMATION */}
+
+            <Acknowledgement
+              id="terms"
+              title="Important Information"
+              description="Please review and acknowledge the information below before purchasing."
+              openTerms={
+                openTerms
+              }
+              setOpenTerms={
+                setOpenTerms
+              }
+              checked={
+                termsAccepted
+              }
+              setChecked={
+                setTermsAccepted
+              }
+            >
+              <div className="space-y-3">
+
+                <p>
+                  You understand and have complied with your{" "}
+                  <a
+                    href="#"
+                    className="text-gray-900 underline font-medium"
+                  >
+                    Duty to take reasonable care not to make a misrepresentation
+                  </a>
+                  .
+                </p>
+
+                <p>
+                  A misrepresentation includes a statement that is false,
+                  partially false, or which does not fairly reflect the truth.
+                </p>
+
+                <p>
+                  All your answers and statements made in this application
+                  are answered honestly, accurately and to the best of your
+                  knowledge.
+                </p>
+
+                <p>
+                  You have read and understand the{" "}
+                  <a
+                    href="#"
+                    className="text-gray-900 underline font-medium"
+                  >
+                    Product Disclosure Statement (PDS)
+                  </a>
+                  ,{" "}
+                  <a
+                    href="#"
+                    className="text-gray-900 underline font-medium"
+                  >
+                    Target Market Determination (TMD)
+                  </a>{" "}
+                  and Financial Services Guide.
+                </p>
+
+                <p className="font-medium text-gray-900">
+                  You acknowledge:
+                </p>
+
+                <ul className="list-disc pl-5 space-y-2">
+                  <li>
+                    You are 18 years old or older.
+                  </li>
+
+                  <li>
+                    Exclusion Periods apply from the start date of the Policy,
+                    including 1 day for Injury, 14 days for Illness and 6 months
+                    for Specified Conditions.
+                  </li>
+
+                  <li>
+                    You have read the General Exclusions in the PDS, including
+                    the exclusion of Pre-existing Symptoms and Conditions.
+                  </li>
+
+                  <li>
+                    You have read the TMD and understand that eligible Vet Costs
+                    must be paid upfront before claiming reimbursement.
+                  </li>
+
+                  <li>
+                    Any Injuries, Illnesses and/or Specified Conditions that occur
+                    prior to the end of an Exclusion Period will be considered
+                    Pre-existing Symptoms and Conditions.
+                  </li>
+                </ul>
+
+                <p>
+                  By ticking the box you confirm all the statements above.
+                </p>
+
+              </div>
+            </Acknowledgement>
+
+            {/* PRIVACY POLICY */}
+
+            <Acknowledgement
+              id="privacy"
+              title="Privacy Policy"
+              description="Please review how your personal information is handled."
+              openTerms={
+                openTerms
+              }
+              setOpenTerms={
+                setOpenTerms
+              }
+              checked={
+                privacyAccepted
+              }
+              setChecked={
+                setPrivacyAccepted
+              }
+            >
+              <div className="space-y-3">
+
+                <p>
+                  You have read, understood and agree to the terms of our{" "}
+                  <a
+                    href="#"
+                    className="text-gray-900 underline font-medium"
+                  >
+                    Privacy Policy
+                  </a>
+                  .
+                </p>
+
+                <p>
+                  You consent to WAS Insurance and its relevant insurance
+                  partners collecting, using and disclosing your personal
+                  information as described in the Privacy Policy and Joint
+                  Privacy Statement contained in the PDS.
+                </p>
+
+                <p>
+                  You consent to receiving electronic communications from
+                  WAS Insurance.
+                </p>
+
+              </div>
+            </Acknowledgement>
+
+          </div>
+        </div>
+
+        {/* ACTIONS */}
+
+        <div className="mt-6 flex gap-3 pb-8">
+
+          <button
+            type="button"
+            onClick={
+              goBackToPlans
             }
             className="
               w-1/3
+              h-12
               bg-white
               border
               border-gray-300
               hover:bg-gray-50
+              active:bg-gray-100
               text-gray-800
-              py-3
               rounded-xl
               font-semibold
+              text-sm
               transition
             "
           >
             Back
           </button>
 
-          {/* CONFIRM AND PAY */}
           <button
             type="button"
             disabled={
               !termsAccepted ||
               !privacyAccepted ||
-              !informationConfirmed ||
-              !premiumConfirmed ||
               pricingLoading ||
-              pricing.total === null
+              pricing.total ===
+                null
             }
-            onClick={confirmPayment}
+            onClick={
+              confirmPayment
+            }
             className="
               flex-1
-              py-3
+              h-12
               rounded-xl
               font-semibold
+              text-sm
               transition
               bg-amber-400
               hover:bg-amber-500
+              active:bg-amber-600
               text-gray-900
               disabled:bg-gray-200
               disabled:text-gray-400
@@ -2366,283 +3283,111 @@ export default function DetailsPage() {
         </div>
 
         {/* PET EDIT WARNING */}
+
         {showEditWarning && (
-          <div
-            className="
-              fixed
-              inset-0
-              z-50
-              flex
-              items-center
-              justify-center
-              bg-black/40
-              px-4
-            "
-          >
+          <WarningModal
+            title="Change pet details?"
+            message="Changing your pet's details may affect your insurance quote and pricing."
+            secondaryMessage="Your current quote is based on the details entered earlier."
+            onCancel={() => {
+              setShowEditWarning(
+                false
+              );
 
-            <div
-              className="
-                w-full
-                max-w-md
-                bg-white
-                rounded-2xl
-                shadow-2xl
-                p-6
-              "
-            >
+              setPetToEdit(
+                null
+              );
+            }}
+            onContinue={() => {
+              if (
+                petToEdit !==
+                null
+              ) {
+                setEditingPet(
+                  petToEdit
+                );
+              }
 
-              <div className="flex items-center gap-3 mb-4">
+              setShowEditWarning(
+                false
+              );
 
-                <div
-                  className="
-                    w-10
-                    h-10
-                    rounded-full
-                    bg-gray-100
-                    flex
-                    items-center
-                    justify-center
-                    text-lg
-                  "
-                >
-                  ⚠️
-                </div>
-
-                <h2
-                  className="
-                    text-lg
-                    font-semibold
-                    text-gray-900
-                  "
-                >
-                  Change pet details?
-                </h2>
-
-              </div>
-
-              <p
-                className="
-                  text-sm
-                  text-gray-600
-                  leading-6
-                "
-              >
-                Changing your pet&apos;s
-                details may affect your
-                insurance quote and pricing.
-              </p>
-
-              <p
-                className="
-                  text-sm
-                  text-gray-600
-                  leading-6
-                  mt-2
-                "
-              >
-                Your current quote is based
-                on the details entered
-                earlier.
-              </p>
-
-              <div className="flex gap-3 mt-6">
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditWarning(
-                      false
-                    );
-
-                    setPetToEdit(null);
-                  }}
-                  className="
-                    flex-1
-                    py-2.5
-                    rounded-xl
-                    border
-                    border-gray-300
-                    text-gray-700
-                    font-medium
-                    hover:bg-gray-50
-                  "
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (
-                      petToEdit !== null
-                    ) {
-                      setEditingPet(
-                        petToEdit
-                      );
-                    }
-
-                    setShowEditWarning(
-                      false
-                    );
-
-                    setPetToEdit(null);
-                  }}
-                  className="
-                    flex-1
-                    py-2.5
-                    rounded-xl
-                    bg-gray-800
-                    text-white
-                    font-medium
-                    hover:bg-gray-700
-                  "
-                >
-                  Continue
-                </button>
-
-              </div>
-
-            </div>
-          </div>
+              setPetToEdit(
+                null
+              );
+            }}
+          />
         )}
 
         {/* ADDRESS EDIT WARNING */}
+
         {showAddressEditWarning && (
-          <div
-            className="
-              fixed
-              inset-0
-              z-50
-              flex
-              items-center
-              justify-center
-              bg-black/40
-              px-4
-            "
-          >
+          <WarningModal
+            title="Change your address?"
+            message="Changing your address may affect your insurance quote and pricing."
+            secondaryMessage="Your current quote is based on the details entered earlier."
+            onCancel={() =>
+              setShowAddressEditWarning(
+                false
+              )
+            }
+            onContinue={() => {
+              setEditingAddress(
+                true
+              );
 
-            <div
-              className="
-                w-full
-                max-w-md
-                bg-white
-                rounded-2xl
-                shadow-2xl
-                p-6
-              "
-            >
+              setShowAddressEditWarning(
+                false
+              );
+            }}
+          />
+        )}
 
-              <div className="flex items-center gap-3 mb-4">
+        {/* COVER EDIT WARNING */}
 
-                <div
-                  className="
-                    w-10
-                    h-10
-                    rounded-full
-                    bg-gray-100
-                    flex
-                    items-center
-                    justify-center
-                    text-lg
-                  "
-                >
-                  ⚠️
-                </div>
+        {showCoverEditWarning && (
+          <WarningModal
+            title="Change your cover?"
+            message="Changing your cover may affect your insurance premium."
+            secondaryMessage="Your current premium is based on the cover selected earlier."
+            onCancel={() => {
+              setShowCoverEditWarning(
+                false
+              );
 
-                <h2
-                  className="
-                    text-lg
-                    font-semibold
-                    text-gray-900
-                  "
-                >
-                  Change your address?
-                </h2>
+              setCoverToEdit(
+                null
+              );
+            }}
+            onContinue={() => {
+              if (
+                coverToEdit !==
+                null
+              ) {
+                setEditingCover(
+                  coverToEdit
+                );
+              }
 
-              </div>
+              setShowCoverEditWarning(
+                false
+              );
 
-              <p
-                className="
-                  text-sm
-                  text-gray-600
-                  leading-6
-                "
-              >
-                Changing your address may
-                affect your insurance quote
-                and pricing.
-              </p>
-
-              <p
-                className="
-                  text-sm
-                  text-gray-600
-                  leading-6
-                  mt-2
-                "
-              >
-                Your current quote is based
-                on the address entered
-                earlier.
-              </p>
-
-              <div className="flex gap-3 mt-6">
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddressEditWarning(
-                      false
-                    );
-                  }}
-                  className="
-                    flex-1
-                    py-2.5
-                    rounded-xl
-                    border
-                    border-gray-300
-                    text-gray-700
-                    font-medium
-                    hover:bg-gray-50
-                  "
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingAddress(
-                      true
-                    );
-
-                    setShowAddressEditWarning(
-                      false
-                    );
-                  }}
-                  className="
-                    flex-1
-                    py-2.5
-                    rounded-xl
-                    bg-gray-800
-                    text-white
-                    font-medium
-                    hover:bg-gray-700
-                  "
-                >
-                  Continue
-                </button>
-
-              </div>
-
-            </div>
-          </div>
+              setCoverToEdit(
+                null
+              );
+            }}
+          />
         )}
 
       </div>
     </div>
   );
 }
+
+/* -----------------------------
+   SECTION
+------------------------------*/
 
 function Section({
   title,
@@ -2654,7 +3399,7 @@ function Section({
   action?: React.ReactNode;
 }) {
   return (
-    <div
+    <section
       className="
         bg-white
         rounded-xl
@@ -2662,18 +3407,12 @@ function Section({
         border-gray-200
         p-5
         mb-5
+        shadow-sm
       "
     >
+      <div className="flex items-center justify-between gap-4 mb-5">
 
-      <div className="flex items-center justify-between mb-4">
-
-        <h2
-          className="
-            font-semibold
-            text-lg
-            text-gray-900
-          "
-        >
+        <h2 className="font-semibold text-lg text-gray-900">
           {title}
         </h2>
 
@@ -2682,10 +3421,13 @@ function Section({
       </div>
 
       {children}
-
-    </div>
+    </section>
   );
 }
+
+/* -----------------------------
+   FORM FIELD
+------------------------------*/
 
 function FormField({
   label,
@@ -2696,7 +3438,6 @@ function FormField({
 }) {
   return (
     <div>
-
       <label
         className="
           block
@@ -2710,7 +3451,303 @@ function FormField({
       </label>
 
       {children}
+    </div>
+  );
+}
 
+/* -----------------------------
+   ERROR MESSAGE
+------------------------------*/
+
+function ErrorMessage({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <p className="text-sm text-red-600 mt-1.5">
+      {children}
+    </p>
+  );
+}
+
+/* -----------------------------
+   ACKNOWLEDGEMENT
+------------------------------*/
+
+function Acknowledgement({
+  id,
+  title,
+  description,
+  openTerms,
+  setOpenTerms,
+  checked,
+  setChecked,
+  children,
+}: {
+  id: string;
+  title: string;
+  description: string;
+  openTerms: string | null;
+  setOpenTerms: (
+    value: string | null
+  ) => void;
+  checked: boolean;
+  setChecked: (
+    value: boolean
+  ) => void;
+  children: React.ReactNode;
+}) {
+  const isOpen =
+    openTerms === id;
+
+  return (
+    <div className="p-4 sm:p-5 bg-amber-50">
+
+      <button
+        type="button"
+        onClick={() =>
+          setOpenTerms(
+            isOpen
+              ? null
+              : id
+          )
+        }
+        className="
+          w-full
+          flex
+          items-center
+          justify-between
+          gap-4
+          text-left
+          p-3
+          rounded-xl
+          transition
+          hover:bg-amber-100
+        "
+      >
+
+        <div className="min-w-0">
+
+          <h3 className="font-semibold text-gray-900">
+            {title}
+          </h3>
+
+          <p className="text-sm text-gray-500 mt-1">
+            {description}
+          </p>
+
+        </div>
+
+        <span
+          className="
+            flex-shrink-0
+            w-7
+            h-7
+            rounded-full
+            bg-white
+            border
+            border-gray-200
+            flex
+            items-center
+            justify-center
+            text-gray-500
+            text-xs
+          "
+        >
+          {isOpen
+            ? "▲"
+            : "▼"}
+        </span>
+
+      </button>
+
+      {isOpen && (
+        <div
+          className="
+            mt-3
+            mx-3
+            p-4
+            bg-gray-50
+            border
+            border-gray-200
+            rounded-xl
+            text-sm
+            text-gray-700
+            leading-6
+          "
+        >
+          {children}
+        </div>
+      )}
+
+      <label
+        className="
+          flex
+          items-start
+          gap-3
+          mt-4
+          px-3
+          cursor-pointer
+        "
+      >
+
+        <input
+          type="checkbox"
+          checked={
+            checked
+          }
+          onChange={(e) =>
+            setChecked(
+              e.target.checked
+            )
+          }
+          className="
+            mt-0.5
+            w-5
+            h-5
+            accent-gray-800
+            flex-shrink-0
+            cursor-pointer
+          "
+        />
+
+        <span className="text-sm text-gray-700 leading-5">
+          {id ===
+          "terms"
+            ? "I confirm all the statements above and acknowledge that I have read and understood the important information."
+            : "I have read, understood and agree to the Privacy Policy."}
+        </span>
+
+      </label>
+
+    </div>
+  );
+}
+
+/* -----------------------------
+   WARNING MODAL
+------------------------------*/
+
+function WarningModal({
+  title,
+  message,
+  secondaryMessage,
+  onCancel,
+  onContinue,
+}: {
+  title: string;
+  message: string;
+  secondaryMessage: string;
+  onCancel: () => void;
+  onContinue: () => void;
+}) {
+  return (
+    <div
+      className="
+        fixed
+        inset-0
+        z-50
+        flex
+        items-center
+        justify-center
+        bg-black/40
+        px-4
+        backdrop-blur-[1px]
+      "
+    >
+
+      <div
+        className="
+          w-full
+          max-w-md
+          bg-white
+          rounded-2xl
+          shadow-2xl
+          border
+          border-gray-200
+          p-6
+        "
+      >
+
+        <div className="flex items-center gap-3 mb-4">
+
+          <div
+            className="
+              w-10
+              h-10
+              rounded-full
+              bg-amber-100
+              flex
+              items-center
+              justify-center
+              text-lg
+              flex-shrink-0
+            "
+          >
+            ⚠️
+          </div>
+
+          <h2 className="text-lg font-semibold text-gray-900">
+            {title}
+          </h2>
+
+        </div>
+
+        <p className="text-sm text-gray-600 leading-6">
+          {message}
+        </p>
+
+        <p className="text-sm text-gray-600 leading-6 mt-2">
+          {secondaryMessage}
+        </p>
+
+        <div className="flex gap-3 mt-6">
+
+          <button
+            type="button"
+            onClick={
+              onCancel
+            }
+            className="
+              flex-1
+              h-11
+              rounded-xl
+              border
+              border-gray-300
+              text-gray-700
+              text-sm
+              font-medium
+              hover:bg-gray-50
+              transition
+            "
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={
+              onContinue
+            }
+            className="
+              flex-1
+              h-11
+              rounded-xl
+              bg-gray-800
+              text-white
+              text-sm
+              font-medium
+              hover:bg-gray-700
+              transition
+            "
+          >
+            Continue
+          </button>
+
+        </div>
+
+      </div>
     </div>
   );
 }
