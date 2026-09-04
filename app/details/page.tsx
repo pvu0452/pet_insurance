@@ -127,7 +127,10 @@ function DetailsContent() {
   const [openTerms, setOpenTerms] =
     useState<string | null>(null);
 
-  const [openReview, setOpenReview] =
+  const [openPetDetails, setOpenPetDetails] =
+  useState(false);
+
+  const [openPetCover, setOpenPetCover] =
     useState(false);
 
   /* -----------------------------
@@ -1931,7 +1934,7 @@ function DetailsContent() {
           </div>
         </Section>
 
-        {/* REVIEW YOUR DETAILS */}
+        {/* REVIEW YOUR PET DETAILS */}
 
         <div
           className="
@@ -1941,17 +1944,14 @@ function DetailsContent() {
             border-gray-200
             shadow-sm
             overflow-hidden
-            mb-6
+            mb-4
           "
         >
-          {/* ACCORDION HEADER */}
-
           <button
             type="button"
             onClick={() =>
-              setOpenReview(
-                (current) =>
-                  !current
+              setOpenPetDetails(
+                (current) => !current
               )
             }
             className="
@@ -1969,20 +1969,11 @@ function DetailsContent() {
           >
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-gray-900">
-                Review your details
+                Review your pet details
               </h2>
 
               <p className="text-sm text-gray-500 mt-1">
-                {pets.length}{" "}
-                {pets.length === 1
-                  ? "pet"
-                  : "pets"}
-                {" · "}
-                {pricing.total !== null
-                  ? `$${pricing.total.toFixed(
-                      2
-                    )}/month`
-                  : "Premium calculating..."}
+                Address, name, DOB, breed and sex
               </p>
             </div>
 
@@ -2002,15 +1993,11 @@ function DetailsContent() {
                 text-xs
               "
             >
-              {openReview
-                ? "▲"
-                : "▼"}
+              {openPetDetails ? "▲" : "▼"}
             </span>
           </button>
 
-          {/* ACCORDION CONTENT */}
-
-          {openReview && (
+          {openPetDetails && (
             <div className="border-t border-gray-200">
 
               {/* YOUR ADDRESS */}
@@ -2033,9 +2020,7 @@ function DetailsContent() {
                     <button
                       type="button"
                       onClick={() =>
-                        setShowAddressEditWarning(
-                          true
-                        )
+                        setShowAddressEditWarning(true)
                       }
                       className="
                         flex-shrink-0
@@ -2056,9 +2041,7 @@ function DetailsContent() {
                     <button
                       type="button"
                       onClick={async () => {
-                        setEditingAddress(
-                          false
-                        );
+                        setEditingAddress(false);
 
                         await refreshPricing(
                           pets,
@@ -2085,12 +2068,8 @@ function DetailsContent() {
 
                 <input
                   type="text"
-                  value={
-                    customer.address
-                  }
-                  readOnly={
-                    !editingAddress
-                  }
+                  value={customer.address}
+                  readOnly={!editingAddress}
                   onChange={(e) => {
                     const newAddress =
                       e.target.value;
@@ -2099,16 +2078,14 @@ function DetailsContent() {
                       suburb,
                       state,
                       postcode,
-                    } =
-                      parseAddress(
-                        newAddress
-                      );
+                    } = parseAddress(
+                      newAddress
+                    );
 
                     setCustomer(
                       (prev) => ({
                         ...prev,
-                        address:
-                          newAddress,
+                        address: newAddress,
                         suburb,
                         state,
                         postcode,
@@ -2134,7 +2111,7 @@ function DetailsContent() {
 
               {/* YOUR PETS */}
 
-              <div className="px-5 py-5 border-b border-gray-200">
+              <div className="px-5 py-5">
 
                 <div className="mb-4">
                   <h2 className="font-semibold text-lg text-gray-900">
@@ -2173,9 +2150,7 @@ function DetailsContent() {
                             <div className="flex items-center gap-2 flex-wrap">
 
                               <h3 className="font-semibold text-gray-900">
-                                Pet{" "}
-                                {index +
-                                  1}
+                                Pet {index + 1}
                               </h3>
 
                               <span className="text-gray-300">
@@ -2185,13 +2160,9 @@ function DetailsContent() {
                               <span className="text-sm font-medium text-gray-500">
                                 {pet.petType
                                   ? pet.petType
-                                      .charAt(
-                                        0
-                                      )
+                                      .charAt(0)
                                       .toUpperCase() +
-                                    pet.petType.slice(
-                                      1
-                                    )
+                                    pet.petType.slice(1)
                                   : "Pet"}
                               </span>
 
@@ -2204,18 +2175,12 @@ function DetailsContent() {
                             )}
                           </div>
 
-                          {editingPet !==
-                          index ? (
+                          {editingPet !== index ? (
                             <button
                               type="button"
                               onClick={() => {
-                                setPetToEdit(
-                                  index
-                                );
-
-                                setShowEditWarning(
-                                  true
-                                );
+                                setPetToEdit(index);
+                                setShowEditWarning(true);
                               }}
                               className="
                                 flex-shrink-0
@@ -2236,9 +2201,7 @@ function DetailsContent() {
                             <button
                               type="button"
                               onClick={async () => {
-                                setEditingPet(
-                                  null
-                                );
+                                setEditingPet(null);
 
                                 if (
                                   pricingChangedPets.includes(
@@ -2250,13 +2213,9 @@ function DetailsContent() {
                                   );
 
                                   setPricingChangedPets(
-                                    (
-                                      current
-                                    ) =>
+                                    (current) =>
                                       current.filter(
-                                        (
-                                          petIndex
-                                        ) =>
+                                        (petIndex) =>
                                           petIndex !==
                                           index
                                       )
@@ -2285,36 +2244,30 @@ function DetailsContent() {
 
                         <FormField label="Pet Name">
                           <input
-                            value={
-                              pet.name
-                            }
+                            value={pet.name}
                             readOnly={
-                              editingPet !==
-                              index
+                              editingPet !== index
                             }
                             onChange={(e) =>
                               updatePet(
                                 index,
                                 {
                                   name:
-                                    e.target
-                                      .value,
+                                    e.target.value,
                                 }
                               )
                             }
                             className={`
                               ${inputStyle}
                               ${
-                                editingPet !==
-                                index
+                                editingPet !== index
                                   ? "bg-gray-100 cursor-not-allowed"
                                   : "bg-white"
                               }
                             `}
                             style={{
                               color:
-                                editingPet !==
-                                index
+                                editingPet !== index
                                   ? "#6b7280"
                                   : "#111827",
                             }}
@@ -2329,34 +2282,25 @@ function DetailsContent() {
                               Option,
                               false
                             >
-                              options={
-                                options
-                              }
+                              options={options}
 
                               value={
                                 options.find(
-                                  (
-                                    option
-                                  ) =>
+                                  (option) =>
                                     option.value ===
                                     pet.breed
-                                ) ||
-                                null
+                                ) || null
                               }
 
                               onChange={(
                                 selected
                               ) => {
-                                if (
-                                  !selected
-                                ) {
+                                if (!selected) {
                                   updatePet(
                                     index,
                                     {
-                                      breed:
-                                        "",
-                                      petType:
-                                        null,
+                                      breed: "",
+                                      petType: null,
                                     }
                                   );
 
@@ -2377,13 +2321,10 @@ function DetailsContent() {
                                 );
                               }}
 
-                              styles={
-                                selectStyles
-                              }
+                              styles={selectStyles}
 
                               isDisabled={
-                                editingPet !==
-                                index
+                                editingPet !== index
                               }
 
                               isLoading={
@@ -2408,36 +2349,30 @@ function DetailsContent() {
                           <FormField label="Date of Birth">
                             <input
                               type="date"
-                              value={
-                                pet.dob
-                              }
+                              value={pet.dob}
                               disabled={
-                                editingPet !==
-                                index
+                                editingPet !== index
                               }
                               onChange={(e) =>
                                 updatePet(
                                   index,
                                   {
                                     dob:
-                                      e.target
-                                        .value,
+                                      e.target.value,
                                   }
                                 )
                               }
                               className={`
                                 ${inputStyle}
                                 ${
-                                  editingPet !==
-                                  index
+                                  editingPet !== index
                                     ? "bg-gray-100 cursor-not-allowed"
                                     : "bg-white cursor-pointer"
                                 }
                               `}
                               style={{
                                 color:
-                                  editingPet !==
-                                  index
+                                  editingPet !== index
                                     ? "#6b7280"
                                     : "#111827",
                               }}
@@ -2447,20 +2382,17 @@ function DetailsContent() {
                           <FormField label="Sex">
                             <select
                               value={
-                                pet.gender ||
-                                ""
+                                pet.gender || ""
                               }
                               disabled={
-                                editingPet !==
-                                index
+                                editingPet !== index
                               }
                               onChange={(e) =>
                                 updatePet(
                                   index,
                                   {
                                     gender:
-                                      e.target
-                                        .value as
+                                      e.target.value as
                                         | "male"
                                         | "female",
                                   }
@@ -2469,8 +2401,7 @@ function DetailsContent() {
                               className={`
                                 ${inputStyle}
                                 ${
-                                  editingPet !==
-                                  index
+                                  editingPet !== index
                                     ? "bg-gray-100 text-gray-600 cursor-not-allowed"
                                     : "bg-white text-gray-900 cursor-pointer"
                                 }
@@ -2499,560 +2430,570 @@ function DetailsContent() {
                 </div>
               </div>
 
-              {/* YOUR COVER */}
+            </div>
+          )}
+        </div>
 
-              <div>
+        {/* REVIEW YOUR PET COVER */}
 
-                <div className="px-5 py-5 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Your cover
-                  </h2>
+        <div
+          className="
+            bg-white
+            rounded-xl
+            border
+            border-gray-200
+            shadow-sm
+            overflow-hidden
+            mb-6
+          "
+        >
+          <button
+            type="button"
+            onClick={() =>
+              setOpenPetCover(
+                (current) => !current
+              )
+            }
+            className="
+              w-full
+              flex
+              items-center
+              justify-between
+              gap-4
+              px-5
+              py-5
+              text-left
+              hover:bg-gray-50
+              transition
+            "
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Review your pet cover
+                </h2>
+              </div>
 
-                  <p className="mt-1 text-sm text-gray-500">
-                    {pets.length === 1
-                      ? "Your monthly premium and selected cover for your pet."
-                      : "Your monthly premium and selected cover for each pet."}
-                  </p>
-                </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Annual limit, benefit, excess and plan
+              </p>
+            </div>
+            <span
+              className="
+                flex-shrink-0
+                w-8
+                h-8
+                rounded-full
+                bg-gray-100
+                border
+                border-gray-200
+                flex
+                items-center
+                justify-center
+                text-gray-500
+                text-xs
+              "
+            >
+              {openPetCover ? "▲" : "▼"}
+            </span>
+          </button>
 
-                {/* PET COVER ROWS */}
+          {openPetCover && (
+            <div className="border-t border-gray-200">
 
-                {pets.map(
-                  (pet, index) => {
-                    const petSettings =
-                      cover?.petSettings?.[
-                        String(index)
-                      ];
+              {/* PET COVER ROWS */}
 
-                    const selectedPlan =
-                      petSettings?.plan;
+              {pets.map(
+                (pet, index) => {
+                  const petSettings =
+                    cover?.petSettings?.[
+                      String(index)
+                    ];
 
-                    const price =
-                      pricing.pets[index]?.price ??
-                      null;
+                  const selectedPlan =
+                    petSettings?.plan;
 
-                    return (
-                      <div
-                        key={index}
-                        className="
-                          px-5
-                          py-5
-                          border-b
-                          border-gray-200
-                          last:border-b-0
-                        "
-                      >
+                  const price =
+                    pricing.pets[index]?.price ??
+                    null;
 
-                        {/* COVER TOP ROW */}
+                  return (
+                    <div
+                      key={index}
+                      className="
+                        px-5
+                        py-5
+                        border-b
+                        border-gray-200
+                        last:border-b-0
+                      "
+                    >
 
-                        <div className="flex items-start justify-between gap-4">
+                      {/* COVER TOP ROW */}
 
-                          <div className="min-w-0">
-                            <div className="text-base font-semibold text-gray-900">
-                              {pet.name ||
-                                `Pet ${
-                                  index +
-                                  1
-                                }`}
-                            </div>
+                      <div className="flex items-start justify-between gap-4">
+
+                        <div className="min-w-0">
+                          <div className="text-base font-semibold text-gray-900">
+                            {pet.name ||
+                              `Pet ${
+                                index + 1
+                              }`}
                           </div>
+                        </div>
 
-                          {/* PRICE + EDIT */}
+                        {/* PRICE + EDIT */}
 
-                          <div className="flex-shrink-0 flex items-center gap-3">
+                        <div className="flex-shrink-0 flex items-center gap-3">
 
-                            <div className="text-right">
+                          <div className="text-right">
 
-                              {pricingLoading ? (
-                                <span className="inline-flex items-center gap-2 text-xs text-gray-500">
+                            {pricingLoading ? (
+                              <span className="inline-flex items-center gap-2 text-xs text-gray-500">
 
-                                  <span
-                                    className="
-                                      w-3.5
-                                      h-3.5
-                                      border-2
-                                      border-gray-300
-                                      border-t-gray-700
-                                      rounded-full
-                                      animate-spin
-                                    "
-                                  />
+                                <span
+                                  className="
+                                    w-3.5
+                                    h-3.5
+                                    border-2
+                                    border-gray-300
+                                    border-t-gray-700
+                                    rounded-full
+                                    animate-spin
+                                  "
+                                />
 
-                                  Updating
+                                Updating
 
-                                </span>
-                              ) : price !==
-                                null ? (
-                                <>
-                                  <div className="text-lg font-semibold text-gray-900">
-                                    $
-                                    {price.toFixed(
-                                      2
-                                    )}
-                                  </div>
+                              </span>
+                            ) : price !== null ? (
+                              <>
+                                <div className="text-lg font-semibold text-gray-900">
+                                  ${price.toFixed(2)}
+                                </div>
 
-                                  <div className="text-[10px] text-gray-500">
-                                    per month
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="text-lg font-semibold text-gray-400">
-                                    —
-                                  </div>
-
-                                  <div className="text-[10px] text-gray-500">
-                                    Price unavailable
-                                  </div>
-                                </>
-                              )}
-
-                            </div>
-
-                            {/* COVER EDIT BUTTON */}
-
-                            {editingCover !==
-                            index ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setCoverToEdit(
-                                    index
-                                  );
-
-                                  setShowCoverEditWarning(
-                                    true
-                                  );
-                                }}
-                                className="
-                                  flex-shrink-0
-                                  text-sm
-                                  px-3
-                                  py-1.5
-                                  rounded-lg
-                                  border
-                                  border-gray-300
-                                  text-gray-700
-                                  hover:bg-gray-50
-                                  transition
-                                "
-                              >
-                                🔒 Edit
-                              </button>
+                                <div className="text-[10px] text-gray-500">
+                                  per month
+                                </div>
+                              </>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingCover(
-                                    null
-                                  );
-                                }}
-                                className="
-                                  flex-shrink-0
-                                  text-sm
-                                  px-3
-                                  py-1.5
-                                  rounded-lg
-                                  bg-gray-800
-                                  text-white
-                                  hover:bg-gray-700
-                                  transition
-                                "
-                              >
-                                Done
-                              </button>
+                              <>
+                                <div className="text-lg font-semibold text-gray-400">
+                                  —
+                                </div>
+
+                                <div className="text-[10px] text-gray-500">
+                                  Price unavailable
+                                </div>
+                              </>
                             )}
 
                           </div>
 
+                          {/* COVER EDIT BUTTON */}
+
+                          {editingCover !== index ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCoverToEdit(index);
+                                setShowCoverEditWarning(
+                                  true
+                                );
+                              }}
+                              className="
+                                flex-shrink-0
+                                text-sm
+                                px-3
+                                py-1.5
+                                rounded-lg
+                                border
+                                border-gray-300
+                                text-gray-700
+                                hover:bg-gray-50
+                                transition
+                              "
+                            >
+                              🔒 Edit
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCover(null);
+                              }}
+                              className="
+                                flex-shrink-0
+                                text-sm
+                                px-3
+                                py-1.5
+                                rounded-lg
+                                bg-gray-800
+                                text-white
+                                hover:bg-gray-700
+                                transition
+                              "
+                            >
+                              Done
+                            </button>
+                          )}
+
                         </div>
 
-                        {/* COVER OPTIONS */}
+                      </div>
 
-                        {selectedPlan &&
-                          petSettings && (
-                            <div className="mt-4">
+                      {/* COVER OPTIONS */}
 
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {selectedPlan &&
+                        petSettings && (
+                          <div className="mt-4">
 
-                                {/* ANNUAL LIMIT */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-                                <div className="
-                                  rounded-lg
-                                  bg-gray-50
-                                  border
-                                  border-gray-200
-                                  px-3
-                                  py-3
-                                ">
-                                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
-                                    Annual limit
-                                  </label>
+                              {/* ANNUAL LIMIT */}
 
-                                  <select
-                                    value={
-                                      petSettings.limit
-                                    }
-                                    disabled={
-                                      editingCover !==
-                                      index
-                                    }
-                                    onChange={(e) =>
-                                      updateCoverSetting(
-                                        index,
-                                        {
-                                          limit:
-                                            Number(
-                                              e
-                                                .target
-                                                .value
-                                            ),
-                                        }
-                                      )
-                                    }
-                                    className={`
-                                      w-full
-                                      h-10
-                                      px-3
-                                      rounded-lg
-                                      border
-                                      border-gray-300
-                                      text-sm
-                                      font-semibold
-                                      focus:outline-none
-                                      focus:ring-2
-                                      focus:ring-gray-800
-                                      ${
-                                        editingCover !==
-                                        index
-                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                          : "bg-white text-gray-900 cursor-pointer"
-                                      }
-                                    `}
-                                  >
-                                    {Array.from(
+                              <div className="
+                                rounded-lg
+                                bg-gray-50
+                                border
+                                border-gray-200
+                                px-3
+                                py-3
+                              ">
+                                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                  Annual limit
+                                </label>
+
+                                <select
+                                  value={
+                                    petSettings.limit
+                                  }
+                                  disabled={
+                                    editingCover !==
+                                    index
+                                  }
+                                  onChange={(e) =>
+                                    updateCoverSetting(
+                                      index,
                                       {
-                                        length: 26,
-                                      },
-                                      (
-                                        _,
-                                        i
-                                      ) => {
-                                        const value =
-                                          5000 +
-                                          i *
-                                            1000;
-
-                                        return (
-                                          <option
-                                            key={
-                                              value
-                                            }
-                                            value={
-                                              value
-                                            }
-                                          >
-                                            $
-                                            {value.toLocaleString()}
-                                          </option>
-                                        );
+                                        limit:
+                                          Number(
+                                            e.target
+                                              .value
+                                          ),
                                       }
-                                    )}
-                                  </select>
-                                </div>
-
-                                {/* BENEFIT */}
-
-                                <div className="
-                                  rounded-lg
-                                  bg-gray-50
-                                  border
-                                  border-gray-200
-                                  px-3
-                                  py-3
-                                ">
-                                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
-                                    Benefit
-                                  </label>
-
-                                  <select
-                                    value={
-                                      petSettings.benefit
-                                    }
-                                    disabled={
+                                    )
+                                  }
+                                  className={`
+                                    w-full
+                                    h-10
+                                    px-3
+                                    rounded-lg
+                                    border
+                                    border-gray-300
+                                    text-sm
+                                    font-semibold
+                                    focus:outline-none
+                                    focus:ring-2
+                                    focus:ring-gray-800
+                                    ${
                                       editingCover !==
                                       index
+                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                        : "bg-white text-gray-900 cursor-pointer"
                                     }
-                                    onChange={(e) =>
-                                      updateCoverSetting(
-                                        index,
-                                        {
-                                          benefit:
-                                            Number(
-                                              e
-                                                .target
-                                                .value
-                                            ),
-                                        }
-                                      )
+                                  `}
+                                >
+                                  {Array.from(
+                                    {
+                                      length: 26,
+                                    },
+                                    (_, i) => {
+                                      const value =
+                                        5000 +
+                                        i * 1000;
+
+                                      return (
+                                        <option
+                                          key={value}
+                                          value={value}
+                                        >
+                                          $
+                                          {value.toLocaleString()}
+                                        </option>
+                                      );
                                     }
-                                    className={`
-                                      w-full
-                                      h-10
-                                      px-3
-                                      rounded-lg
-                                      border
-                                      border-gray-300
-                                      text-sm
-                                      font-semibold
-                                      focus:outline-none
-                                      focus:ring-2
-                                      focus:ring-gray-800
-                                      ${
-                                        editingCover !==
-                                        index
-                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                          : "bg-white text-gray-900 cursor-pointer"
-                                      }
-                                    `}
-                                  >
-                                    {Array.from(
-                                      {
-                                        length: 7,
-                                      },
-                                      (
-                                        _,
-                                        i
-                                      ) => {
-                                        const value =
-                                          60 +
-                                          i *
-                                            5;
-
-                                        return (
-                                          <option
-                                            key={
-                                              value
-                                            }
-                                            value={
-                                              value
-                                            }
-                                          >
-                                            {value}%
-                                          </option>
-                                        );
-                                      }
-                                    )}
-                                  </select>
-                                </div>
-
-                                {/* ANNUAL EXCESS */}
-
-                                <div className="
-                                  rounded-lg
-                                  bg-gray-50
-                                  border
-                                  border-gray-200
-                                  px-3
-                                  py-3
-                                ">
-                                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
-                                    Annual excess
-                                  </label>
-
-                                  <select
-                                    value={
-                                      petSettings.excess
-                                    }
-                                    disabled={
-                                      editingCover !==
-                                      index
-                                    }
-                                    onChange={(e) =>
-                                      updateCoverSetting(
-                                        index,
-                                        {
-                                          excess:
-                                            Number(
-                                              e
-                                                .target
-                                                .value
-                                            ),
-                                        }
-                                      )
-                                    }
-                                    className={`
-                                      w-full
-                                      h-10
-                                      px-3
-                                      rounded-lg
-                                      border
-                                      border-gray-300
-                                      text-sm
-                                      font-semibold
-                                      focus:outline-none
-                                      focus:ring-2
-                                      focus:ring-gray-800
-                                      ${
-                                        editingCover !==
-                                        index
-                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                          : "bg-white text-gray-900 cursor-pointer"
-                                      }
-                                    `}
-                                  >
-                                    {Array.from(
-                                      {
-                                        length: 21,
-                                      },
-                                      (
-                                        _,
-                                        i
-                                      ) => {
-                                        const value =
-                                          i *
-                                          50;
-
-                                        return (
-                                          <option
-                                            key={
-                                              value
-                                            }
-                                            value={
-                                              value
-                                            }
-                                          >
-                                            $
-                                            {value.toLocaleString()}
-                                          </option>
-                                        );
-                                      }
-                                    )}
-                                  </select>
-                                </div>
-
-                                {/* PLAN */}
-
-                                <div className="
-                                  rounded-lg
-                                  bg-gray-50
-                                  border
-                                  border-gray-200
-                                  px-3
-                                  py-3
-                                ">
-                                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
-                                    Plan
-                                  </label>
-
-                                  <select
-                                    value={
-                                      petSettings.plan ===
-                                      "gold"
-                                        ? "gold"
-                                        : "upgraded"
-                                    }
-                                    disabled={
-                                      editingCover !==
-                                      index
-                                    }
-                                    onChange={(e) =>
-                                      updateCoverSetting(
-                                        index,
-                                        {
-                                          plan:
-                                            e
-                                              .target
-                                              .value,
-                                        }
-                                      )
-                                    }
-                                    className={`
-                                      w-full
-                                      h-10
-                                      px-3
-                                      rounded-lg
-                                      border
-                                      border-gray-300
-                                      text-sm
-                                      font-semibold
-                                      focus:outline-none
-                                      focus:ring-2
-                                      focus:ring-gray-800
-                                      ${
-                                        editingCover !==
-                                        index
-                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                          : "bg-white text-gray-900 cursor-pointer"
-                                      }
-                                    `}
-                                  >
-                                    <option value="upgraded">
-                                      Silver
-                                    </option>
-
-                                    <option value="gold">
-                                      Gold
-                                    </option>
-                                  </select>
-                                </div>
-
+                                  )}
+                                </select>
                               </div>
+
+                              {/* BENEFIT */}
+
+                              <div className="
+                                rounded-lg
+                                bg-gray-50
+                                border
+                                border-gray-200
+                                px-3
+                                py-3
+                              ">
+                                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                  Benefit
+                                </label>
+
+                                <select
+                                  value={
+                                    petSettings.benefit
+                                  }
+                                  disabled={
+                                    editingCover !==
+                                    index
+                                  }
+                                  onChange={(e) =>
+                                    updateCoverSetting(
+                                      index,
+                                      {
+                                        benefit:
+                                          Number(
+                                            e.target
+                                              .value
+                                          ),
+                                      }
+                                    )
+                                  }
+                                  className={`
+                                    w-full
+                                    h-10
+                                    px-3
+                                    rounded-lg
+                                    border
+                                    border-gray-300
+                                    text-sm
+                                    font-semibold
+                                    focus:outline-none
+                                    focus:ring-2
+                                    focus:ring-gray-800
+                                    ${
+                                      editingCover !==
+                                      index
+                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                        : "bg-white text-gray-900 cursor-pointer"
+                                    }
+                                  `}
+                                >
+                                  {Array.from(
+                                    {
+                                      length: 7,
+                                    },
+                                    (_, i) => {
+                                      const value =
+                                        60 +
+                                        i * 5;
+
+                                      return (
+                                        <option
+                                          key={value}
+                                          value={value}
+                                        >
+                                          {value}%
+                                        </option>
+                                      );
+                                    }
+                                  )}
+                                </select>
+                              </div>
+
+                              {/* ANNUAL EXCESS */}
+
+                              <div className="
+                                rounded-lg
+                                bg-gray-50
+                                border
+                                border-gray-200
+                                px-3
+                                py-3
+                              ">
+                                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                  Annual excess
+                                </label>
+
+                                <select
+                                  value={
+                                    petSettings.excess
+                                  }
+                                  disabled={
+                                    editingCover !==
+                                    index
+                                  }
+                                  onChange={(e) =>
+                                    updateCoverSetting(
+                                      index,
+                                      {
+                                        excess:
+                                          Number(
+                                            e.target
+                                              .value
+                                          ),
+                                      }
+                                    )
+                                  }
+                                  className={`
+                                    w-full
+                                    h-10
+                                    px-3
+                                    rounded-lg
+                                    border
+                                    border-gray-300
+                                    text-sm
+                                    font-semibold
+                                    focus:outline-none
+                                    focus:ring-2
+                                    focus:ring-gray-800
+                                    ${
+                                      editingCover !==
+                                      index
+                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                        : "bg-white text-gray-900 cursor-pointer"
+                                    }
+                                  `}
+                                >
+                                  {Array.from(
+                                    {
+                                      length: 21,
+                                    },
+                                    (_, i) => {
+                                      const value =
+                                        i * 50;
+
+                                      return (
+                                        <option
+                                          key={value}
+                                          value={value}
+                                        >
+                                          $
+                                          {value.toLocaleString()}
+                                        </option>
+                                      );
+                                    }
+                                  )}
+                                </select>
+                              </div>
+
+                              {/* PLAN */}
+
+                              <div className="
+                                rounded-lg
+                                bg-gray-50
+                                border
+                                border-gray-200
+                                px-3
+                                py-3
+                              ">
+                                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                  Plan
+                                </label>
+
+                                <select
+                                  value={
+                                    petSettings.plan ===
+                                    "gold"
+                                      ? "gold"
+                                      : "upgraded"
+                                  }
+                                  disabled={
+                                    editingCover !==
+                                    index
+                                  }
+                                  onChange={(e) =>
+                                    updateCoverSetting(
+                                      index,
+                                      {
+                                        plan:
+                                          e.target.value,
+                                      }
+                                    )
+                                  }
+                                  className={`
+                                    w-full
+                                    h-10
+                                    px-3
+                                    rounded-lg
+                                    border
+                                    border-gray-300
+                                    text-sm
+                                    font-semibold
+                                    focus:outline-none
+                                    focus:ring-2
+                                    focus:ring-gray-800
+                                    ${
+                                      editingCover !==
+                                      index
+                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                        : "bg-white text-gray-900 cursor-pointer"
+                                    }
+                                  `}
+                                >
+                                  <option value="upgraded">
+                                    Silver
+                                  </option>
+
+                                  <option value="gold">
+                                    Gold
+                                  </option>
+                                </select>
+                              </div>
+
                             </div>
-                          )}
-
-                      </div>
-                    );
-                  }
-                )}
-
-                {/* TOTAL */}
-
-                <div
-                  className="
-                    bg-gray-50
-                    px-5
-                    py-5
-                  "
-                >
-                  <div className="flex items-center justify-between gap-4">
-
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">
-                        Total monthly premium
-                      </div>
-
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        For all insured pets
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-
-                      {pricingLoading ? (
-                        <span className="text-sm text-gray-500">
-                          Updating
-                        </span>
-                      ) : pricing.total !==
-                        null ? (
-                        <div className="text-2xl font-bold text-gray-900">
-                          $
-                          {pricing.total.toFixed(
-                            2
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-2xl font-bold text-gray-400">
-                          —
-                        </div>
-                      )}
+                          </div>
+                        )}
 
                     </div>
+                  );
+                }
+              )}
+
+              {/* TOTAL */}
+
+              <div
+                className="
+                  bg-gray-50
+                  px-5
+                  py-5
+                "
+              >
+                <div className="flex items-center justify-between gap-4">
+
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      Total monthly premium
+                    </div>
+
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      For all insured pets
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+
+                    {pricingLoading ? (
+                      <span className="text-sm text-gray-500">
+                        Updating
+                      </span>
+                    ) : pricing.total !== null ? (
+                      <div className="text-2xl font-bold text-gray-900">
+                        ${pricing.total.toFixed(2)}
+                      </div>
+                    ) : (
+                      <div className="text-2xl font-bold text-gray-400">
+                        —
+                      </div>
+                    )}
 
                   </div>
-                </div>
 
+                </div>
               </div>
+
             </div>
           )}
         </div>
