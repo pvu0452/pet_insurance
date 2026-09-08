@@ -115,7 +115,7 @@ function SuccessPageContent() {
                   text-gray-500
                 "
               >
-                Your Insurance Quote ID
+                Your Insurance Policy Number
               </p>
 
               <p
@@ -127,7 +127,7 @@ function SuccessPageContent() {
                   tracking-wide
                 "
               >
-                {quoteId || "Quote ID unavailable"}
+                {quoteId || "Policy Number unavailable"}
               </p>
 
               <p
@@ -137,7 +137,7 @@ function SuccessPageContent() {
                   mt-3
                 "
               >
-                Please keep this Quote ID for your records.
+                Please keep this Policy Number for your records.
               </p>
 
             </div>
@@ -172,7 +172,7 @@ function SuccessPageContent() {
                   mt-3
                 "
               >
-                Your Quote ID is shown above. Please keep it for your records.
+                Your Policy Number is shown above. Please keep it for your records.
               </p>
 
             </div>
