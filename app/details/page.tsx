@@ -8,6 +8,7 @@ import {
 } from "next/navigation";
 import Select from "react-select";
 
+
 /* -----------------------------
    TYPES
 ------------------------------*/
@@ -132,7 +133,10 @@ function DetailsContent() {
 
   const [openPetCover, setOpenPetCover] =
     useState(false);
-
+  
+  const [savingQuote, setSavingQuote] = useState(false);
+  const [saveQuoteMessage, setSaveQuoteMessage] = useState("");
+  const [saveQuoteError, setSaveQuoteError] = useState("");
   /* -----------------------------
      PET EDITING
   ------------------------------*/
@@ -1125,6 +1129,76 @@ function DetailsContent() {
   }
 
   /* -----------------------------
+      SAVE QUOTE
+    ------------------------------*/
+
+    async function saveQuote() {
+      // Clear previous messages
+      setSaveQuoteMessage("");
+      setSaveQuoteError("");
+
+      // Validate customer details before saving
+      if (!validateCustomerDetails()) {
+        return;
+      }
+
+      // Make sure a valid price exists before attempting to save
+      if (pricing.total === null) {
+        setSaveQuoteError(
+          "Your quote price is currently unavailable. Please try again."
+        );
+        return;
+      }
+
+      setSavingQuote(true);
+
+      try {
+        /*
+        * Prepare the quote information that will eventually
+        * be sent to the email/save-quote service.
+        */
+        const quoteData = {
+          customer,
+          pets,
+          cover,
+          pricing,
+          quoteUrl: buildPlansUrl(),
+        };
+
+        /*
+        * TODO:
+        * Send quoteData to the Save Quote API.
+        *
+        * The email/API implementation will be added by the
+        * team member responsible for the Save Quote email.
+        *
+        * Example:
+        * await fetch("/api/save-quote", {
+        *   method: "POST",
+        *   headers: {
+        *     "Content-Type": "application/json",
+        *   },
+        *   body: JSON.stringify(quoteData),
+        * });
+        */
+
+        console.log("SAVE QUOTE DATA:", quoteData);
+
+        // Temporary success state until the email functionality is implemented
+        setSaveQuoteMessage(
+          "Your quote is ready to be sent to your email."
+        );
+      } catch (error) {
+        console.error("Save quote error:", error);
+
+        setSaveQuoteError(
+          "We couldn't save your quote. Please try again."
+        );
+      } finally {
+        setSavingQuote(false);
+      }
+    }
+  /* -----------------------------
      CONFIRM PAYMENT
   ------------------------------*/
 
@@ -1924,12 +1998,70 @@ function DetailsContent() {
                 }`}
               />
 
-              {customerErrors.email && (
+               {customerErrors.email && (
                 <ErrorMessage>
                   {customerErrors.email}
                 </ErrorMessage>
               )}
             </FormField>
+
+            {/* SAVE QUOTE */}
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Not ready to commit to payment?
+                  </h3>
+
+                  <p className="text-sm text-gray-500 mt-1">
+                    Lock in your quote for 30 days and we'll send the details to your email.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={saveQuote}
+                  disabled={savingQuote}
+                  className="
+                    shrink-0
+                    h-11
+                    px-6
+                    rounded-xl
+                    border
+                    border-gray-300
+                    bg-white
+                    text-gray-800
+                    font-semibold
+                    text-sm
+                    hover:bg-gray-50
+                    active:bg-gray-100
+                    disabled:bg-gray-100
+                    disabled:text-gray-400
+                    disabled:cursor-not-allowed
+                    transition
+                  "
+                >
+                  {savingQuote
+                    ? "Saving quote..."
+                    : "Lock in my quote"}
+                </button>
+
+              </div>
+
+              {saveQuoteMessage && (
+                <p className="text-sm text-green-600 mt-3">
+                  {saveQuoteMessage}
+                </p>
+              )}
+
+              {saveQuoteError && (
+                <p className="text-sm text-red-600 mt-3">
+                  {saveQuoteError}
+                </p>
+              )}
+            </div>
 
           </div>
         </Section>
