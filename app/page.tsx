@@ -336,8 +336,59 @@ export default function Home() {
       })
     );
 
-    router.push("/plans");
-  };
+    // Build the URL for the Plans page
+const params = new URLSearchParams();
+
+// Customer details are collected later
+params.set("first_name", "");
+params.set("last_name", "");
+params.set("email", "");
+params.set("mobile", "");
+
+// Address
+params.set("address", address);
+params.set("region", addressDetails.suburb);
+params.set("state", addressDetails.state);
+params.set("postcode", addressDetails.postcode);
+
+// Payment frequency
+params.set("payment_frequency", "monthly");
+
+// Pet details
+const urlPets = pets.map((pet, index) => ({
+  pet_no: String(index),
+  pet_name: pet.name,
+  pet_type:
+    pet.petType === "dog"
+      ? "Dog"
+      : pet.petType === "cat"
+      ? "Cat"
+      : "",
+  pet_sex:
+    pet.gender === "male"
+      ? "Male"
+      : pet.gender === "female"
+      ? "Female"
+      : "",
+  pet_breed: pet.breed,
+  pet_dob: pet.dob,
+  policy_start_date: new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Brisbane",
+  }).format(new Date()),
+  selectedPlan: null,
+  annual_limit: null,
+  benefit_percentage: null,
+  annual_excess: null,
+}));
+
+params.set("pets", JSON.stringify(urlPets));
+
+// Navigate to Plans with the full quote information
+router.push(`/plans?${params.toString()}`);
+
+};
+
+
 
   // -----------------------------
   // BUTTON STYLE
