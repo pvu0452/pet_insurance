@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: qa.spec.ts >> QA-100 - Customer details retained when continuing
-- Location: tests/qa.spec.ts:157:5
+- Name: qa.spec.ts >> QA-103 - First name does not allow special characters
+- Location: tests/qa.spec.ts:192:5
 
 # Error details
 
@@ -18,7 +18,7 @@ Test timeout of 30000ms exceeded.
 ```
 Error: locator.fill: Test timeout of 30000ms exceeded.
 Call log:
-  - waiting for locator('input[name*="name" i]').first()
+  - waiting for locator('input[name*="first" i]').first()
 
 ```
 
@@ -90,41 +90,6 @@ Call log:
 # Test source
 
 ```ts
-  64  | });
-  65  | 
-  66  | // QA-093
-  67  | test("QA-093 - Valid customer name accepted", async ({ page }) => {
-  68  |   await page.goto("/details");
-  69  | 
-  70  |   const nameField = page.locator('input[name*="name" i]').first();
-  71  | 
-  72  |   await nameField.fill("Josh");
-  73  | 
-  74  |   await expect(nameField).toHaveValue("Josh");
-  75  | });
-  76  | 
-  77  | // QA-094
-  78  | test("QA-094 - Valid mobile number accepted", async ({ page }) => {
-  79  |   await page.goto("/details");
-  80  | 
-  81  |   const mobileField = page.locator(
-  82  |     'input[name*="mobile" i], input[type="tel"]'
-  83  |   ).first();
-  84  | 
-  85  |   await mobileField.fill("0400000000");
-  86  | 
-  87  |   await expect(mobileField).toHaveValue("0400000000");
-  88  | });
-  89  | 
-  90  | // QA-095
-  91  | test("QA-095 - Invalid mobile number rejected", async ({ page }) => {
-  92  |   await page.goto("/details");
-  93  | 
-  94  |   const mobileField = page.locator(
-  95  |     'input[name*="mobile" i], input[type="tel"]'
-  96  |   ).first();
-  97  | 
-  98  |   await mobileField.fill("123");
   99  | 
   100 |   const continueButton = page.getByRole("button", {
   101 |     name: /continue|next/i,
@@ -190,8 +155,7 @@ Call log:
   161 | 
   162 |   const nameField = page.locator('input[name*="name" i]').first();
   163 | 
-> 164 |   await nameField.fill("Josh");
-      |                   ^ Error: locator.fill: Test timeout of 30000ms exceeded.
+  164 |   await nameField.fill("Josh");
   165 | 
   166 |   await expect(nameField).toHaveValue("Josh");
   167 | });
@@ -226,7 +190,8 @@ Call log:
   196 | 
   197 |   const nameField = page.locator('input[name*="first" i]').first();
   198 | 
-  199 |   await nameField.fill("Josh@#$");
+> 199 |   await nameField.fill("Josh@#$");
+      |                   ^ Error: locator.fill: Test timeout of 30000ms exceeded.
   200 | 
   201 |   await expect(nameField).not.toHaveValue("Josh@#$");
   202 | });
@@ -292,4 +257,39 @@ Call log:
   262 |   await lastNameField.fill("");
   263 | 
   264 |   const continueButton = page.getByRole("button", {
+  265 |     name: /continue|next/i,
+  266 |   });
+  267 | 
+  268 |   await continueButton.click();
+  269 | 
+  270 |   await expect(page).toHaveURL(/details/i);
+  271 | });
+  272 | 
+  273 | // QA-109
+  274 | test("QA-109 - Mobile number does not allow letters", async ({ page }) => {
+  275 |   await page.goto("/details");
+  276 | 
+  277 |   const mobileField = page.locator(
+  278 |     'input[name*="mobile" i], input[type="tel"]'
+  279 |   ).first();
+  280 | 
+  281 |   await mobileField.fill("04ABCDEF12");
+  282 | 
+  283 |   await expect(mobileField).not.toHaveValue("04ABCDEF12");
+  284 | });
+  285 | 
+  286 | // QA-110
+  287 | test("QA-110 - Mobile number does not allow special characters", async ({
+  288 |   page,
+  289 | }) => {
+  290 |   await page.goto("/details");
+  291 | 
+  292 |   const mobileField = page.locator(
+  293 |     'input[name*="mobile" i], input[type="tel"]'
+  294 |   ).first();
+  295 | 
+  296 |   await mobileField.fill("0400-000-000");
+  297 | 
+  298 |   await expect(mobileField).not.toHaveValue("0400-000-000");
+  299 | });
 ```

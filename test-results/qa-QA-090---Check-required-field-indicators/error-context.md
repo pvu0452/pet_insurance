@@ -130,7 +130,7 @@ Call log:
   60  | 
   61  |   await continueButton.click();
   62  | 
-  63  |   await expect(page.locator("body")).toBeVisible();
+  63  |   await expect(page).toHaveURL(/details/i);
   64  | });
   65  | 
   66  | // QA-093
@@ -173,7 +173,7 @@ Call log:
   103 | 
   104 |   await continueButton.click();
   105 | 
-  106 |   await expect(page.locator("body")).toBeVisible();
+  106 |   await expect(page).toHaveURL(/details/i);
   107 | });
   108 | 
   109 | // QA-096
@@ -201,7 +201,7 @@ Call log:
   131 | 
   132 |   await continueButton.click();
   133 | 
-  134 |   await expect(page.locator("body")).toBeVisible();
+  134 |   await expect(page).toHaveURL(/details/i);
   135 | });
   136 | 
   137 | // QA-098

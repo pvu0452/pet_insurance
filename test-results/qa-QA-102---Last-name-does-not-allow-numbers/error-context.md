@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: qa.spec.ts >> QA-100 - Customer details retained when continuing
-- Location: tests/qa.spec.ts:157:5
+- Name: qa.spec.ts >> QA-102 - Last name does not allow numbers
+- Location: tests/qa.spec.ts:181:5
 
 # Error details
 
@@ -18,7 +18,7 @@ Test timeout of 30000ms exceeded.
 ```
 Error: locator.fill: Test timeout of 30000ms exceeded.
 Call log:
-  - waiting for locator('input[name*="name" i]').first()
+  - waiting for locator('input[name*="last" i]').first()
 
 ```
 
@@ -90,28 +90,6 @@ Call log:
 # Test source
 
 ```ts
-  64  | });
-  65  | 
-  66  | // QA-093
-  67  | test("QA-093 - Valid customer name accepted", async ({ page }) => {
-  68  |   await page.goto("/details");
-  69  | 
-  70  |   const nameField = page.locator('input[name*="name" i]').first();
-  71  | 
-  72  |   await nameField.fill("Josh");
-  73  | 
-  74  |   await expect(nameField).toHaveValue("Josh");
-  75  | });
-  76  | 
-  77  | // QA-094
-  78  | test("QA-094 - Valid mobile number accepted", async ({ page }) => {
-  79  |   await page.goto("/details");
-  80  | 
-  81  |   const mobileField = page.locator(
-  82  |     'input[name*="mobile" i], input[type="tel"]'
-  83  |   ).first();
-  84  | 
-  85  |   await mobileField.fill("0400000000");
   86  | 
   87  |   await expect(mobileField).toHaveValue("0400000000");
   88  | });
@@ -190,8 +168,7 @@ Call log:
   161 | 
   162 |   const nameField = page.locator('input[name*="name" i]').first();
   163 | 
-> 164 |   await nameField.fill("Josh");
-      |                   ^ Error: locator.fill: Test timeout of 30000ms exceeded.
+  164 |   await nameField.fill("Josh");
   165 | 
   166 |   await expect(nameField).toHaveValue("Josh");
   167 | });
@@ -213,7 +190,8 @@ Call log:
   183 | 
   184 |   const lastNameField = page.locator('input[name*="last" i]').first();
   185 | 
-  186 |   await lastNameField.fill("Smith123");
+> 186 |   await lastNameField.fill("Smith123");
+      |                       ^ Error: locator.fill: Test timeout of 30000ms exceeded.
   187 | 
   188 |   await expect(lastNameField).not.toHaveValue("Smith123");
   189 | });
@@ -292,4 +270,26 @@ Call log:
   262 |   await lastNameField.fill("");
   263 | 
   264 |   const continueButton = page.getByRole("button", {
+  265 |     name: /continue|next/i,
+  266 |   });
+  267 | 
+  268 |   await continueButton.click();
+  269 | 
+  270 |   await expect(page).toHaveURL(/details/i);
+  271 | });
+  272 | 
+  273 | // QA-109
+  274 | test("QA-109 - Mobile number does not allow letters", async ({ page }) => {
+  275 |   await page.goto("/details");
+  276 | 
+  277 |   const mobileField = page.locator(
+  278 |     'input[name*="mobile" i], input[type="tel"]'
+  279 |   ).first();
+  280 | 
+  281 |   await mobileField.fill("04ABCDEF12");
+  282 | 
+  283 |   await expect(mobileField).not.toHaveValue("04ABCDEF12");
+  284 | });
+  285 | 
+  286 | // QA-110
 ```

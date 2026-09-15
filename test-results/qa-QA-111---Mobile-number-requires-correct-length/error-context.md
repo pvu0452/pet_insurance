@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: qa.spec.ts >> QA-100 - Customer details retained when continuing
-- Location: tests/qa.spec.ts:157:5
+- Name: qa.spec.ts >> QA-111 - Mobile number requires correct length
+- Location: tests/qa.spec.ts:302:5
 
 # Error details
 
@@ -18,7 +18,7 @@ Test timeout of 30000ms exceeded.
 ```
 Error: locator.fill: Test timeout of 30000ms exceeded.
 Call log:
-  - waiting for locator('input[name*="name" i]').first()
+  - waiting for locator('input[name*="mobile" i], input[type="tel"]').first()
 
 ```
 
@@ -90,152 +90,6 @@ Call log:
 # Test source
 
 ```ts
-  64  | });
-  65  | 
-  66  | // QA-093
-  67  | test("QA-093 - Valid customer name accepted", async ({ page }) => {
-  68  |   await page.goto("/details");
-  69  | 
-  70  |   const nameField = page.locator('input[name*="name" i]').first();
-  71  | 
-  72  |   await nameField.fill("Josh");
-  73  | 
-  74  |   await expect(nameField).toHaveValue("Josh");
-  75  | });
-  76  | 
-  77  | // QA-094
-  78  | test("QA-094 - Valid mobile number accepted", async ({ page }) => {
-  79  |   await page.goto("/details");
-  80  | 
-  81  |   const mobileField = page.locator(
-  82  |     'input[name*="mobile" i], input[type="tel"]'
-  83  |   ).first();
-  84  | 
-  85  |   await mobileField.fill("0400000000");
-  86  | 
-  87  |   await expect(mobileField).toHaveValue("0400000000");
-  88  | });
-  89  | 
-  90  | // QA-095
-  91  | test("QA-095 - Invalid mobile number rejected", async ({ page }) => {
-  92  |   await page.goto("/details");
-  93  | 
-  94  |   const mobileField = page.locator(
-  95  |     'input[name*="mobile" i], input[type="tel"]'
-  96  |   ).first();
-  97  | 
-  98  |   await mobileField.fill("123");
-  99  | 
-  100 |   const continueButton = page.getByRole("button", {
-  101 |     name: /continue|next/i,
-  102 |   });
-  103 | 
-  104 |   await continueButton.click();
-  105 | 
-  106 |   await expect(page).toHaveURL(/details/i);
-  107 | });
-  108 | 
-  109 | // QA-096
-  110 | test("QA-096 - Valid email accepted", async ({ page }) => {
-  111 |   await page.goto("/details");
-  112 | 
-  113 |   const emailField = page.locator('input[type="email"]').first();
-  114 | 
-  115 |   await emailField.fill("test@example.com");
-  116 | 
-  117 |   await expect(emailField).toHaveValue("test@example.com");
-  118 | });
-  119 | 
-  120 | // QA-097
-  121 | test("QA-097 - Invalid email rejected", async ({ page }) => {
-  122 |   await page.goto("/details");
-  123 | 
-  124 |   const emailField = page.locator('input[type="email"]').first();
-  125 | 
-  126 |   await emailField.fill("invalid-email");
-  127 | 
-  128 |   const continueButton = page.getByRole("button", {
-  129 |     name: /continue|next/i,
-  130 |   });
-  131 | 
-  132 |   await continueButton.click();
-  133 | 
-  134 |   await expect(page).toHaveURL(/details/i);
-  135 | });
-  136 | 
-  137 | // QA-098
-  138 | test("QA-098 - Navigate back without losing information", async ({ page }) => {
-  139 |   await page.goto("/details");
-  140 | 
-  141 |   await page.goBack();
-  142 |   await page.goForward();
-  143 | 
-  144 |   await expect(page).toHaveURL(/details/i);
-  145 | });
-  146 | 
-  147 | // QA-099
-  148 | test("QA-099 - Refresh Details Page", async ({ page }) => {
-  149 |   await page.goto("/details");
-  150 | 
-  151 |   await page.reload();
-  152 | 
-  153 |   await expect(page).toHaveURL(/details/i);
-  154 | });
-  155 | 
-  156 | // QA-100
-  157 | test("QA-100 - Customer details retained when continuing", async ({
-  158 |   page,
-  159 | }) => {
-  160 |   await page.goto("/details");
-  161 | 
-  162 |   const nameField = page.locator('input[name*="name" i]').first();
-  163 | 
-> 164 |   await nameField.fill("Josh");
-      |                   ^ Error: locator.fill: Test timeout of 30000ms exceeded.
-  165 | 
-  166 |   await expect(nameField).toHaveValue("Josh");
-  167 | });
-  168 | 
-  169 | // QA-101
-  170 | test("QA-101 - First name does not allow numbers", async ({ page }) => {
-  171 |   await page.goto("/details");
-  172 | 
-  173 |   const nameField = page.locator('input[name*="first" i]').first();
-  174 | 
-  175 |   await nameField.fill("Josh123");
-  176 | 
-  177 |   await expect(nameField).not.toHaveValue("Josh123");
-  178 | });
-  179 | 
-  180 | // QA-102
-  181 | test("QA-102 - Last name does not allow numbers", async ({ page }) => {
-  182 |   await page.goto("/details");
-  183 | 
-  184 |   const lastNameField = page.locator('input[name*="last" i]').first();
-  185 | 
-  186 |   await lastNameField.fill("Smith123");
-  187 | 
-  188 |   await expect(lastNameField).not.toHaveValue("Smith123");
-  189 | });
-  190 | 
-  191 | // QA-103
-  192 | test("QA-103 - First name does not allow special characters", async ({
-  193 |   page,
-  194 | }) => {
-  195 |   await page.goto("/details");
-  196 | 
-  197 |   const nameField = page.locator('input[name*="first" i]').first();
-  198 | 
-  199 |   await nameField.fill("Josh@#$");
-  200 | 
-  201 |   await expect(nameField).not.toHaveValue("Josh@#$");
-  202 | });
-  203 | 
-  204 | // QA-104
-  205 | test("QA-104 - Last name does not allow special characters", async ({
-  206 |   page,
-  207 | }) => {
-  208 |   await page.goto("/details");
   209 | 
   210 |   const lastNameField = page.locator('input[name*="last" i]').first();
   211 | 
@@ -292,4 +146,150 @@ Call log:
   262 |   await lastNameField.fill("");
   263 | 
   264 |   const continueButton = page.getByRole("button", {
+  265 |     name: /continue|next/i,
+  266 |   });
+  267 | 
+  268 |   await continueButton.click();
+  269 | 
+  270 |   await expect(page).toHaveURL(/details/i);
+  271 | });
+  272 | 
+  273 | // QA-109
+  274 | test("QA-109 - Mobile number does not allow letters", async ({ page }) => {
+  275 |   await page.goto("/details");
+  276 | 
+  277 |   const mobileField = page.locator(
+  278 |     'input[name*="mobile" i], input[type="tel"]'
+  279 |   ).first();
+  280 | 
+  281 |   await mobileField.fill("04ABCDEF12");
+  282 | 
+  283 |   await expect(mobileField).not.toHaveValue("04ABCDEF12");
+  284 | });
+  285 | 
+  286 | // QA-110
+  287 | test("QA-110 - Mobile number does not allow special characters", async ({
+  288 |   page,
+  289 | }) => {
+  290 |   await page.goto("/details");
+  291 | 
+  292 |   const mobileField = page.locator(
+  293 |     'input[name*="mobile" i], input[type="tel"]'
+  294 |   ).first();
+  295 | 
+  296 |   await mobileField.fill("0400-000-000");
+  297 | 
+  298 |   await expect(mobileField).not.toHaveValue("0400-000-000");
+  299 | });
+  300 | 
+  301 | // QA-111
+  302 | test("QA-111 - Mobile number requires correct length", async ({ page }) => {
+  303 |   await page.goto("/details");
+  304 | 
+  305 |   const mobileField = page.locator(
+  306 |     'input[name*="mobile" i], input[type="tel"]'
+  307 |   ).first();
+  308 | 
+> 309 |   await mobileField.fill("040000");
+      |                     ^ Error: locator.fill: Test timeout of 30000ms exceeded.
+  310 | 
+  311 |   const continueButton = page.getByRole("button", {
+  312 |     name: /continue|next/i,
+  313 |   });
+  314 | 
+  315 |   await continueButton.click();
+  316 | 
+  317 |   await expect(page).toHaveURL(/details/i);
+  318 | });
+  319 | 
+  320 | // QA-112
+  321 | test("QA-112 - Mobile number accepts valid Australian number", async ({
+  322 |   page,
+  323 | }) => {
+  324 |   await page.goto("/details");
+  325 | 
+  326 |   const mobileField = page.locator(
+  327 |     'input[name*="mobile" i], input[type="tel"]'
+  328 |   ).first();
+  329 | 
+  330 |   await mobileField.fill("0400000000");
+  331 | 
+  332 |   await expect(mobileField).toHaveValue("0400000000");
+  333 | });
+  334 | 
+  335 | // QA-113
+  336 | test("QA-113 - Email rejects missing @ symbol", async ({ page }) => {
+  337 |   await page.goto("/details");
+  338 | 
+  339 |   const emailField = page.locator('input[type="email"]').first();
+  340 | 
+  341 |   await emailField.fill("testexample.com");
+  342 | 
+  343 |   const continueButton = page.getByRole("button", {
+  344 |     name: /continue|next/i,
+  345 |   });
+  346 | 
+  347 |   await continueButton.click();
+  348 | 
+  349 |   await expect(page).toHaveURL(/details/i);
+  350 | });
+  351 | 
+  352 | // QA-114
+  353 | test("QA-114 - Email rejects missing domain", async ({ page }) => {
+  354 |   await page.goto("/details");
+  355 | 
+  356 |   const emailField = page.locator('input[type="email"]').first();
+  357 | 
+  358 |   await emailField.fill("test@");
+  359 | 
+  360 |   const continueButton = page.getByRole("button", {
+  361 |     name: /continue|next/i,
+  362 |   });
+  363 | 
+  364 |   await continueButton.click();
+  365 | 
+  366 |   await expect(page).toHaveURL(/details/i);
+  367 | });
+  368 | 
+  369 | // QA-115
+  370 | test("QA-115 - Email accepts valid email address", async ({ page }) => {
+  371 |   await page.goto("/details");
+  372 | 
+  373 |   const emailField = page.locator('input[type="email"]').first();
+  374 | 
+  375 |   await emailField.fill("josh@example.com");
+  376 | 
+  377 |   await expect(emailField).toHaveValue("josh@example.com");
+  378 | });
+  379 | 
+  380 | // QA-116
+  381 | test("QA-116 - Quote price is displayed", async ({ page }) => {
+  382 |   await page.goto("/details");
+  383 | 
+  384 |   await expect(page.locator("body")).toContainText(/\$/);
+  385 | });
+  386 | 
+  387 | // QA-117
+  388 | test("QA-117 - Selected plan is displayed correctly", async ({ page }) => {
+  389 |   await page.goto("/details");
+  390 | 
+  391 |   await expect(page.locator("body")).toContainText(/silver|gold|plan/i);
+  392 | });
+  393 | 
+  394 | // QA-118
+  395 | test("QA-118 - Quote contains pet information", async ({ page }) => {
+  396 |   await page.goto("/details");
+  397 | 
+  398 |   await expect(page.locator("body")).toContainText(/pet/i);
+  399 | });
+  400 | 
+  401 | // QA-119
+  402 | test("QA-119 - Customer details section is displayed", async ({ page }) => {
+  403 |   await page.goto("/details");
+  404 | 
+  405 |   await expect(page.locator("body")).toContainText(
+  406 |     /customer|personal details/i
+  407 |   );
+  408 | });
+  409 | 
 ```

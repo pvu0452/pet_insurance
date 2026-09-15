@@ -152,7 +152,7 @@ Call log:
   60  | 
   61  |   await continueButton.click();
   62  | 
-  63  |   await expect(page.locator("body")).toBeVisible();
+  63  |   await expect(page).toHaveURL(/details/i);
   64  | });
   65  | 
   66  | // QA-093
@@ -196,7 +196,7 @@ Call log:
   103 | 
   104 |   await continueButton.click();
   105 | 
-  106 |   await expect(page.locator("body")).toBeVisible();
+  106 |   await expect(page).toHaveURL(/details/i);
   107 | });
   108 | 
   109 | // QA-096
@@ -224,7 +224,7 @@ Call log:
   131 | 
   132 |   await continueButton.click();
   133 | 
-  134 |   await expect(page.locator("body")).toBeVisible();
+  134 |   await expect(page).toHaveURL(/details/i);
   135 | });
   136 | 
   137 | // QA-098
@@ -232,31 +232,48 @@ Call log:
   139 |   await page.goto("/details");
   140 | 
   141 |   await page.goBack();
-  142 | 
-  143 |   await page.goForward();
-  144 | 
-  145 |   await expect(page).toHaveURL(/details/i);
-  146 | });
-  147 | 
-  148 | // QA-099
-  149 | test("QA-099 - Refresh Details Page", async ({ page }) => {
-  150 |   await page.goto("/details");
-  151 | 
-  152 |   await page.reload();
-  153 | 
-  154 |   await expect(page).toHaveURL(/details/i);
-  155 | });
-  156 | 
-  157 | // QA-100
-  158 | test("QA-100 - Customer details retained when continuing", async ({
-  159 |   page,
-  160 | }) => {
-  161 |   await page.goto("/details");
-  162 | 
-  163 |   const nameField = page.locator('input[name*="name" i]').first();
-  164 | 
-  165 |   await nameField.fill("Josh");
-  166 | 
-  167 |   await expect(nameField).toHaveValue("Josh");
-  168 | });
+  142 |   await page.goForward();
+  143 | 
+  144 |   await expect(page).toHaveURL(/details/i);
+  145 | });
+  146 | 
+  147 | // QA-099
+  148 | test("QA-099 - Refresh Details Page", async ({ page }) => {
+  149 |   await page.goto("/details");
+  150 | 
+  151 |   await page.reload();
+  152 | 
+  153 |   await expect(page).toHaveURL(/details/i);
+  154 | });
+  155 | 
+  156 | // QA-100
+  157 | test("QA-100 - Customer details retained when continuing", async ({
+  158 |   page,
+  159 | }) => {
+  160 |   await page.goto("/details");
+  161 | 
+  162 |   const nameField = page.locator('input[name*="name" i]').first();
+  163 | 
+  164 |   await nameField.fill("Josh");
+  165 | 
+  166 |   await expect(nameField).toHaveValue("Josh");
+  167 | });
+  168 | 
+  169 | // QA-101
+  170 | test("QA-101 - First name does not allow numbers", async ({ page }) => {
+  171 |   await page.goto("/details");
+  172 | 
+  173 |   const nameField = page.locator('input[name*="first" i]').first();
+  174 | 
+  175 |   await nameField.fill("Josh123");
+  176 | 
+  177 |   await expect(nameField).not.toHaveValue("Josh123");
+  178 | });
+  179 | 
+  180 | // QA-102
+  181 | test("QA-102 - Last name does not allow numbers", async ({ page }) => {
+  182 |   await page.goto("/details");
+  183 | 
+  184 |   const lastNameField = page.locator('input[name*="last" i]').first();
+  185 | 
 ```
