@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Select from "react-select";
+import Select, { components } from "react-select";
 import { importLibrary, setOptions as setGoogleMapsOptions, } from "@googlemaps/js-api-loader";
 
 let googleMapsConfigured = false;
@@ -385,7 +385,6 @@ params.set("pets", JSON.stringify(urlPets));
 
 // Navigate to Plans with the full quote information
 router.push(`/plans?${params.toString()}`);
-
 };
 
 
@@ -395,13 +394,15 @@ router.push(`/plans?${params.toString()}`);
   // -----------------------------
   const buttonStyle = (active: boolean) => ({
     flex: 1,
-    padding: "12px",
-    borderRadius: 10,
-    border: "1px solid #ddd",
-    background: active ? "#eaac2a" : "#fff",
+    height: 48,
+    padding: "0 15px",
+    borderRadius: 5,
+    border: "1px solid #e6e3e0",
+    background: active ? "#fdba2e" : "#fff",
     color: "#111",
     cursor: "pointer",
-    fontWeight: 500,
+    fontWeight: 600,
+    fontSize: 15,
   });
 
   // -----------------------------
@@ -409,11 +410,37 @@ router.push(`/plans?${params.toString()}`);
   // -----------------------------
   const labelStyle = {
     color: "#333",
-    fontSize: 13,
+    fontSize: 17,
     fontWeight: 600,
-    marginBottom: 7,
+    marginBottom: 5,
     display: "block",
   };
+
+  // -----------------------------
+  // INPUT STYLE
+  // -----------------------------
+  const inputStyle = {
+    width: "100%",
+    height: 48,
+    padding: "15px",
+    borderRadius: 5,
+    border: "1px solid #e6e3e0",
+    backgroundColor: "#fff",
+    color: "#111",
+    outline: "none",
+    boxSizing: "border-box" as const,
+    fontSize: 15,
+  };
+
+  // -----------------------------
+  // ERROR STYLE
+  // -----------------------------
+
+  const errorStyle = {
+  color: "#d50000",
+  fontSize: 14,
+  marginTop: 5,
+};
 
   // -----------------------------
   // SELECT STYLES
@@ -421,13 +448,45 @@ router.push(`/plans?${params.toString()}`);
   const selectStyles = (hasError: boolean) => ({
     control: (base: any, state: any) => ({
       ...base,
-      minHeight: "46px",
-      borderRadius: "10px",
-      border: `1px solid ${hasError ? "red" : "#ddd"}`,
+      minHeight: "48px",
+      height: "48px",
+      borderRadius: "5px",
+      border: `1px solid ${
+        hasError ? "#d50000" : "#e6e3e0"
+      }`,
       boxShadow: "none",
       backgroundColor: "#fff",
+
       "&:hover": {
-        borderColor: hasError ? "red" : "#ddd",
+        borderColor:
+          hasError ? "#d50000" : "#e6e3e0",
+      },
+    }),
+
+    valueContainer: (base: any) => ({
+      ...base,
+      height: "48px",
+      padding: "0 15px",
+      fontSize: "15px",
+    }),
+
+    indicatorsContainer: (base: any) => ({
+      ...base,
+      height: "48px",
+    }),
+
+    indicatorSeparator: () => ({
+      display: "none",
+    }),
+
+    dropdownIndicator: (base: any) => ({
+      ...base,
+      padding: 0,
+      marginRight: "15px",
+      color: "#555",
+
+      "&:hover": {
+        color: "#555",
       },
     }),
 
@@ -763,7 +822,7 @@ router.push(`/plans?${params.toString()}`);
         flexDirection: "column",
         alignItems: "center",
         padding: 40,
-        fontFamily: "Arial",
+        fontFamily: "Lato, sans-serif",
       }}
     >
       {/* LOGO */}
@@ -914,7 +973,7 @@ router.push(`/plans?${params.toString()}`);
                 )}
               </div>
               {/* NAME */}
-              <div style={{ marginTop: 25 }}>
+              <div>
                 <label style={labelStyle}>
                   Pet's Name
                 </label>
@@ -941,33 +1000,22 @@ router.push(`/plans?${params.toString()}`);
                   }}
                   placeholder="Enter your pet's name"
                   style={{
-                    width: "100%",
-                    padding: 12,
-                    borderRadius: 10,
+                    ...inputStyle,
                     border: petError?.name
-                      ? "1px solid red"
-                      : "1px solid #ddd",
-                    color: "#111",
-                    outline: "none",
-                    boxSizing: "border-box",
+                      ? "2px solid #d50000"
+                      : "1px solid #e6e3e0",
                   }}
                 />
 
                 {petError?.name && (
-                  <p
-                    style={{
-                      color: "red",
-                      fontSize: 12,
-                      marginTop: 6,
-                    }}
-                  >
+                  <p style={errorStyle}>
                     Pet's name is required
                   </p>
                 )}
               </div>
 
               {/* GENDER */}
-              <div style={{ marginTop: 25 }}>
+              <div style={{ marginTop: 10 }}>
                 <span style={labelStyle}>
                   Gender
                 </span>
@@ -985,8 +1033,8 @@ router.push(`/plans?${params.toString()}`);
                         pet.gender === "male"
                       ),
                       border: petError?.gender
-                        ? "1px solid red"
-                        : "1px solid #ddd",
+                        ? "2px solid #d50000"
+                        : "1px solid #e6e3e0",
                     }}
                     onClick={() =>
                       updatePet(index, {
@@ -994,7 +1042,7 @@ router.push(`/plans?${params.toString()}`);
                       })
                     }
                   >
-                    ♂ Male
+                    Male
                   </button>
 
                   <button
@@ -1004,8 +1052,8 @@ router.push(`/plans?${params.toString()}`);
                         pet.gender === "female"
                       ),
                       border: petError?.gender
-                        ? "1px solid red"
-                        : "1px solid #ddd",
+                        ? "2px solid #d50000"
+                        : "1px solid #e6e3e0",
                     }}
                     onClick={() =>
                       updatePet(index, {
@@ -1013,25 +1061,19 @@ router.push(`/plans?${params.toString()}`);
                       })
                     }
                   >
-                    ♀ Female
+                    Female
                   </button>
                 </div>
 
                 {petError?.gender && (
-                  <p
-                    style={{
-                      color: "red",
-                      fontSize: 12,
-                      marginTop: 6,
-                    }}
-                  >
+                  <p style={errorStyle}>
                     Please select Male or Female
                   </p>
                 )}
               </div>
 
               {/* BREED */}
-              <div style={{ marginTop: 25 }}>
+              <div style={{ marginTop: 10 }}>
                 <label style={labelStyle}>
                   Breed
                 </label>
@@ -1062,6 +1104,27 @@ router.push(`/plans?${params.toString()}`);
                       });
                     }}
                     styles={selectStyles(!!petError?.breed)}
+
+                    components={{
+                      IndicatorSeparator: () => null,
+                      DropdownIndicator: (props: any) => (
+                        <components.DropdownIndicator {...props}>
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </components.DropdownIndicator>
+                      ),
+                    }}
+
                     isLoading={loadingBreeds}
                     placeholder="Select your pet's breed"
                     noOptionsMessage={() =>
@@ -1073,20 +1136,14 @@ router.push(`/plans?${params.toString()}`);
                 )}
 
                 {petError?.breed && (
-                  <p
-                    style={{
-                      color: "red",
-                      fontSize: 12,
-                      marginTop: 6,
-                    }}
-                  >
+                  <p style={errorStyle}>
                     Breed is required
                   </p>
                 )}
               </div>
 
               {/* DOB */}
-              <div style={{ marginTop: 20 }}>
+              <div style={{ marginTop: 10 }}>
                 <label style={labelStyle}>
                   Pet's Date of Birth
                 </label>
@@ -1146,26 +1203,18 @@ router.push(`/plans?${params.toString()}`);
                       )
                     );
                   }}
+
                   style={{
-                    width: "100%",
-                    padding: 12,
-                    borderRadius: 10,
+                    ...inputStyle,
                     border: petError?.dob
-                      ? "1px solid red"
-                      : "1px solid #ddd",
-                    color: "#111",
-                    outline: "none",
+                      ? "2px solid #d50000"
+                      : "1px solid #e6e3e0",
+                    cursor: "pointer",
                   }}
                 />
 
                 {petError?.dob && (
-                  <p
-                    style={{
-                      color: "red",
-                      fontSize: 12,
-                      marginTop: 6,
-                    }}
-                  >
+                  <p style={errorStyle}>
                     {petError.dob}
                   </p>
                 )}
@@ -1229,10 +1278,13 @@ router.push(`/plans?${params.toString()}`);
               SHARED ADDRESS
             ========================== */}
 
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 15 }}>
           <label style={labelStyle}>
             Home Address
           </label>
+          
+          {/*
+             Manual fallback if Google Maps fails for demonstration purposes */}
 
           {googleMapsFailed ? (
             <input
@@ -1246,16 +1298,10 @@ router.push(`/plans?${params.toString()}`);
               }}
               placeholder="e.g. 123 Queen Street, Brisbane QLD 4000"
               style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 10,
+                ...inputStyle,
                 border: addressError
-                  ? "1px solid red"
-                  : "1px solid #ddd",
-                backgroundColor: "#fff",
-                color: "#111",
-                outline: "none",
-                boxSizing: "border-box",
+                  ? "2px solid #d50000"
+                  : "1px solid #e6e3e0",
               }}
             />
           ) : (
@@ -1263,11 +1309,11 @@ router.push(`/plans?${params.toString()}`);
               ref={addressContainerRef}
               style={{
                 width: "100%",
-                minHeight: 46,
-                borderRadius: 10,
+                minHeight: 48,
+                borderRadius: 5,
                 border: addressError
-                  ? "1px solid red"
-                  : "1px solid #ddd",
+                  ? "2px solid #d50000"
+                  : "1px solid #e6e3e0",
                 backgroundColor: "#fff",
                 boxSizing: "border-box",
                 overflow: "visible",
@@ -1276,17 +1322,12 @@ router.push(`/plans?${params.toString()}`);
           )}
 
           {addressError && (
-            <p
-              style={{
-                color: "red",
-                fontSize: 12,
-                marginTop: 6,
-              }}
-            >
+            <p style={errorStyle}>
               {addressError}
             </p>
           )}
         </div>
+        
         {/* =========================
             GENERATE QUOTE
         ========================== */}
@@ -1294,15 +1335,16 @@ router.push(`/plans?${params.toString()}`);
         <button
           onClick={handleSubmit}
           style={{
-            marginTop: 30,
+            marginTop: 15,
             width: "100%",
-            padding: 14,
-            borderRadius: 10,
+            height: 50,
+            borderRadius: 5,
             border: "none",
-            background: "#eaac2a",
+            background: "#fdba2e",
             color: "#111",
             cursor: "pointer",
-            fontWeight: 600,
+            fontWeight: 900,
+            fontSize: 15,
           }}
         >
           Generate Quote
