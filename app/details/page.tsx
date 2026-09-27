@@ -149,6 +149,9 @@ function DetailsContent() {
   const [openDatePicker, setOpenDatePicker] =
     useState<number | null>(null);
 
+  const [dobInputs, setDobInputs] =
+    useState<Record<number, string>>({});
+
   const [pricingChangedPets, setPricingChangedPets] =
     useState<number[]>([]);
 
@@ -2515,57 +2518,130 @@ function DetailsContent() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
 
                           <FormField label="Date of Birth">
-                            <button
-                              type="button"
-                              disabled={editingPet !== index}
-                              onClick={() =>
-                                setOpenDatePicker(
-                                  openDatePicker === index
-                                    ? null
-                                    : index
-                                )
-                              }
-                              className={`
-                                ${inputStyle}
-                                flex
-                                items-center
-                                justify-between
-                                text-left
-                                ${
-                                  editingPet !== index
-                                    ? "bg-gray-100 cursor-not-allowed text-gray-500"
-                                    : "bg-white cursor-pointer text-gray-900"
+                            <div className="relative w-full">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="DD/MM/YYYY"
+                                disabled={editingPet !== index}
+                                value={
+                                  dobInputs[index] ??
+                                  (pet.dob
+                                    ? pet.dob.split("-").reverse().join("/")
+                                    : "")
                                 }
-                              `}
-                            >
-                              <span>
-                                {pet.dob || "Select date"}
-                              </span>
+                                onFocus={() => {
+                                  if (editingPet === index) {
+                                    setOpenDatePicker(index);
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const digits = e.target.value
+                                    .replace(/\D/g, "")
+                                    .slice(0, 8);
 
-                              <svg
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="flex-shrink-0 text-[#555]"
+                                  let formatted = digits;
+
+                                  if (digits.length > 4) {
+                                    formatted =
+                                      `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+                                  } else if (digits.length > 2) {
+                                    formatted =
+                                      `${digits.slice(0, 2)}/${digits.slice(2)}`;
+                                  }
+
+                                  setDobInputs((current) => ({
+                                    ...current,
+                                    [index]: formatted,
+                                  }));
+
+                                  if (digits.length !== 8) {
+                                    return;
+                                  }
+
+                                  const day = Number(digits.slice(0, 2));
+                                  const month = Number(digits.slice(2, 4));
+                                  const year = Number(digits.slice(4, 8));
+
+                                  const typedDate = new Date(
+                                    year,
+                                    month - 1,
+                                    day
+                                  );
+
+                                  const isValidDate =
+                                    typedDate.getFullYear() === year &&
+                                    typedDate.getMonth() === month - 1 &&
+                                    typedDate.getDate() === day;
+
+                                  if (!isValidDate) {
+                                    return;
+                                  }
+
+                                  const monthString = String(month).padStart(2, "0");
+                                  const dayString = String(day).padStart(2, "0");
+
+                                  updatePet(index, {
+                                    dob: `${year}-${monthString}-${dayString}`,
+                                  });
+                                }}
+                                className={`
+                                  ${inputStyle}
+                                  pr-[45px]
+                                  ${
+                                    editingPet !== index
+                                      ? "bg-gray-100 cursor-not-allowed text-gray-500"
+                                      : "bg-white text-gray-900"
+                                  }
+                                `}
+                              />
+
+                              <button
+                                type="button"
+                                disabled={editingPet !== index}
+                                onClick={() =>
+                                  setOpenDatePicker(
+                                    openDatePicker === index ? null : index
+                                  )
+                                }
+                                aria-label="Open date picker"
+                                className="
+                                  absolute
+                                  right-[15px]
+                                  top-1/2
+                                  -translate-y-1/2
+                                  flex
+                                  items-center
+                                  justify-center
+                                  text-[#555]
+                                  disabled:text-gray-400
+                                  disabled:cursor-not-allowed
+                                "
                               >
-                                <rect
-                                  x="3"
-                                  y="4"
+                                <svg
                                   width="18"
                                   height="18"
-                                  rx="2"
-                                  ry="2"
-                                />
-                                <line x1="16" y1="2" x2="16" y2="6" />
-                                <line x1="8" y1="2" x2="8" y2="6" />
-                                <line x1="3" y1="10" x2="21" y2="10" />
-                              </svg>
-                            </button>
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <rect
+                                    x="3"
+                                    y="4"
+                                    width="18"
+                                    height="18"
+                                    rx="2"
+                                    ry="2"
+                                  />
+                                  <line x1="16" y1="2" x2="16" y2="6" />
+                                  <line x1="8" y1="2" x2="8" y2="6" />
+                                  <line x1="3" y1="10" x2="21" y2="10" />
+                                </svg>
+                              </button>
+                            </div>
 
                             {openDatePicker === index && (
                               <div
@@ -2623,6 +2699,11 @@ function DetailsContent() {
                                     updatePet(index, {
                                       dob: `${year}-${month}-${day}`,
                                     });
+
+                                    setDobInputs((current) => ({
+                                      ...current,
+                                      [index]: `${day}/${month}/${year}`,
+                                    }));
 
                                     setOpenDatePicker(null);
                                   }}

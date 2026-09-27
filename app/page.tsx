@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Select, { components } from "react-select";
+import { DayPicker } from "@daypicker/react";
+import "@daypicker/react/style.css";
 import { importLibrary, setOptions as setGoogleMapsOptions, } from "@googlemaps/js-api-loader";
 
 let googleMapsConfigured = false;
@@ -28,6 +30,13 @@ export default function Home() {
   const [options, setOptions] = useState<Option[]>([]);
   const [mounted, setMounted] = useState(false);
   const [loadingBreeds, setLoadingBreeds] = useState(true);
+
+  const [openDatePicker, setOpenDatePicker] =
+  useState<number | null>(null);
+
+  const [dobInputs, setDobInputs] =
+  useState<Record<number, string>>({});
+
   const handleLogoClick = () => {
     sessionStorage.removeItem("petDetails");
     sessionStorage.removeItem("cover");
@@ -1148,70 +1157,296 @@ router.push(`/plans?${params.toString()}`);
                   Pet's Date of Birth
                 </label>
 
-                <input
-                  type="date"
-                  value={pet.dob}
-                  onChange={(e) => {
-                    const selectedDob =
-                      e.target.value;
+                <div
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                  }}
+                >
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="DD/MM/YYYY"
+                    value={
+                      dobInputs[index] ??
+                      (pet.dob
+                        ? pet.dob.split("-").reverse().join("/")
+                        : "")
+                    }
+                    onFocus={() =>
+                      setOpenDatePicker(index)
+                    }
+                    onChange={(e) => {
+                      const digits = e.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 8);
 
-                    updatePet(index, {
-                      dob: selectedDob,
-                    });
+                      let formatted = digits;
 
-                    if (selectedDob === "") {
+                      if (digits.length > 4) {
+                        formatted =
+                          `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+                      } else if (digits.length > 2) {
+                        formatted =
+                          `${digits.slice(0, 2)}/${digits.slice(2)}`;
+                      }
+
+                      setDobInputs((current) => ({
+                        ...current,
+                        [index]: formatted,
+                      }));
+
+                      // Don't save until DD/MM/YYYY is complete
+                      if (digits.length !== 8) {
+                        updatePet(index, {
+                          dob: "",
+                        });
+
+                        return;
+                      }
+
+                      const day = Number(
+                        digits.slice(0, 2)
+                      );
+
+                      const month = Number(
+                        digits.slice(2, 4)
+                      );
+
+                      const year = Number(
+                        digits.slice(4, 8)
+                      );
+
+                      const typedDate = new Date(
+                        year,
+                        month - 1,
+                        day
+                      );
+
+                      // Make sure the date actually exists
+                      const isValidDate =
+                        typedDate.getFullYear() === year &&
+                        typedDate.getMonth() === month - 1 &&
+                        typedDate.getDate() === day;
+
+                      if (!isValidDate) {
+                        updatePet(index, {
+                          dob: "",
+                        });
+
+                        setErrors((current) =>
+                          current.map((error, i) =>
+                            i === index
+                              ? {
+                                  ...error,
+                                  dob: "Please enter a valid date",
+                                }
+                              : error
+                          )
+                        );
+
+                        return;
+                      }
+
+                      const monthString = String(
+                        month
+                      ).padStart(2, "0");
+
+                      const dayString = String(
+                        day
+                      ).padStart(2, "0");
+
+                      const selectedDob =
+                        `${year}-${monthString}-${dayString}`;
+
+                      updatePet(index, {
+                        dob: selectedDob,
+                      });
+
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+
+                      const minimumDobDate =
+                        new Date(today);
+
+                      minimumDobDate.setDate(
+                        today.getDate() - 14
+                      );
+
+                      typedDate.setHours(0, 0, 0, 0);
+
                       setErrors((current) =>
                         current.map((error, i) =>
                           i === index
                             ? {
-                              ...error,
-                              dob:
-                                "Date of Birth is required",
-                            }
+                                ...error,
+                                dob:
+                                  typedDate >
+                                  minimumDobDate
+                                    ? "Your pet must be at least 14 days old"
+                                    : "",
+                              }
                             : error
                         )
                       );
-                      return;
-                    }
+                    }}
+                    style={{
+                      ...inputStyle,
+                      paddingRight: 45,
+                      border: petError?.dob
+                        ? "1px solid #d50000"
+                        : "1px solid #e6e3e0",
+                    }}
+                  />
 
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-
-                    const minimumDobDate =
-                      new Date(today);
-
-                    minimumDobDate.setDate(
-                      today.getDate() - 14
-                    );
-
-                    const selectedDate = new Date(
-                      selectedDob + "T00:00:00"
-                    );
-
-                    setErrors((current) =>
-                      current.map((error, i) =>
-                        i === index
-                          ? {
-                            ...error,
-                            dob:
-                              selectedDate >
-                                minimumDobDate
-                                ? "Your pet must be at least 14 days old"
-                                : "",
-                          }
-                          : error
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenDatePicker(
+                        openDatePicker === index
+                          ? null
+                          : index
                       )
-                    );
-                  }}
+                    }
+                    aria-label="Open date picker"
+                    style={{
+                      position: "absolute",
+                      right: 15,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#555",
+                    }}
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect
+                        x="3"
+                        y="4"
+                        width="18"
+                        height="18"
+                        rx="2"
+                        ry="2"
+                      />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                  </button>
+                </div>
 
-                  style={{
-                    ...inputStyle,
-                    border: petError?.dob
-                      ? "2px solid #d50000"
-                      : "1px solid #e6e3e0",
-                    cursor: "pointer",
-                  }}
-                />
+                {openDatePicker === index && (
+                  <div
+                    className="
+                      mt-2
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      bg-white
+                      p-3
+                      shadow-lg
+                    "
+                  >
+                    <DayPicker
+                      mode="single"
+                      styles={{
+                        root: {
+                          width: "100%",
+                          maxWidth: "none",
+                        },
+                        months: {
+                          width: "100%",
+                          maxWidth: "none",
+                        },
+                        month: {
+                          width: "100%",
+                        },
+                        month_grid: {
+                          width: "100%",
+                          tableLayout: "fixed",
+                        },
+                      }}
+                      selected={
+                        pet.dob
+                          ? new Date(`${pet.dob}T00:00:00`)
+                          : undefined
+                      }
+                      onSelect={(selectedDate) => {
+                        if (!selectedDate) return;
+
+                        const year =
+                          selectedDate.getFullYear();
+
+                        const month = String(
+                          selectedDate.getMonth() + 1
+                        ).padStart(2, "0");
+
+                        const day = String(
+                          selectedDate.getDate()
+                        ).padStart(2, "0");
+
+                        const selectedDob =
+                          `${year}-${month}-${day}`;
+
+                        updatePet(index, {
+                          dob: selectedDob,
+                        });
+
+                        setDobInputs((current) => ({
+                          ...current,
+                          [index]: `${day}/${month}/${year}`,
+                        }));
+
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+
+                        const minimumDobDate =
+                          new Date(today);
+
+                        minimumDobDate.setDate(
+                          today.getDate() - 14
+                        );
+
+                        const selectedDateOnly =
+                          new Date(
+                            selectedDob + "T00:00:00"
+                          );
+
+                        setErrors((current) =>
+                          current.map((error, i) =>
+                            i === index
+                              ? {
+                                  ...error,
+                                  dob:
+                                    selectedDateOnly >
+                                    minimumDobDate
+                                      ? "Your pet must be at least 14 days old"
+                                      : "",
+                                }
+                              : error
+                          )
+                        );
+
+                        setOpenDatePicker(null);
+                      }}
+                    />
+                  </div>
+                )}
 
                 {petError?.dob && (
                   <p style={errorStyle}>
