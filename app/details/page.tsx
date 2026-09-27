@@ -6,7 +6,9 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import Select from "react-select";
+import Select, { components } from "react-select";
+import { DayPicker } from "@daypicker/react";
+import "@daypicker/react/style.css";
 
 
 /* -----------------------------
@@ -143,6 +145,12 @@ function DetailsContent() {
 
   const [editingPet, setEditingPet] =
     useState<number | null>(null);
+
+  const [openDatePicker, setOpenDatePicker] =
+    useState<number | null>(null);
+
+  const [dobInputs, setDobInputs] =
+    useState<Record<number, string>>({});
 
   const [pricingChangedPets, setPricingChangedPets] =
     useState<number[]>([]);
@@ -1724,6 +1732,20 @@ function DetailsContent() {
       fontSize:
         "14px",
     }),
+      indicatorSeparator: () => ({
+        display: "none",
+      }),
+
+      dropdownIndicator: (base: any) => ({
+        ...base,
+        padding: 0,
+        marginRight: "15px",
+        color: "#555",
+
+        "&:hover": {
+          color: "#555",
+        },
+      }),
 
     menu: (
       base: any
@@ -2094,9 +2116,10 @@ function DetailsContent() {
               gap-4
               px-5
               py-5
-              text-left
+              bg-white
               hover:bg-gray-50
               transition
+              text-left
             "
           >
             <div className="min-w-0">
@@ -2109,24 +2132,25 @@ function DetailsContent() {
               </p>
             </div>
 
-            <span
-              className="
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`
                 flex-shrink-0
-                w-8
-                h-8
-                rounded-full
-                bg-gray-100
-                border
-                border-gray-200
-                flex
-                items-center
-                justify-center
-                text-gray-500
-                text-xs
-              "
+                text-[#555]
+                transition-transform
+                duration-200
+                ${openPetDetails ? "rotate-180" : ""}
+              `}
             >
-              {openPetDetails ? "▲" : "▼"}
-            </span>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
 
           {openPetDetails && (
@@ -2141,11 +2165,6 @@ function DetailsContent() {
                     <h2 className="font-semibold text-lg text-gray-900">
                       Your Address
                     </h2>
-
-                    <p className="text-sm text-gray-500 mt-1">
-                      {customer.address ||
-                        "No address provided"}
-                    </p>
                   </div>
 
                   {!editingAddress ? (
@@ -2455,6 +2474,26 @@ function DetailsContent() {
 
                               styles={selectStyles}
 
+                              components={{
+                                IndicatorSeparator: () => null,
+                                DropdownIndicator: (props: any) => (
+                                  <components.DropdownIndicator {...props}>
+                                    <svg
+                                      width="14"
+                                      height="14"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    >
+                                      <polyline points="6 9 12 15 18 9" />
+                                    </svg>
+                                  </components.DropdownIndicator>
+                                ),
+                              }}
+
                               isDisabled={
                                 editingPet !== index
                               }
@@ -2479,78 +2518,262 @@ function DetailsContent() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
 
                           <FormField label="Date of Birth">
-                            <input
-                              type="date"
-                              value={pet.dob}
-                              disabled={
-                                editingPet !== index
-                              }
-                              onChange={(e) =>
-                                updatePet(
-                                  index,
-                                  {
-                                    dob:
-                                      e.target.value,
-                                  }
-                                )
-                              }
-                              className={`
-                                ${inputStyle}
-                                ${
-                                  editingPet !== index
-                                    ? "bg-gray-100 cursor-not-allowed"
-                                    : "bg-white cursor-pointer"
+                            <div className="relative w-full">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="DD/MM/YYYY"
+                                disabled={editingPet !== index}
+                                value={
+                                  dobInputs[index] ??
+                                  (pet.dob
+                                    ? pet.dob.split("-").reverse().join("/")
+                                    : "")
                                 }
-                              `}
-                              style={{
-                                color:
-                                  editingPet !== index
-                                    ? "#6b7280"
-                                    : "#111827",
-                              }}
-                            />
+                                onFocus={() => {
+                                  if (editingPet === index) {
+                                    setOpenDatePicker(index);
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const digits = e.target.value
+                                    .replace(/\D/g, "")
+                                    .slice(0, 8);
+
+                                  let formatted = digits;
+
+                                  if (digits.length > 4) {
+                                    formatted =
+                                      `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+                                  } else if (digits.length > 2) {
+                                    formatted =
+                                      `${digits.slice(0, 2)}/${digits.slice(2)}`;
+                                  }
+
+                                  setDobInputs((current) => ({
+                                    ...current,
+                                    [index]: formatted,
+                                  }));
+
+                                  if (digits.length !== 8) {
+                                    return;
+                                  }
+
+                                  const day = Number(digits.slice(0, 2));
+                                  const month = Number(digits.slice(2, 4));
+                                  const year = Number(digits.slice(4, 8));
+
+                                  const typedDate = new Date(
+                                    year,
+                                    month - 1,
+                                    day
+                                  );
+
+                                  const isValidDate =
+                                    typedDate.getFullYear() === year &&
+                                    typedDate.getMonth() === month - 1 &&
+                                    typedDate.getDate() === day;
+
+                                  if (!isValidDate) {
+                                    return;
+                                  }
+
+                                  const monthString = String(month).padStart(2, "0");
+                                  const dayString = String(day).padStart(2, "0");
+
+                                  updatePet(index, {
+                                    dob: `${year}-${monthString}-${dayString}`,
+                                  });
+                                }}
+                                className={`
+                                  ${inputStyle}
+                                  pr-[45px]
+                                  ${
+                                    editingPet !== index
+                                      ? "bg-gray-100 cursor-not-allowed text-gray-500"
+                                      : "bg-white text-gray-900"
+                                  }
+                                `}
+                              />
+
+                              <button
+                                type="button"
+                                disabled={editingPet !== index}
+                                onClick={() =>
+                                  setOpenDatePicker(
+                                    openDatePicker === index ? null : index
+                                  )
+                                }
+                                aria-label="Open date picker"
+                                className="
+                                  absolute
+                                  right-[15px]
+                                  top-1/2
+                                  -translate-y-1/2
+                                  flex
+                                  items-center
+                                  justify-center
+                                  text-[#555]
+                                  disabled:text-gray-400
+                                  disabled:cursor-not-allowed
+                                "
+                              >
+                                <svg
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <rect
+                                    x="3"
+                                    y="4"
+                                    width="18"
+                                    height="18"
+                                    rx="2"
+                                    ry="2"
+                                  />
+                                  <line x1="16" y1="2" x2="16" y2="6" />
+                                  <line x1="8" y1="2" x2="8" y2="6" />
+                                  <line x1="3" y1="10" x2="21" y2="10" />
+                                </svg>
+                              </button>
+                            </div>
+
+                            {openDatePicker === index && (
+                              <div
+                                className="
+                                  mt-2
+                                  w-full
+                                  rounded-xl
+                                  border
+                                  border-gray-300
+                                  bg-white
+                                  p-3
+                                  shadow-lg
+                                "
+                              >
+                                <DayPicker
+                                  mode="single"
+
+                                  styles={{
+                                    root: {
+                                      width: "100%",
+                                      maxWidth: "none",
+                                    },
+                                    months: {
+                                      width: "100%",
+                                      maxWidth: "none",
+                                    },
+                                    month: {
+                                      width: "100%",
+                                    },
+                                    month_grid: {
+                                      width: "100%",
+                                      tableLayout: "fixed",
+                                    },
+                                  }}
+
+                                  selected={
+                                    pet.dob
+                                      ? new Date(`${pet.dob}T00:00:00`)
+                                      : undefined
+                                  }
+                                  onSelect={(selectedDate) => {
+                                    if (!selectedDate) return;
+
+                                    const year =
+                                      selectedDate.getFullYear();
+
+                                    const month = String(
+                                      selectedDate.getMonth() + 1
+                                    ).padStart(2, "0");
+
+                                    const day = String(
+                                      selectedDate.getDate()
+                                    ).padStart(2, "0");
+
+                                    updatePet(index, {
+                                      dob: `${year}-${month}-${day}`,
+                                    });
+
+                                    setDobInputs((current) => ({
+                                      ...current,
+                                      [index]: `${day}/${month}/${year}`,
+                                    }));
+
+                                    setOpenDatePicker(null);
+                                  }}
+                                />
+                              </div>
+                            )}
                           </FormField>
 
                           <FormField label="Sex">
-                            <select
-                              value={
-                                pet.gender || ""
-                              }
-                              disabled={
-                                editingPet !== index
-                              }
-                              onChange={(e) =>
-                                updatePet(
-                                  index,
-                                  {
-                                    gender:
-                                      e.target.value as
-                                        | "male"
-                                        | "female",
-                                  }
-                                )
-                              }
-                              className={`
-                                ${inputStyle}
-                                ${
-                                  editingPet !== index
-                                    ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                    : "bg-white text-gray-900 cursor-pointer"
+
+                            <div className="relative">
+                              <select
+                                value={pet.gender || ""}
+                                disabled={editingPet !== index}
+                                onChange={(e) =>
+                                  updatePet(
+                                    index,
+                                    {
+                                      gender:
+                                        e.target.value as
+                                          | "male"
+                                          | "female",
+                                    }
+                                  )
                                 }
-                              `}
-                            >
-                              <option value="">
-                                Select sex
-                              </option>
+                                className={`
+                                  ${inputStyle}
+                                  appearance-none
+                                  pr-[45px]
+                                  ${
+                                    editingPet !== index
+                                      ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                      : "bg-white text-gray-900 cursor-pointer"
+                                  }
+                                `}
+                              >
+                                <option value="">
+                                  Select sex
+                                </option>
 
-                              <option value="male">
-                                Male
-                              </option>
+                                <option value="male">
+                                  Male
+                                </option>
 
-                              <option value="female">
-                                Female
-                              </option>
-                            </select>
+                                <option value="female">
+                                  Female
+                                </option>
+                              </select>
+
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="
+                                  absolute
+                                  right-[15px]
+                                  top-1/2
+                                  -translate-y-1/2
+                                  pointer-events-none
+                                  text-[#555]
+                                "
+                              >
+                                <polyline points="6 9 12 15 18 9" />
+                              </svg>
+                            </div>
                           </FormField>
 
                         </div>
@@ -2610,24 +2833,25 @@ function DetailsContent() {
                 Annual limit, benefit, excess and plan
               </p>
             </div>
-            <span
-              className="
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`
                 flex-shrink-0
-                w-8
-                h-8
-                rounded-full
-                bg-gray-100
-                border
-                border-gray-200
-                flex
-                items-center
-                justify-center
-                text-gray-500
-                text-xs
-              "
+                text-[#555]
+                transition-transform
+                duration-200
+                ${openPetCover ? "rotate-180" : ""}
+              `}
             >
-              {openPetCover ? "▲" : "▼"}
-            </span>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
 
           {openPetCover && (
@@ -2796,6 +3020,8 @@ function DetailsContent() {
                                   Annual limit
                                 </label>
 
+                                <div className="relative">
+
                                 <select
                                   value={
                                     petSettings.limit
@@ -2819,7 +3045,9 @@ function DetailsContent() {
                                   className={`
                                     w-full
                                     h-10
-                                    px-3
+                                    pl-3
+                                    pr-[45px]
+                                    appearance-none
                                     rounded-lg
                                     border
                                     border-gray-300
@@ -2857,7 +3085,30 @@ function DetailsContent() {
                                     }
                                   )}
                                 </select>
-                              </div>
+
+                                <svg
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="
+                                    absolute
+                                    right-[15px]
+                                    top-1/2
+                                    -translate-y-1/2
+                                    pointer-events-none
+                                    text-[#555]
+                                  "
+                                >
+                                  <polyline points="6 9 12 15 18 9" />
+                                </svg>
+
+                                </div>
+                                </div>
 
                               {/* BENEFIT */}
 
@@ -2873,66 +3124,85 @@ function DetailsContent() {
                                   Benefit
                                 </label>
 
-                                <select
-                                  value={
-                                    petSettings.benefit
-                                  }
-                                  disabled={
-                                    editingCover !==
-                                    index
-                                  }
-                                  onChange={(e) =>
-                                    updateCoverSetting(
-                                      index,
-                                      {
-                                        benefit:
-                                          Number(
-                                            e.target
-                                              .value
-                                          ),
-                                      }
-                                    )
-                                  }
-                                  className={`
-                                    w-full
-                                    h-10
-                                    px-3
-                                    rounded-lg
-                                    border
-                                    border-gray-300
-                                    text-sm
-                                    font-semibold
-                                    focus:outline-none
-                                    focus:ring-2
-                                    focus:ring-gray-800
-                                    ${
+                                <div className="relative">
+                                  <select
+                                    value={
+                                      petSettings.benefit
+                                    }
+                                    disabled={
                                       editingCover !==
                                       index
-                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                        : "bg-white text-gray-900 cursor-pointer"
                                     }
-                                  `}
-                                >
-                                  {Array.from(
-                                    {
-                                      length: 7,
-                                    },
-                                    (_, i) => {
-                                      const value =
-                                        60 +
-                                        i * 5;
+                                    onChange={(e) =>
+                                      updateCoverSetting(
+                                        index,
+                                        {
+                                          benefit:
+                                            Number(
+                                              e.target.value
+                                            ),
+                                        }
+                                      )
+                                    }
+                                    className={`
+                                      w-full
+                                      h-10
+                                      pl-3
+                                      pr-[45px]
+                                      appearance-none
+                                      rounded-lg
+                                      border
+                                      border-gray-300
+                                      text-sm
+                                      font-semibold
+                                      focus:outline-none
+                                      focus:ring-2
+                                      focus:ring-gray-800
+                                      ${
+                                        editingCover !== index
+                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                          : "bg-white text-gray-900 cursor-pointer"
+                                      }
+                                    `}
+                                  >
+                                    {Array.from(
+                                      { length: 7 },
+                                      (_, i) => {
+                                        const value = 60 + i * 5;
 
-                                      return (
-                                        <option
-                                          key={value}
-                                          value={value}
-                                        >
-                                          {value}%
-                                        </option>
-                                      );
-                                    }
-                                  )}
-                                </select>
+                                        return (
+                                          <option
+                                            key={value}
+                                            value={value}
+                                          >
+                                            {value}%
+                                          </option>
+                                        );
+                                      }
+                                    )}
+                                  </select>
+
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="
+                                      absolute
+                                      right-[15px]
+                                      top-1/2
+                                      -translate-y-1/2
+                                      pointer-events-none
+                                      text-[#555]
+                                    "
+                                  >
+                                    <polyline points="6 9 12 15 18 9" />
+                                  </svg>
+                                </div>
                               </div>
 
                               {/* ANNUAL EXCESS */}
@@ -2949,66 +3219,85 @@ function DetailsContent() {
                                   Annual excess
                                 </label>
 
-                                <select
-                                  value={
-                                    petSettings.excess
-                                  }
-                                  disabled={
-                                    editingCover !==
-                                    index
-                                  }
-                                  onChange={(e) =>
-                                    updateCoverSetting(
-                                      index,
-                                      {
-                                        excess:
-                                          Number(
-                                            e.target
-                                              .value
-                                          ),
-                                      }
-                                    )
-                                  }
-                                  className={`
-                                    w-full
-                                    h-10
-                                    px-3
-                                    rounded-lg
-                                    border
-                                    border-gray-300
-                                    text-sm
-                                    font-semibold
-                                    focus:outline-none
-                                    focus:ring-2
-                                    focus:ring-gray-800
-                                    ${
+                                <div className="relative">
+                                  <select
+                                    value={
+                                      petSettings.excess
+                                    }
+                                    disabled={
                                       editingCover !==
                                       index
-                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                        : "bg-white text-gray-900 cursor-pointer"
                                     }
-                                  `}
-                                >
-                                  {Array.from(
-                                    {
-                                      length: 21,
-                                    },
-                                    (_, i) => {
-                                      const value =
-                                        i * 50;
+                                    onChange={(e) =>
+                                      updateCoverSetting(
+                                        index,
+                                        {
+                                          excess:
+                                            Number(
+                                              e.target.value
+                                            ),
+                                        }
+                                      )
+                                    }
+                                    className={`
+                                      w-full
+                                      h-10
+                                      pl-3
+                                      pr-[45px]
+                                      appearance-none
+                                      rounded-lg
+                                      border
+                                      border-gray-300
+                                      text-sm
+                                      font-semibold
+                                      focus:outline-none
+                                      focus:ring-2
+                                      focus:ring-gray-800
+                                      ${
+                                        editingCover !== index
+                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                          : "bg-white text-gray-900 cursor-pointer"
+                                      }
+                                    `}
+                                  >
+                                    {Array.from(
+                                      { length: 21 },
+                                      (_, i) => {
+                                        const value = i * 50;
 
-                                      return (
-                                        <option
-                                          key={value}
-                                          value={value}
-                                        >
-                                          $
-                                          {value.toLocaleString()}
-                                        </option>
-                                      );
-                                    }
-                                  )}
-                                </select>
+                                        return (
+                                          <option
+                                            key={value}
+                                            value={value}
+                                          >
+                                            ${value.toLocaleString()}
+                                          </option>
+                                        );
+                                      }
+                                    )}
+                                  </select>
+
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="
+                                      absolute
+                                      right-[15px]
+                                      top-1/2
+                                      -translate-y-1/2
+                                      pointer-events-none
+                                      text-[#555]
+                                    "
+                                  >
+                                    <polyline points="6 9 12 15 18 9" />
+                                  </svg>
+                                </div>
                               </div>
 
                               {/* PLAN */}
@@ -3025,60 +3314,83 @@ function DetailsContent() {
                                   Plan
                                 </label>
 
-                                <select
-                                  value={
-                                    petSettings.plan ===
-                                    "gold"
-                                      ? "gold"
-                                      : "upgraded"
-                                  }
-                                  disabled={
-                                    editingCover !==
-                                    index
-                                  }
-                                  onChange={(e) =>
-                                    updateCoverSetting(
-                                      index,
-                                      {
-                                        plan:
-                                          e.target.value,
-                                      }
-                                    )
-                                  }
-                                  className={`
-                                    w-full
-                                    h-10
-                                    px-3
-                                    rounded-lg
-                                    border
-                                    border-gray-300
-                                    text-sm
-                                    font-semibold
-                                    focus:outline-none
-                                    focus:ring-2
-                                    focus:ring-gray-800
-                                    ${
+                                <div className="relative">
+                                  <select
+                                    value={
+                                      petSettings.plan ===
+                                      "gold"
+                                        ? "gold"
+                                        : "upgraded"
+                                    }
+                                    disabled={
                                       editingCover !==
                                       index
-                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                        : "bg-white text-gray-900 cursor-pointer"
                                     }
-                                  `}
-                                >
-                                  <option value="upgraded">
-                                    Silver
-                                  </option>
+                                    onChange={(e) =>
+                                      updateCoverSetting(
+                                        index,
+                                        {
+                                          plan:
+                                            e.target.value,
+                                        }
+                                      )
+                                    }
+                                    className={`
+                                      w-full
+                                      h-10
+                                      pl-3
+                                      pr-[45px]
+                                      appearance-none
+                                      rounded-lg
+                                      border
+                                      border-gray-300
+                                      text-sm
+                                      font-semibold
+                                      focus:outline-none
+                                      focus:ring-2
+                                      focus:ring-gray-800
+                                      ${
+                                        editingCover !== index
+                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                          : "bg-white text-gray-900 cursor-pointer"
+                                      }
+                                    `}
+                                  >
+                                    <option value="upgraded">
+                                      Silver
+                                    </option>
 
-                                  <option value="gold">
-                                    Gold
-                                  </option>
-                                </select>
+                                    <option value="gold">
+                                      Gold
+                                    </option>
+                                  </select>
+
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="
+                                      absolute
+                                      right-[15px]
+                                      top-1/2
+                                      -translate-y-1/2
+                                      pointer-events-none
+                                      text-[#555]
+                                    "
+                                  >
+                                    <polyline points="6 9 12 15 18 9" />
+
+                                  </svg>
+                                </div>
                               </div>
-
                             </div>
                           </div>
                         )}
-
                     </div>
                   );
                 }
@@ -3135,10 +3447,10 @@ function DetailsContent() {
         <div
           className="
             mt-6
-            bg-amber-50
+            bg-white
             rounded-xl
             border
-            border-amber-200
+            border-gray-200
             shadow-sm
             overflow-hidden
             mb-6
@@ -3589,7 +3901,7 @@ function Acknowledgement({
     openTerms === id;
 
   return (
-    <div className="p-4 sm:p-5 bg-amber-50">
+    <div className="bg-white pb-5">
 
       <button
         type="button"
@@ -3607,16 +3919,16 @@ function Acknowledgement({
           justify-between
           gap-4
           text-left
-          p-3
-          rounded-xl
+          px-5
+          py-5
           transition
-          hover:bg-amber-100
+          hover:bg-gray-50
         "
       >
 
         <div className="min-w-0">
 
-          <h3 className="font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-gray-900">
             {title}
           </h3>
 
@@ -3626,39 +3938,36 @@ function Acknowledgement({
 
         </div>
 
-        <span
-          className="
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`
             flex-shrink-0
-            w-7
-            h-7
-            rounded-full
-            bg-white
-            border
-            border-gray-200
-            flex
-            items-center
-            justify-center
-            text-gray-500
-            text-xs
-          "
+            text-[#555]
+            transition-transform
+            duration-200
+            ${isOpen ? "rotate-180" : ""}
+          `}
         >
-          {isOpen
-            ? "▲"
-            : "▼"}
-        </span>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
 
       </button>
 
       {isOpen && (
         <div
           className="
-            mt-3
-            mx-3
-            p-4
-            bg-gray-50
-            border
+            border-t
             border-gray-200
-            rounded-xl
+            px-5
+            py-5
+            bg-gray-50
             text-sm
             text-gray-700
             leading-6
@@ -3674,7 +3983,7 @@ function Acknowledgement({
           items-start
           gap-3
           mt-4
-          px-3
+          px-5
           cursor-pointer
         "
       >

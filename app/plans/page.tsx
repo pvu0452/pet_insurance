@@ -1741,7 +1741,17 @@ function PlanComparisonContent() {
         };
 
       return (
-        <div className="mt-5">
+        <div
+          className="
+            mt-5
+            bg-white
+            rounded-xl
+            border
+            border-gray-200
+            shadow-sm
+            overflow-hidden
+          "
+        >
 
           {/* EXPAND BUTTON */}
 
@@ -1755,31 +1765,37 @@ function PlanComparisonContent() {
               flex
               items-center
               justify-between
-              px-4
-              py-4
-              border
-              border-gray-300
-              rounded-md
+              gap-4
+              px-5
+              py-5
               bg-white
               hover:bg-gray-50
               transition
               text-left
             "
           >
-            <div>
-              <div className="text-sm font-semibold text-gray-900">
+            <div className="min-w-0">
+              <div className="text-lg font-semibold text-gray-900">
                 Compare Silver and Gold cover
               </div>
 
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-sm text-gray-500 mt-1">
                 See what's included with each plan
               </div>
             </div>
 
-            <span
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               className={`
-                text-gray-500
-                text-xs
+                flex-shrink-0
+                text-[#555]
                 transition-transform
                 duration-200
                 ${
@@ -1789,8 +1805,8 @@ function PlanComparisonContent() {
                 }
               `}
             >
-              ▼
-            </span>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
 
           {/* TABLE */}
@@ -1798,11 +1814,8 @@ function PlanComparisonContent() {
           {isOpen && (
             <div
               className="
-                mt-3
-                border
-                border-gray-300
-                rounded-md
-                overflow-hidden
+                border-t
+                border-gray-200
                 bg-white
               "
             >
@@ -2106,69 +2119,71 @@ function PlanComparisonContent() {
                 Annual limit
               </label>
 
-              <select
-                id={`limit-${petIndex}`}
-                value={
-                  settings.limit
-                }
-                onChange={(
-                  e
-                ) =>
-                  updatePetSetting(
-                    petIndex,
-                    "limit",
-                    Number(
-                      e.target
-                        .value
+              <div className="relative">
+                <select
+                  id={`limit-${petIndex}`}
+                  value={settings.limit}
+                  onChange={(e) =>
+                    updatePetSetting(
+                      petIndex,
+                      "limit",
+                      Number(e.target.value)
                     )
-                  )
-                }
-                className="
-                  w-full
-                  h-14
-                  px-4
-                  border
-                  border-gray-400
-                  rounded-md
-                  bg-white
-                  text-gray-900
-                  text-base
-                  focus:outline-none
-                  focus:border-gray-800
-                  focus:ring-1
-                  focus:ring-gray-800
-                  transition
-                "
-              >
-                {Array.from(
-                  {
-                    length: 26,
-                  },
-                  (
-                    _,
-                    i
-                  ) => {
-                    const value =
-                      5000 +
-                      i *
-                        1000;
-
-                    return (
-                      <option
-                        key={
-                          value
-                        }
-                        value={
-                          value
-                        }
-                      >
-                        $
-                        {value.toLocaleString()}
-                      </option>
-                    );
                   }
-                )}
-              </select>
+                  className="
+                    w-full
+                    h-12
+                    pl-[15px]
+                    pr-[45px]
+                    border
+                    border-[#e6e3e0]
+                    rounded-[5px]
+                    bg-white
+                    text-[#111]
+                    text-[15px]
+                    appearance-none
+                    focus:outline-none
+                    cursor-pointer
+                  "
+                >
+                  {Array.from(
+                    { length: 26 },
+                    (_, i) => {
+                      const value = 5000 + i * 1000;
+
+                      return (
+                        <option
+                          key={value}
+                          value={value}
+                        >
+                          ${value.toLocaleString()}
+                        </option>
+                      );
+                    }
+                  )}
+                </select>
+
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="
+                    absolute
+                    right-[15px]
+                    top-1/2
+                    -translate-y-1/2
+                    pointer-events-none
+                    text-[#555]
+                  "
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
             </div>
 
             {/* BENEFIT */}
@@ -2187,70 +2202,71 @@ function PlanComparisonContent() {
                 Benefit percentage
               </label>
 
+              <div className="relative">
               <select
                 id={`benefit-${petIndex}`}
-                value={
-                  settings.benefit
-                }
-                onChange={(
-                  e
-                ) =>
+                value={settings.benefit}
+                onChange={(e) =>
                   updatePetSetting(
                     petIndex,
                     "benefit",
-                    Number(
-                      e.target
-                        .value
-                    )
+                    Number(e.target.value)
                   )
                 }
                 className="
                   w-full
-                  h-14
-                  px-4
+                  h-12
+                  pl-[15px]
+                  pr-[45px]
                   border
-                  border-gray-400
-                  rounded-md
+                  border-[#e6e3e0]
+                  rounded-[5px]
                   bg-white
-                  text-gray-900
-                  text-base
+                  text-[#111]
+                  text-[15px]
+                  appearance-none
                   focus:outline-none
-                  focus:border-gray-800
-                  focus:ring-1
-                  focus:ring-gray-800
-                  transition
+                  cursor-pointer
                 "
               >
                 {Array.from(
-                  {
-                    length: 7,
-                  },
-                  (
-                    _,
-                    i
-                  ) => {
-                    const value =
-                      60 +
-                      i *
-                        5;
+                  { length: 7 },
+                  (_, i) => {
+                    const value = 60 + i * 5;
 
                     return (
                       <option
-                        key={
-                          value
-                        }
-                        value={
-                          value
-                        }
+                        key={value}
+                        value={value}
                       >
-                        {
-                          value
-                        }%
+                        {value}%
                       </option>
                     );
                   }
                 )}
               </select>
+
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="
+                  absolute
+                  right-[15px]
+                  top-1/2
+                  -translate-y-1/2
+                  pointer-events-none
+                  text-[#555]
+                "
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
             </div>
 
             {/* EXCESS */}
@@ -2269,68 +2285,71 @@ function PlanComparisonContent() {
                 Annual excess
               </label>
 
-              <select
-                id={`excess-${petIndex}`}
-                value={
-                  settings.excess
-                }
-                onChange={(
-                  e
-                ) =>
-                  updatePetSetting(
-                    petIndex,
-                    "excess",
-                    Number(
-                      e.target
-                        .value
+              <div className="relative">
+                <select
+                  id={`excess-${petIndex}`}
+                  value={settings.excess}
+                  onChange={(e) =>
+                    updatePetSetting(
+                      petIndex,
+                      "excess",
+                      Number(e.target.value)
                     )
-                  )
-                }
-                className="
-                  w-full
-                  h-14
-                  px-4
-                  border
-                  border-gray-400
-                  rounded-md
-                  bg-white
-                  text-gray-900
-                  text-base
-                  focus:outline-none
-                  focus:border-gray-800
-                  focus:ring-1
-                  focus:ring-gray-800
-                  transition
-                "
-              >
-                {Array.from(
-                  {
-                    length: 21,
-                  },
-                  (
-                    _,
-                    i
-                  ) => {
-                    const value =
-                      i *
-                      50;
-
-                    return (
-                      <option
-                        key={
-                          value
-                        }
-                        value={
-                          value
-                        }
-                      >
-                        $
-                        {value.toLocaleString()}
-                      </option>
-                    );
                   }
-                )}
-              </select>
+                  className="
+                    w-full
+                    h-12
+                    pl-[15px]
+                    pr-[45px]
+                    border
+                    border-[#e6e3e0]
+                    rounded-[5px]
+                    bg-white
+                    text-[#111]
+                    text-[15px]
+                    appearance-none
+                    focus:outline-none
+                    cursor-pointer
+                  "
+                >
+                  {Array.from(
+                    { length: 21 },
+                    (_, i) => {
+                      const value = i * 50;
+
+                      return (
+                        <option
+                          key={value}
+                          value={value}
+                        >
+                          ${value.toLocaleString()}
+                        </option>
+                      );
+                    }
+                  )}
+                </select>
+
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="
+                    absolute
+                    right-[15px]
+                    top-1/2
+                    -translate-y-1/2
+                    pointer-events-none
+                    text-[#555]
+                  "
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
             </div>
           </div>
 
@@ -2573,19 +2592,18 @@ function PlanComparisonContent() {
         {/* PROGRESS */}
 
         <div className="mb-8">
-          <div className="flex justify-between text-xs font-medium text-gray-600 mb-2">
+          <div className="flex justify-between text-xs text-gray-500 mb-2">
             {steps.map(
-              (
-                step
-              ) => (
+              (step) => (
                 <span
-                  key={
-                    step
+                  key={step}
+                  className={
+                    step === "Plans"
+                      ? "font-semibold text-gray-900"
+                      : ""
                   }
                 >
-                  {
-                    step
-                  }
+                  {step}
                 </span>
               )
             )}
@@ -2595,7 +2613,7 @@ function PlanComparisonContent() {
             className="
               relative
               w-full
-              h-1.5
+              h-2
               bg-gray-200
               rounded-full
               overflow-hidden

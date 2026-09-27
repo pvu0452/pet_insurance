@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Select from "react-select";
+import Select, { components } from "react-select";
+import { DayPicker } from "@daypicker/react";
+import "@daypicker/react/style.css";
 import { importLibrary, setOptions as setGoogleMapsOptions, } from "@googlemaps/js-api-loader";
 
 let googleMapsConfigured = false;
@@ -28,6 +30,13 @@ export default function Home() {
   const [options, setOptions] = useState<Option[]>([]);
   const [mounted, setMounted] = useState(false);
   const [loadingBreeds, setLoadingBreeds] = useState(true);
+
+  const [openDatePicker, setOpenDatePicker] =
+  useState<number | null>(null);
+
+  const [dobInputs, setDobInputs] =
+  useState<Record<number, string>>({});
+
   const handleLogoClick = () => {
     sessionStorage.removeItem("petDetails");
     sessionStorage.removeItem("cover");
@@ -385,7 +394,6 @@ params.set("pets", JSON.stringify(urlPets));
 
 // Navigate to Plans with the full quote information
 router.push(`/plans?${params.toString()}`);
-
 };
 
 
@@ -395,13 +403,15 @@ router.push(`/plans?${params.toString()}`);
   // -----------------------------
   const buttonStyle = (active: boolean) => ({
     flex: 1,
-    padding: "12px",
-    borderRadius: 10,
-    border: "1px solid #ddd",
-    background: active ? "#eaac2a" : "#fff",
+    height: 48,
+    padding: "0 15px",
+    borderRadius: 5,
+    border: "1px solid #e6e3e0",
+    background: active ? "#fdba2e" : "#fff",
     color: "#111",
     cursor: "pointer",
-    fontWeight: 500,
+    fontWeight: 600,
+    fontSize: 15,
   });
 
   // -----------------------------
@@ -409,11 +419,37 @@ router.push(`/plans?${params.toString()}`);
   // -----------------------------
   const labelStyle = {
     color: "#333",
-    fontSize: 13,
+    fontSize: 17,
     fontWeight: 600,
-    marginBottom: 7,
+    marginBottom: 5,
     display: "block",
   };
+
+  // -----------------------------
+  // INPUT STYLE
+  // -----------------------------
+  const inputStyle = {
+    width: "100%",
+    height: 48,
+    padding: "15px",
+    borderRadius: 5,
+    border: "1px solid #e6e3e0",
+    backgroundColor: "#fff",
+    color: "#111",
+    outline: "none",
+    boxSizing: "border-box" as const,
+    fontSize: 15,
+  };
+
+  // -----------------------------
+  // ERROR STYLE
+  // -----------------------------
+
+  const errorStyle = {
+  color: "#d50000",
+  fontSize: 14,
+  marginTop: 5,
+};
 
   // -----------------------------
   // SELECT STYLES
@@ -421,13 +457,45 @@ router.push(`/plans?${params.toString()}`);
   const selectStyles = (hasError: boolean) => ({
     control: (base: any, state: any) => ({
       ...base,
-      minHeight: "46px",
-      borderRadius: "10px",
-      border: `1px solid ${hasError ? "red" : "#ddd"}`,
+      minHeight: "48px",
+      height: "48px",
+      borderRadius: "5px",
+      border: `1px solid ${
+        hasError ? "#d50000" : "#e6e3e0"
+      }`,
       boxShadow: "none",
       backgroundColor: "#fff",
+
       "&:hover": {
-        borderColor: hasError ? "red" : "#ddd",
+        borderColor:
+          hasError ? "#d50000" : "#e6e3e0",
+      },
+    }),
+
+    valueContainer: (base: any) => ({
+      ...base,
+      height: "48px",
+      padding: "0 15px",
+      fontSize: "15px",
+    }),
+
+    indicatorsContainer: (base: any) => ({
+      ...base,
+      height: "48px",
+    }),
+
+    indicatorSeparator: () => ({
+      display: "none",
+    }),
+
+    dropdownIndicator: (base: any) => ({
+      ...base,
+      padding: 0,
+      marginRight: "15px",
+      color: "#555",
+
+      "&:hover": {
+        color: "#555",
       },
     }),
 
@@ -763,7 +831,7 @@ router.push(`/plans?${params.toString()}`);
         flexDirection: "column",
         alignItems: "center",
         padding: 40,
-        fontFamily: "Arial",
+        fontFamily: "Lato, sans-serif",
       }}
     >
       {/* LOGO */}
@@ -914,7 +982,7 @@ router.push(`/plans?${params.toString()}`);
                 )}
               </div>
               {/* NAME */}
-              <div style={{ marginTop: 25 }}>
+              <div>
                 <label style={labelStyle}>
                   Pet's Name
                 </label>
@@ -941,33 +1009,22 @@ router.push(`/plans?${params.toString()}`);
                   }}
                   placeholder="Enter your pet's name"
                   style={{
-                    width: "100%",
-                    padding: 12,
-                    borderRadius: 10,
+                    ...inputStyle,
                     border: petError?.name
-                      ? "1px solid red"
-                      : "1px solid #ddd",
-                    color: "#111",
-                    outline: "none",
-                    boxSizing: "border-box",
+                      ? "2px solid #d50000"
+                      : "1px solid #e6e3e0",
                   }}
                 />
 
                 {petError?.name && (
-                  <p
-                    style={{
-                      color: "red",
-                      fontSize: 12,
-                      marginTop: 6,
-                    }}
-                  >
+                  <p style={errorStyle}>
                     Pet's name is required
                   </p>
                 )}
               </div>
 
               {/* GENDER */}
-              <div style={{ marginTop: 25 }}>
+              <div style={{ marginTop: 10 }}>
                 <span style={labelStyle}>
                   Gender
                 </span>
@@ -985,8 +1042,8 @@ router.push(`/plans?${params.toString()}`);
                         pet.gender === "male"
                       ),
                       border: petError?.gender
-                        ? "1px solid red"
-                        : "1px solid #ddd",
+                        ? "2px solid #d50000"
+                        : "1px solid #e6e3e0",
                     }}
                     onClick={() =>
                       updatePet(index, {
@@ -994,7 +1051,7 @@ router.push(`/plans?${params.toString()}`);
                       })
                     }
                   >
-                    ♂ Male
+                    Male
                   </button>
 
                   <button
@@ -1004,8 +1061,8 @@ router.push(`/plans?${params.toString()}`);
                         pet.gender === "female"
                       ),
                       border: petError?.gender
-                        ? "1px solid red"
-                        : "1px solid #ddd",
+                        ? "2px solid #d50000"
+                        : "1px solid #e6e3e0",
                     }}
                     onClick={() =>
                       updatePet(index, {
@@ -1013,25 +1070,19 @@ router.push(`/plans?${params.toString()}`);
                       })
                     }
                   >
-                    ♀ Female
+                    Female
                   </button>
                 </div>
 
                 {petError?.gender && (
-                  <p
-                    style={{
-                      color: "red",
-                      fontSize: 12,
-                      marginTop: 6,
-                    }}
-                  >
+                  <p style={errorStyle}>
                     Please select Male or Female
                   </p>
                 )}
               </div>
 
               {/* BREED */}
-              <div style={{ marginTop: 25 }}>
+              <div style={{ marginTop: 10 }}>
                 <label style={labelStyle}>
                   Breed
                 </label>
@@ -1062,6 +1113,27 @@ router.push(`/plans?${params.toString()}`);
                       });
                     }}
                     styles={selectStyles(!!petError?.breed)}
+
+                    components={{
+                      IndicatorSeparator: () => null,
+                      DropdownIndicator: (props: any) => (
+                        <components.DropdownIndicator {...props}>
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </components.DropdownIndicator>
+                      ),
+                    }}
+
                     isLoading={loadingBreeds}
                     placeholder="Select your pet's breed"
                     noOptionsMessage={() =>
@@ -1073,99 +1145,311 @@ router.push(`/plans?${params.toString()}`);
                 )}
 
                 {petError?.breed && (
-                  <p
-                    style={{
-                      color: "red",
-                      fontSize: 12,
-                      marginTop: 6,
-                    }}
-                  >
+                  <p style={errorStyle}>
                     Breed is required
                   </p>
                 )}
               </div>
 
               {/* DOB */}
-              <div style={{ marginTop: 20 }}>
+              <div style={{ marginTop: 10 }}>
                 <label style={labelStyle}>
                   Pet's Date of Birth
                 </label>
 
-                <input
-                  type="date"
-                  value={pet.dob}
-                  onChange={(e) => {
-                    const selectedDob =
-                      e.target.value;
+                <div
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                  }}
+                >
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="DD/MM/YYYY"
+                    value={
+                      dobInputs[index] ??
+                      (pet.dob
+                        ? pet.dob.split("-").reverse().join("/")
+                        : "")
+                    }
+                    onFocus={() =>
+                      setOpenDatePicker(index)
+                    }
+                    onChange={(e) => {
+                      const digits = e.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 8);
 
-                    updatePet(index, {
-                      dob: selectedDob,
-                    });
+                      let formatted = digits;
 
-                    if (selectedDob === "") {
+                      if (digits.length > 4) {
+                        formatted =
+                          `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+                      } else if (digits.length > 2) {
+                        formatted =
+                          `${digits.slice(0, 2)}/${digits.slice(2)}`;
+                      }
+
+                      setDobInputs((current) => ({
+                        ...current,
+                        [index]: formatted,
+                      }));
+
+                      // Don't save until DD/MM/YYYY is complete
+                      if (digits.length !== 8) {
+                        updatePet(index, {
+                          dob: "",
+                        });
+
+                        return;
+                      }
+
+                      const day = Number(
+                        digits.slice(0, 2)
+                      );
+
+                      const month = Number(
+                        digits.slice(2, 4)
+                      );
+
+                      const year = Number(
+                        digits.slice(4, 8)
+                      );
+
+                      const typedDate = new Date(
+                        year,
+                        month - 1,
+                        day
+                      );
+
+                      // Make sure the date actually exists
+                      const isValidDate =
+                        typedDate.getFullYear() === year &&
+                        typedDate.getMonth() === month - 1 &&
+                        typedDate.getDate() === day;
+
+                      if (!isValidDate) {
+                        updatePet(index, {
+                          dob: "",
+                        });
+
+                        setErrors((current) =>
+                          current.map((error, i) =>
+                            i === index
+                              ? {
+                                  ...error,
+                                  dob: "Please enter a valid date",
+                                }
+                              : error
+                          )
+                        );
+
+                        return;
+                      }
+
+                      const monthString = String(
+                        month
+                      ).padStart(2, "0");
+
+                      const dayString = String(
+                        day
+                      ).padStart(2, "0");
+
+                      const selectedDob =
+                        `${year}-${monthString}-${dayString}`;
+
+                      updatePet(index, {
+                        dob: selectedDob,
+                      });
+
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+
+                      const minimumDobDate =
+                        new Date(today);
+
+                      minimumDobDate.setDate(
+                        today.getDate() - 14
+                      );
+
+                      typedDate.setHours(0, 0, 0, 0);
+
                       setErrors((current) =>
                         current.map((error, i) =>
                           i === index
                             ? {
-                              ...error,
-                              dob:
-                                "Date of Birth is required",
-                            }
+                                ...error,
+                                dob:
+                                  typedDate >
+                                  minimumDobDate
+                                    ? "Your pet must be at least 14 days old"
+                                    : "",
+                              }
                             : error
                         )
                       );
-                      return;
-                    }
-
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-
-                    const minimumDobDate =
-                      new Date(today);
-
-                    minimumDobDate.setDate(
-                      today.getDate() - 14
-                    );
-
-                    const selectedDate = new Date(
-                      selectedDob + "T00:00:00"
-                    );
-
-                    setErrors((current) =>
-                      current.map((error, i) =>
-                        i === index
-                          ? {
-                            ...error,
-                            dob:
-                              selectedDate >
-                                minimumDobDate
-                                ? "Your pet must be at least 14 days old"
-                                : "",
-                          }
-                          : error
-                      )
-                    );
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: 12,
-                    borderRadius: 10,
-                    border: petError?.dob
-                      ? "1px solid red"
-                      : "1px solid #ddd",
-                    color: "#111",
-                    outline: "none",
-                  }}
-                />
-
-                {petError?.dob && (
-                  <p
+                    }}
                     style={{
-                      color: "red",
-                      fontSize: 12,
-                      marginTop: 6,
+                      ...inputStyle,
+                      paddingRight: 45,
+                      border: petError?.dob
+                        ? "1px solid #d50000"
+                        : "1px solid #e6e3e0",
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenDatePicker(
+                        openDatePicker === index
+                          ? null
+                          : index
+                      )
+                    }
+                    aria-label="Open date picker"
+                    style={{
+                      position: "absolute",
+                      right: 15,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#555",
                     }}
                   >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect
+                        x="3"
+                        y="4"
+                        width="18"
+                        height="18"
+                        rx="2"
+                        ry="2"
+                      />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                  </button>
+                </div>
+
+                {openDatePicker === index && (
+                  <div
+                    className="
+                      mt-2
+                      w-full
+                      rounded-xl
+                      border
+                      border-gray-300
+                      bg-white
+                      p-3
+                      shadow-lg
+                    "
+                  >
+                    <DayPicker
+                      mode="single"
+                      styles={{
+                        root: {
+                          width: "100%",
+                          maxWidth: "none",
+                        },
+                        months: {
+                          width: "100%",
+                          maxWidth: "none",
+                        },
+                        month: {
+                          width: "100%",
+                        },
+                        month_grid: {
+                          width: "100%",
+                          tableLayout: "fixed",
+                        },
+                      }}
+                      selected={
+                        pet.dob
+                          ? new Date(`${pet.dob}T00:00:00`)
+                          : undefined
+                      }
+                      onSelect={(selectedDate) => {
+                        if (!selectedDate) return;
+
+                        const year =
+                          selectedDate.getFullYear();
+
+                        const month = String(
+                          selectedDate.getMonth() + 1
+                        ).padStart(2, "0");
+
+                        const day = String(
+                          selectedDate.getDate()
+                        ).padStart(2, "0");
+
+                        const selectedDob =
+                          `${year}-${month}-${day}`;
+
+                        updatePet(index, {
+                          dob: selectedDob,
+                        });
+
+                        setDobInputs((current) => ({
+                          ...current,
+                          [index]: `${day}/${month}/${year}`,
+                        }));
+
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+
+                        const minimumDobDate =
+                          new Date(today);
+
+                        minimumDobDate.setDate(
+                          today.getDate() - 14
+                        );
+
+                        const selectedDateOnly =
+                          new Date(
+                            selectedDob + "T00:00:00"
+                          );
+
+                        setErrors((current) =>
+                          current.map((error, i) =>
+                            i === index
+                              ? {
+                                  ...error,
+                                  dob:
+                                    selectedDateOnly >
+                                    minimumDobDate
+                                      ? "Your pet must be at least 14 days old"
+                                      : "",
+                                }
+                              : error
+                          )
+                        );
+
+                        setOpenDatePicker(null);
+                      }}
+                    />
+                  </div>
+                )}
+
+                {petError?.dob && (
+                  <p style={errorStyle}>
                     {petError.dob}
                   </p>
                 )}
@@ -1229,10 +1513,13 @@ router.push(`/plans?${params.toString()}`);
               SHARED ADDRESS
             ========================== */}
 
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 15 }}>
           <label style={labelStyle}>
             Home Address
           </label>
+          
+          {/*
+             Manual fallback if Google Maps fails for demonstration purposes */}
 
           {googleMapsFailed ? (
             <input
@@ -1246,16 +1533,10 @@ router.push(`/plans?${params.toString()}`);
               }}
               placeholder="e.g. 123 Queen Street, Brisbane QLD 4000"
               style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 10,
+                ...inputStyle,
                 border: addressError
-                  ? "1px solid red"
-                  : "1px solid #ddd",
-                backgroundColor: "#fff",
-                color: "#111",
-                outline: "none",
-                boxSizing: "border-box",
+                  ? "2px solid #d50000"
+                  : "1px solid #e6e3e0",
               }}
             />
           ) : (
@@ -1263,11 +1544,11 @@ router.push(`/plans?${params.toString()}`);
               ref={addressContainerRef}
               style={{
                 width: "100%",
-                minHeight: 46,
-                borderRadius: 10,
+                minHeight: 48,
+                borderRadius: 5,
                 border: addressError
-                  ? "1px solid red"
-                  : "1px solid #ddd",
+                  ? "2px solid #d50000"
+                  : "1px solid #e6e3e0",
                 backgroundColor: "#fff",
                 boxSizing: "border-box",
                 overflow: "visible",
@@ -1276,17 +1557,12 @@ router.push(`/plans?${params.toString()}`);
           )}
 
           {addressError && (
-            <p
-              style={{
-                color: "red",
-                fontSize: 12,
-                marginTop: 6,
-              }}
-            >
+            <p style={errorStyle}>
               {addressError}
             </p>
           )}
         </div>
+        
         {/* =========================
             GENERATE QUOTE
         ========================== */}
@@ -1294,15 +1570,16 @@ router.push(`/plans?${params.toString()}`);
         <button
           onClick={handleSubmit}
           style={{
-            marginTop: 30,
+            marginTop: 15,
             width: "100%",
-            padding: 14,
-            borderRadius: 10,
+            height: 50,
+            borderRadius: 5,
             border: "none",
-            background: "#eaac2a",
+            background: "#fdba2e",
             color: "#111",
             cursor: "pointer",
-            fontWeight: 600,
+            fontWeight: 900,
+            fontSize: 15,
           }}
         >
           Generate Quote

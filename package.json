@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@daypicker/react": "^10.0.1",
     "@googlemaps/js-api-loader": "^2.1.1",
     "@stripe/cli": "^1.50.3",
     "next": "16.2.6",
