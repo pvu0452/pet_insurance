@@ -1,7 +1,8 @@
-
+import db from "@/lib/db";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
+import { generateMasterPolicyId } from "@/lib/generateID";
 
 export async function POST(request: Request) {
   console.log("=== STRIPE WEBHOOK STARTED ===");
@@ -369,7 +370,20 @@ export async function POST(request: Request) {
           </html>
         `,
       });
+      /*const masterPolicyId = generateMasterPolicyId();
 
+      db.prepare(`
+        INSERT INTO policies(
+          master_policy_id,
+          email
+        )
+        VALUES (?, ?)
+      `).run(
+        masterPolicyId,
+        customerEmail
+      );
+      
+      console.log("Master policy created with ID:", masterPolicyId);*/
       console.log("=== EMAIL SENT SUCCESSFULLY ===");
 
     } catch (error) {

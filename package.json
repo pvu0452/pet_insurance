@@ -12,6 +12,7 @@
     "@daypicker/react": "^10.0.1",
     "@googlemaps/js-api-loader": "^2.1.1",
     "@stripe/cli": "^1.50.3",
+    "better-sqlite3": "^13.0.3",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/google.maps": "^3.65.5",
     "@types/node": "^20",
     "@types/react": "^19",
