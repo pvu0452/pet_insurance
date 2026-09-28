@@ -186,6 +186,9 @@ function DetailsContent() {
   const [openDatePicker, setOpenDatePicker] =
     useState<number | null>(null);
 
+  const [openBreedDropdown, setOpenBreedDropdown] =
+    useState<number | null>(null);
+
   const [dobInputs, setDobInputs] =
     useState<Record<number, string>>({});
 
@@ -3348,6 +3351,19 @@ useEffect(() => {
                             >
                               options={options}
 
+                              menuIsOpen={openBreedDropdown === index}
+
+                              onMenuOpen={() => {
+                                setOpenDatePicker(null);
+                                setOpenBreedDropdown(index);
+                              }}
+
+                              onMenuClose={() => {
+                                setOpenBreedDropdown((current) =>
+                                  current === index ? null : current
+                                );
+                              }}
+
                               value={
                                 options.find(
                                   (option) =>
@@ -3486,6 +3502,7 @@ useEffect(() => {
                                 }
                                 onFocus={() => {
                                   if (editingPet === index) {
+                                    setOpenBreedDropdown(null);
                                     setOpenDatePicker(index);
                                   }
                                 }}
@@ -3591,11 +3608,15 @@ useEffect(() => {
                               <button
                                 type="button"
                                 disabled={editingPet !== index}
-                                onClick={() =>
+                                onClick={() => {
+                                  setOpenBreedDropdown(null);
+
                                   setOpenDatePicker(
-                                    openDatePicker === index ? null : index
-                                  )
-                                }
+                                    openDatePicker === index
+                                      ? null
+                                      : index
+                                  );
+                                }}
                                 aria-label="Open date picker"
                                 className="
                                   absolute
@@ -4679,7 +4700,7 @@ useEffect(() => {
               hover:bg-gray-50
               active:bg-gray-100
               text-gray-800
-              rounded-xl
+              rounded-md
               font-semibold
               text-sm
               transition
@@ -4694,18 +4715,16 @@ useEffect(() => {
               !termsAccepted ||
               !privacyAccepted ||
               pricingLoading ||
-              pricing.total ===
-                null
+              pricing.total === null
             }
-            onClick={
-              confirmPayment
-            }
+            onClick={confirmPayment}
             className="
               flex-1
               h-12
-              rounded-xl
+              rounded-md
               font-semibold
               text-sm
+              shadow-sm
               transition
               bg-amber-400
               hover:bg-amber-500
