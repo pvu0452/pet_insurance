@@ -34,6 +34,9 @@ export default function Home() {
   const [openDatePicker, setOpenDatePicker] =
   useState<number | null>(null);
 
+  const [openBreedDropdown, setOpenBreedDropdown] =
+  useState<number | null>(null);
+
   const [dobInputs, setDobInputs] =
   useState<Record<number, string>>({});
 
@@ -418,10 +421,10 @@ router.push(`/plans?${params.toString()}`);
   // LABEL STYLE
   // -----------------------------
   const labelStyle = {
-    color: "#333",
-    fontSize: 17,
-    fontWeight: 600,
-    marginBottom: 5,
+    color: "#374151",
+    fontSize: 14,
+    fontWeight: 500,
+    marginBottom: 6,
     display: "block",
   };
 
@@ -830,15 +833,14 @@ router.push(`/plans?${params.toString()}`);
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: 40,
-        fontFamily: "Lato, sans-serif",
+        padding: "32px 16px",
       }}
     >
       {/* LOGO */}
       <div
         style={{
           width: "100%",
-          maxWidth: 520,
+          maxWidth: 672,
           display: "flex",
           justifyContent: "center",
           marginBottom: 20,
@@ -869,7 +871,7 @@ router.push(`/plans?${params.toString()}`);
       <div
         style={{
           width: "100%",
-          maxWidth: 520,
+          maxWidth: 672,
           background: "#fff",
           border: "1px solid #eee",
           borderRadius: 16,
@@ -1090,6 +1092,20 @@ router.push(`/plans?${params.toString()}`);
                 {mounted && (
                   <Select<Option, false>
                     options={options}
+
+                    menuIsOpen={openBreedDropdown === index}
+
+                    onMenuOpen={() => {
+                      setOpenDatePicker(null);
+                      setOpenBreedDropdown(index);
+                    }}
+
+                    onMenuClose={() => {
+                      setOpenBreedDropdown((current) =>
+                        current === index ? null : current
+                      );
+                    }}
+
                     value={
                       options.find(
                         (option) => option.value === pet.breed
@@ -1173,9 +1189,10 @@ router.push(`/plans?${params.toString()}`);
                         ? pet.dob.split("-").reverse().join("/")
                         : "")
                     }
-                    onFocus={() =>
-                      setOpenDatePicker(index)
-                    }
+                    onFocus={() => {
+                      setOpenBreedDropdown(null);
+                      setOpenDatePicker(index);
+                    }}
                     onChange={(e) => {
                       const digits = e.target.value
                         .replace(/\D/g, "")
@@ -1301,13 +1318,15 @@ router.push(`/plans?${params.toString()}`);
 
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      setOpenBreedDropdown(null);
+
                       setOpenDatePicker(
                         openDatePicker === index
                           ? null
                           : index
-                      )
-                    }
+                      );
+                    }}
                     aria-label="Open date picker"
                     style={{
                       position: "absolute",
@@ -1567,23 +1586,27 @@ router.push(`/plans?${params.toString()}`);
             GENERATE QUOTE
         ========================== */}
 
-        <button
-          onClick={handleSubmit}
-          style={{
-            marginTop: 15,
-            width: "100%",
-            height: 50,
-            borderRadius: 5,
-            border: "none",
-            background: "#fdba2e",
-            color: "#111",
-            cursor: "pointer",
-            fontWeight: 900,
-            fontSize: 15,
-          }}
-        >
-          Generate Quote
-        </button>
+        <div className="mt-4 flex gap-3 pb-8">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            className="
+              flex-1
+              h-12
+              rounded-md
+              bg-amber-400
+              hover:bg-amber-500
+              active:bg-amber-600
+              text-gray-900
+              text-sm
+              font-semibold
+              shadow-sm
+              transition
+            "
+          >
+            Generate Quote
+          </button>
+        </div>
       </div>
     </main>
   );
