@@ -1,15 +1,34 @@
 "use client";
 
+/* -----------------------------
+   IMPORTS
+------------------------------*/
+
 import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+
+
+/* -----------------------------
+   SUCCESS PAGE CONTENT
+------------------------------*/
 
 function SuccessPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+
+  /* -----------------------------
+     POLICY NUMBER
+  ------------------------------*/
+
   const quoteId =
     searchParams.get("quoteId") ||
     searchParams.get("policyId");
+
+
+  /* -----------------------------
+     PAGE BACKGROUND
+  ------------------------------*/
 
   return (
     <div
@@ -20,6 +39,7 @@ function SuccessPageContent() {
     >
       <div className="max-w-2xl mx-auto px-4 py-6">
 
+        {/* WAS LOGO */}
         <button
           type="button"
           onClick={() => router.push("/details")}
@@ -33,6 +53,7 @@ function SuccessPageContent() {
           />
         </button>
 
+        {/* SUCCESS CARD */}
         <div
           className="
             bg-white
@@ -44,6 +65,7 @@ function SuccessPageContent() {
           "
         >
 
+          {/* HEADER */}
           <div
             className="
               px-6
@@ -55,6 +77,7 @@ function SuccessPageContent() {
             "
           >
 
+            {/* SUCCESS ICON */}
             <div
               className="
                 mx-auto
@@ -73,6 +96,7 @@ function SuccessPageContent() {
               ✓
             </div>
 
+            {/* SUCCESS MESSAGE */}
             <h1
               className="
                 text-2xl
@@ -95,8 +119,10 @@ function SuccessPageContent() {
 
           </div>
 
+          {/* CONTENT */}
           <div className="p-6">
 
+            {/* INFORMATION CARD */}
             <div
               className="
                 border
@@ -142,6 +168,7 @@ function SuccessPageContent() {
 
             </div>
 
+            {/* PAYMENT CONFIRMATION */}
             <div
               className="
                 mt-6
@@ -184,6 +211,11 @@ function SuccessPageContent() {
     </div>
   );
 }
+
+
+/* -----------------------------
+   SUCCESS PAGE
+------------------------------*/
 
 export default function SuccessPage() {
   return (

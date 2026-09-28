@@ -1,15 +1,28 @@
 "use client";
 
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, {
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import {
-  useRouter,
+useRouter,
   useSearchParams,
 } from "next/navigation";
+
 import Select, { components } from "react-select";
 import { DayPicker } from "@daypicker/react";
 import "@daypicker/react/style.css";
 
+import {
+  importLibrary,
+  setOptions as setGoogleMapsOptions,
+} from "@googlemaps/js-api-loader";
+
+let googleMapsConfigured = false;
 
 /* -----------------------------
    TYPES
@@ -89,6 +102,30 @@ function DetailsContent() {
       mobile: "",
       email: "",
     });
+  
+  const [addressError, setAddressError] =
+    useState("");
+  
+  const [unfinishedEditError, setUnfinishedEditError] =
+    useState<
+      "address" | "pet" | "cover" | null
+    >(null);
+
+  const [addressSelected, setAddressSelected] =
+    useState(false);
+
+  const [petErrors, setPetErrors] =
+    useState<
+      Record<
+        number,
+        {
+          name: string;
+          breed: string;
+          dob: string;
+          gender: string;
+        }
+      >
+    >({});
 
   const [pets, setPets] =
     useState<Pet[]>([
@@ -149,6 +186,9 @@ function DetailsContent() {
   const [openDatePicker, setOpenDatePicker] =
     useState<number | null>(null);
 
+  const [openBreedDropdown, setOpenBreedDropdown] =
+    useState<number | null>(null);
+
   const [dobInputs, setDobInputs] =
     useState<Record<number, string>>({});
 
@@ -184,6 +224,14 @@ function DetailsContent() {
   const [showAddressEditWarning, setShowAddressEditWarning] =
     useState(false);
 
+  const addressContainerRef =
+    useRef<HTMLDivElement>(null);
+
+  const autocompleteRef =
+    useRef<any>(null);
+
+  const [googleMapsFailed, setGoogleMapsFailed] =
+    useState(false);
   /* -----------------------------
      PROGRESS
   ------------------------------*/
@@ -732,27 +780,57 @@ function DetailsContent() {
       email: "",
     };
 
+    const namePattern =
+      /^[\p{L}\s'’-]+$/u;
+
     if (!customer.firstName.trim()) {
       errors.firstName =
         "Please enter your first name.";
+    } else if (
+      !namePattern.test(
+        customer.firstName.trim()
+      )
+    ) {
+      errors.firstName =
+        "Please enter a valid first name.";
     }
 
     if (!customer.lastName.trim()) {
       errors.lastName =
         "Please enter your last name.";
+    } else if (
+      !namePattern.test(
+        customer.lastName.trim()
+      )
+    ) {
+      errors.lastName =
+        "Please enter a valid last name.";
     }
 
+    const mobileValue =
+      customer.mobile.trim();
+
     const cleanedMobile =
-      customer.mobile.replace(/\D/g, "");
+      mobileValue.replace(/\D/g, "");
+
+    const validMobileCharacters =
+      /^\+?[\d\s()-]+$/.test(
+        mobileValue
+      );
+
+    const validAustralianMobile =
+      validMobileCharacters &&
+      (
+        /^04\d{8}$/.test(cleanedMobile) ||
+        /^614\d{8}$/.test(cleanedMobile)
+      );
 
     if (!cleanedMobile) {
       errors.mobile =
         "Please enter your mobile number.";
-    } else if (
-      cleanedMobile.length !== 10
-    ) {
+    } else if (!validAustralianMobile) {
       errors.mobile =
-        "Mobile number must be 10 digits.";
+        "Please enter a valid Australian mobile number.";
     }
 
     const email =
@@ -818,6 +896,382 @@ function DetailsContent() {
 
     return true;
   }
+  
+    /* -----------------------------
+     VALIDATE CUSTOMER
+  ------------------------------*/
+
+  function validateReviewDetails() {
+    const nextPetErrors: Record<
+      number,
+      {
+        name: string;
+        breed: string;
+        dob: string;
+        gender: string;
+      }
+    > = {};
+
+    let hasPetErrors = false;
+
+    pets.forEach((pet, index) => {
+      const errors = {
+        name: "",
+        breed: "",
+        dob: "",
+        gender: "",
+      };
+
+      if (!pet.name.trim()) {
+        errors.name =
+          "Please enter your pet's name.";
+      } else if (
+        !/^[\p{L}\s'’-]+$/u.test(
+          pet.name.trim()
+        )
+      ) {
+        errors.name =
+          "Please enter a valid pet name.";
+      }
+
+      if (!pet.breed.trim()) {
+        errors.breed =
+          "Please select a breed.";
+      }
+
+      if (!pet.dob) {
+        errors.dob =
+          "Please enter your pet's date of birth.";
+      } else {
+        const dobDate =
+          new Date(`${pet.dob}T00:00:00`);
+
+        const today =
+          new Date();
+
+        today.setHours(0, 0, 0, 0);
+
+        const minimumDobDate =
+          new Date(today);
+
+        minimumDobDate.setDate(
+          today.getDate() - 14
+        );
+
+        if (
+          Number.isNaN(
+            dobDate.getTime()
+          )
+        ) {
+          errors.dob =
+            "Please enter a valid date of birth.";
+        } else if (
+          dobDate >
+          minimumDobDate
+        ) {
+          errors.dob =
+            "Your pet must be at least 14 days old.";
+        }
+      }
+
+      if (!pet.gender) {
+        errors.gender =
+          "Please select your pet's sex.";
+      }
+
+      nextPetErrors[index] =
+        errors;
+
+      if (
+        Object.values(errors).some(
+          Boolean
+        )
+      ) {
+        hasPetErrors = true;
+      }
+    });
+
+    setPetErrors(nextPetErrors);
+
+    let nextAddressError = "";
+
+    if (!customer.address.trim()) {
+      nextAddressError =
+        "Please enter your home address.";
+    } else if (
+      !customer.suburb.trim() ||
+      !customer.state.trim() ||
+      !customer.postcode.trim()
+    ) {
+      nextAddressError =
+        "Please enter a valid Australian address including suburb, state and postcode.";
+    }
+
+    setAddressError(
+      nextAddressError
+    );
+
+    const hasAddressError =
+      Boolean(nextAddressError);
+
+    if (
+      hasPetErrors ||
+      hasAddressError
+    ) {
+      setOpenPetDetails(true);
+
+      return false;
+    }
+
+    return true;
+  }
+  
+/* -----------------------------
+  FINISH PET EDIT
+------------------------------*/
+
+async function finishPetEdit(
+  index: number
+) {
+  const pet = pets[index];
+
+  if (!pet) {
+    return true;
+  }
+
+  const errors = {
+    name: "",
+    breed: "",
+    dob: "",
+    gender: "",
+  };
+
+  if (!pet.name.trim()) {
+    errors.name =
+      "Please enter your pet's name.";
+  } else if (
+    !/^[\p{L}\s'’-]+$/u.test(
+      pet.name.trim()
+    )
+  ) {
+    errors.name =
+      "Please enter a valid pet name.";
+  }
+
+  if (!pet.breed.trim()) {
+    errors.breed =
+      "Please select a breed.";
+  }
+
+  if (!pet.dob) {
+    errors.dob =
+      "Please enter your pet's date of birth.";
+  } else {
+    const dobDate =
+      new Date(`${pet.dob}T00:00:00`);
+
+    const today =
+      new Date();
+
+    today.setHours(0, 0, 0, 0);
+
+    const minimumDobDate =
+      new Date(today);
+
+    minimumDobDate.setDate(
+      today.getDate() - 14
+    );
+
+    if (
+      Number.isNaN(
+        dobDate.getTime()
+      )
+    ) {
+      errors.dob =
+        "Please enter a valid date of birth.";
+    } else if (
+      dobDate > minimumDobDate
+    ) {
+      errors.dob =
+        "Your pet must be at least 14 days old.";
+    }
+  }
+
+  if (!pet.gender) {
+    errors.gender =
+      "Please select your pet's sex.";
+  }
+
+  setPetErrors((current) => ({
+    ...current,
+    [index]: errors,
+  }));
+
+  const hasErrors =
+    Object.values(errors).some(
+      Boolean
+    );
+
+  if (hasErrors) {
+    setOpenPetDetails(true);
+    setEditingPet(index);
+
+    requestAnimationFrame(() => {
+      document
+        .getElementById(
+          `pet-details-${index}`
+        )
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+    });
+
+    return false;
+  }
+
+  setUnfinishedEditError(null);
+  setEditingPet(null);
+
+  if (
+    pricingChangedPets.includes(index)
+  ) {
+    await refreshPricing(pets);
+
+    setPricingChangedPets(
+      (current) =>
+        current.filter(
+          (petIndex) =>
+            petIndex !== index
+        )
+    );
+  }
+
+  return true;
+}
+
+  async function finishAddressEdit() {
+    if (!editingAddress) {
+      return true;
+    }
+
+    if (!customer.address.trim()) {
+      setAddressError(
+        "Please enter your home address."
+      );
+
+      requestAnimationFrame(() => {
+        document
+          .getElementById("address-details")
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+      });
+
+      return false;
+    }
+
+    if (
+      !googleMapsFailed &&
+      !addressSelected
+    ) {
+      setAddressError(
+        "Please select your address from the suggestions."
+      );
+
+      requestAnimationFrame(() => {
+        document
+          .getElementById("address-details")
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+      });
+
+      return false;
+    }
+
+    if (
+      !customer.suburb.trim() ||
+      !customer.state.trim() ||
+      !customer.postcode.trim()
+    ) {
+      setAddressError(
+        "Please enter a valid Australian address including suburb, state and postcode."
+      );
+
+      requestAnimationFrame(() => {
+        document
+          .getElementById("address-details")
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+      });
+
+      return false;
+    }
+
+    setAddressError("");
+    setUnfinishedEditError(null);
+    setEditingAddress(false);
+
+    await refreshPricing(
+      pets,
+      customer
+    );
+
+    return true;
+  }
+
+async function finishCoverEdit() {
+  if (editingCover === null) {
+    return true;
+  }
+
+  setUnfinishedEditError(null);
+  setEditingCover(null);
+
+  await refreshPricing(
+    pets
+  );
+
+  return true;
+}
+
+async function finishCurrentEdit() {
+  if (editingAddress) {
+    const addressFinished =
+      await finishAddressEdit();
+
+    if (!addressFinished) {
+      return false;
+    }
+  }
+
+  if (editingPet !== null) {
+    const petFinished =
+      await finishPetEdit(
+        editingPet
+      );
+
+    if (!petFinished) {
+      return false;
+    }
+  }
+
+  if (editingCover !== null) {
+    const coverFinished =
+      await finishCoverEdit();
+
+    if (!coverFinished) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
   /* -----------------------------
      SAVE DETAILS TO URL
@@ -1145,8 +1599,57 @@ function DetailsContent() {
       setSaveQuoteMessage("");
       setSaveQuoteError("");
 
+      if (editingAddress) {
+        setUnfinishedEditError("address");
+
+        document
+          .getElementById("address-details")
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+
+        return;
+      }
+
+      if (editingPet !== null) {
+        setUnfinishedEditError("pet");
+
+        document
+          .getElementById(
+            `pet-details-${editingPet}`
+          )
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+
+        return;
+      }
+
+      if (editingCover !== null) {
+        setUnfinishedEditError("cover");
+
+        document
+          .getElementById(
+            `pet-cover-${editingCover}`
+          )
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+
+        return;
+      }
+
+      setUnfinishedEditError(null);
+
       // Validate customer details before saving
       if (!validateCustomerDetails()) {
+        return;
+      }
+
+      if (!validateReviewDetails()) {
         return;
       }
 
@@ -1211,8 +1714,59 @@ function DetailsContent() {
   ------------------------------*/
 
   async function confirmPayment() {
+   if (editingAddress) {
+    setUnfinishedEditError("address");
+
+    document
+      .getElementById("address-details")
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+    return;
+  }
+
+  if (editingPet !== null) {
+    setUnfinishedEditError("pet");
+
+    document
+      .getElementById(
+        `pet-details-${editingPet}`
+      )
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+    return;
+  }
+
+  if (editingCover !== null) {
+    setUnfinishedEditError("cover");
+
+    document
+      .getElementById(
+        `pet-cover-${editingCover}`
+      )
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+    return;
+  }
+
+  setUnfinishedEditError(null);
+
     if (
       !validateCustomerDetails()
+    ) {
+      return;
+    }
+
+    if (
+      !validateReviewDetails()
     ) {
       return;
     }
@@ -1633,6 +2187,217 @@ function DetailsContent() {
     }
   }, []);
 
+/* -----------------------------
+   GOOGLE ADDRESS AUTOCOMPLETE
+------------------------------*/
+
+useEffect(() => {
+  if (!editingAddress || googleMapsFailed) {
+    return;
+  }
+
+  let cancelled = false;
+  let autocomplete: HTMLElement | null = null;
+
+  const loadGoogleMaps = async () => {
+    try {
+      if (
+        !process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+      ) {
+        setGoogleMapsFailed(true);
+        return;
+      }
+
+      if (!googleMapsConfigured) {
+        setGoogleMapsOptions({
+          key: process.env
+            .NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+          v: "weekly",
+        });
+
+        googleMapsConfigured = true;
+      }
+
+      const { PlaceAutocompleteElement } =
+        await importLibrary("places");
+
+      if (
+        cancelled ||
+        !addressContainerRef.current
+      ) {
+        return;
+      }
+
+      addressContainerRef.current.innerHTML =
+        "";
+
+      const newAutocomplete =
+        new PlaceAutocompleteElement();
+
+      newAutocomplete.style.width = "100%";
+      newAutocomplete.style.display = "block";
+
+      newAutocomplete.value =
+        customer.address;
+
+      newAutocomplete.setAttribute(
+        "included-region-codes",
+        "au"
+      );
+
+      newAutocomplete.setAttribute(
+        "placeholder",
+        "Start typing your address..."
+      );
+
+      autocomplete =
+        newAutocomplete;
+
+      autocompleteRef.current =
+        newAutocomplete;
+
+      addressContainerRef.current.appendChild(
+        newAutocomplete
+      );
+
+      newAutocomplete.addEventListener(
+        "input",
+        () => {
+          if (!cancelled) {
+            setAddressSelected(false);
+            setAddressError("");
+          }
+        }
+      );
+
+      newAutocomplete.addEventListener(
+        "gmp-select",
+        async (event: any) => {
+          try {
+            const place =
+              event.placePrediction.toPlace();
+
+            await place.fetchFields({
+              fields: [
+                "formattedAddress",
+                "addressComponents",
+              ],
+            });
+
+            if (
+              cancelled ||
+              !place.formattedAddress
+            ) {
+              return;
+            }
+
+            newAutocomplete.value =
+              place.formattedAddress;
+
+            let suburb = "";
+            let state = "";
+            let postcode = "";
+
+            const components =
+              place.addressComponents || [];
+
+            components.forEach(
+              (component: any) => {
+                const types =
+                  component.types || [];
+
+                if (
+                  types.includes("locality") ||
+                  types.includes("postal_town") ||
+                  types.includes("sublocality")
+                ) {
+                  suburb =
+                    component.longText ||
+                    component.shortText ||
+                    "";
+                }
+
+                if (
+                  types.includes(
+                    "administrative_area_level_1"
+                  )
+                ) {
+                  state =
+                    component.shortText ||
+                    component.longText ||
+                    "";
+                }
+
+                if (
+                  types.includes("postal_code")
+                ) {
+                  postcode =
+                    component.longText ||
+                    component.shortText ||
+                    "";
+                }
+              }
+            );
+
+            setCustomer((prev) => ({
+              ...prev,
+              address:
+                place.formattedAddress,
+              suburb,
+              state:
+                state.toUpperCase().trim(),
+              postcode,
+            }));
+
+            setAddressSelected(true);
+            setAddressError("");
+          } catch (error) {
+            console.error(
+              "Failed to get selected address:",
+              error
+            );
+          }
+        }
+      );
+
+      newAutocomplete.addEventListener(
+        "gmp-error",
+        () => {
+          if (!cancelled) {
+            setGoogleMapsFailed(true);
+          }
+        }
+      );
+    } catch (error) {
+      console.error(
+        "Google Maps failed to load:",
+        error
+      );
+
+      if (!cancelled) {
+        setGoogleMapsFailed(true);
+      }
+    }
+  };
+
+  loadGoogleMaps();
+
+  return () => {
+    cancelled = true;
+
+    if (autocomplete) {
+      autocomplete.remove();
+    }
+
+    autocompleteRef.current = null;
+
+    if (addressContainerRef.current) {
+      addressContainerRef.current.innerHTML =
+        "";
+    }
+  };
+}, [editingAddress]);
+
   /* -----------------------------
      INITIAL / COVER PRICING
   ------------------------------*/
@@ -1922,13 +2687,26 @@ function DetailsContent() {
     <input
       id="customer-first-name"
       value={customer.firstName}
-      onChange={(e) =>
+      onChange={(e) => {
+        const value = e.target.value;
+
         setCustomer({
           ...customer,
-          firstName:
-            e.target.value,
-        })
-      }
+          firstName: value,
+        });
+
+        const validName =
+          /^[\p{L}\s'’-]+$/u.test(
+            value.trim()
+          );
+
+        if (validName) {
+          setCustomerErrors((current) => ({
+            ...current,
+            firstName: "",
+          }));
+        }
+      }}
       className={`${inputStyle} ${
         customerErrors.firstName
           ? "border-red-500 focus:ring-red-500"
@@ -1949,13 +2727,26 @@ function DetailsContent() {
     <input
       id="customer-last-name"
       value={customer.lastName}
-      onChange={(e) =>
+      onChange={(e) => {
+        const value = e.target.value;
+
         setCustomer({
           ...customer,
-          lastName:
-            e.target.value,
-        })
-      }
+          lastName: value,
+        });
+
+        const validName =
+          /^[\p{L}\s'’-]+$/u.test(
+            value.trim()
+          );
+
+        if (validName) {
+          setCustomerErrors((current) => ({
+            ...current,
+            lastName: "",
+          }));
+        }
+      }}
       className={`${inputStyle} ${
         customerErrors.lastName
           ? "border-red-500 focus:ring-red-500"
@@ -1978,13 +2769,39 @@ function DetailsContent() {
                 value={
                   customer.mobile
                 }
-                onChange={(e) =>
+                onChange={(e) => {
+                  const value = e.target.value;
+
                   setCustomer({
                     ...customer,
-                    mobile:
-                      e.target.value,
-                  })
-                }
+                    mobile: value,
+                  });
+
+                  const mobileValue =
+                    value.trim();
+
+                  const cleanedMobile =
+                    mobileValue.replace(/\D/g, "");
+
+                  const validMobileCharacters =
+                    /^\+?[\d\s()-]+$/.test(
+                      mobileValue
+                    );
+
+                  const validAustralianMobile =
+                    validMobileCharacters &&
+                    (
+                      /^04\d{8}$/.test(cleanedMobile) ||
+                      /^614\d{8}$/.test(cleanedMobile)
+                    );
+
+                  if (validAustralianMobile) {
+                    setCustomerErrors((current) => ({
+                      ...current,
+                      mobile: "",
+                    }));
+                  }
+                }}
                 className={`${inputStyle} ${
                   customerErrors.mobile
                     ? "border-red-500 focus:ring-red-500"
@@ -2006,13 +2823,25 @@ function DetailsContent() {
                 value={
                   customer.email
                 }
-                onChange={(e) =>
+                onChange={(e) => {
+                  const value = e.target.value;
+
                   setCustomer({
                     ...customer,
-                    email:
-                      e.target.value,
-                  })
-                }
+                    email: value,
+                  });
+
+                  if (
+                    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+                      value.trim()
+                    )
+                  ) {
+                    setCustomerErrors((current) => ({
+                      ...current,
+                      email: "",
+                    }));
+                  }
+                }}
                 className={`${inputStyle} ${
                   customerErrors.email
                     ? "border-red-500 focus:ring-red-500"
@@ -2158,7 +2987,19 @@ function DetailsContent() {
 
               {/* YOUR ADDRESS */}
 
-              <div className="px-5 py-5 border-b border-gray-200">
+              <div
+                id="address-details"
+                className={`
+                  px-5
+                  py-5
+                  border-b
+                  ${
+                    unfinishedEditError === "address"
+                      ? "border-2 border-red-500 bg-red-50/30"
+                      : "border-gray-200"
+                  }
+                `}
+              >
                 <div className="flex items-center justify-between gap-4 mb-4">
 
                   <div>
@@ -2170,9 +3011,16 @@ function DetailsContent() {
                   {!editingAddress ? (
                     <button
                       type="button"
-                      onClick={() =>
-                        setShowAddressEditWarning(true)
-                      }
+                      onClick={async () => {
+                        const canSwitch =
+                          await finishCurrentEdit();
+
+                        if (!canSwitch) {
+                          return;
+                        }
+
+                        setShowAddressEditWarning(true);
+                      }}
                       className="
                         flex-shrink-0
                         text-sm
@@ -2192,12 +3040,7 @@ function DetailsContent() {
                     <button
                       type="button"
                       onClick={async () => {
-                        setEditingAddress(false);
-
-                        await refreshPricing(
-                          pets,
-                          customer
-                        );
+                        await finishAddressEdit();
                       }}
                       className="
                         flex-shrink-0
@@ -2217,47 +3060,96 @@ function DetailsContent() {
 
                 </div>
 
-                <input
-                  type="text"
-                  value={customer.address}
-                  readOnly={!editingAddress}
-                  onChange={(e) => {
-                    const newAddress =
-                      e.target.value;
+                {unfinishedEditError === "address" && (
+                  <p className="text-sm text-red-600 mb-4">
+                    Please press Done to finish editing before continuing.
+                  </p>
+                )}
 
-                    const {
-                      suburb,
-                      state,
-                      postcode,
-                    } = parseAddress(
-                      newAddress
-                    );
+                {!editingAddress ? (
+                  <input
+                    type="text"
+                    value={customer.address}
+                    readOnly
+                    className={`
+                      ${inputStyle}
+                      bg-gray-100
+                      cursor-not-allowed
+                      text-gray-500
+                      ${
+                        addressError
+                          ? "border-red-500 focus:ring-red-500"
+                          : ""
+                      }
+                    `}
+                  />
+                ) : googleMapsFailed ? (
+                  <input
+                    type="text"
+                    value={customer.address}
+                    placeholder="e.g. 123 Queen Street, Brisbane QLD 4000"
+                    onChange={(e) => {
+                      const newAddress =
+                        e.target.value;
 
-                    setCustomer(
-                      (prev) => ({
+                      const {
+                        suburb,
+                        state,
+                        postcode,
+                      } = parseAddress(
+                        newAddress
+                      );
+
+                      setCustomer((prev) => ({
                         ...prev,
                         address: newAddress,
                         suburb,
                         state,
                         postcode,
-                      })
-                    );
-                  }}
-                  className={`
-                    ${inputStyle}
-                    ${
-                      !editingAddress
-                        ? "bg-gray-100 cursor-not-allowed"
-                        : "bg-white"
-                    }
-                  `}
-                  style={{
-                    color:
-                      !editingAddress
-                        ? "#6b7280"
-                        : "#111827",
-                  }}
-                />
+                      }));
+
+                      setAddressSelected(false);
+                      setAddressError("");
+                    }}
+                    className={`
+                      ${inputStyle}
+                      bg-white
+                      ${
+                        addressError
+                          ? "border-red-500 focus:ring-red-500"
+                          : ""
+                      }
+                    `}
+                  />
+                ) : (
+                  <div>
+                    <div
+                      ref={addressContainerRef}
+                      className={`
+                        w-full
+                        min-h-12
+                        rounded-xl
+                        border
+                        bg-white
+                        ${
+                          addressError
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        }
+                      `}
+                    />
+
+                    <p className="text-xs text-gray-500 mt-2">
+                      Start typing your address and select it from the suggestions.
+                    </p>
+                  </div>
+                )}
+
+                {addressError && (
+                  <ErrorMessage>
+                    {addressError}
+                  </ErrorMessage>
+                )}
               </div>
 
               {/* YOUR PETS */}
@@ -2284,13 +3176,18 @@ function DetailsContent() {
                     (pet, index) => (
                       <div
                         key={index}
-                        className="
+                        id={`pet-details-${index}`}
+                        className={`
                           border
-                          border-gray-200
                           rounded-xl
                           p-4
-                          bg-gray-50/30
-                        "
+                          ${
+                            unfinishedEditError === "pet" &&
+                            editingPet === index
+                              ? "border-2 border-red-500 bg-red-50/30"
+                              : "border-gray-200 bg-gray-50/30"
+                          }
+                        `}
                       >
 
                         {/* PET HEADER */}
@@ -2319,17 +3216,19 @@ function DetailsContent() {
 
                             </div>
 
-                            {pet.name && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                {pet.name}
-                              </p>
-                            )}
                           </div>
 
                           {editingPet !== index ? (
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={async () => {
+                                const canSwitch =
+                                  await finishCurrentEdit();
+
+                                if (!canSwitch) {
+                                  return;
+                                }
+
                                 setPetToEdit(index);
                                 setShowEditWarning(true);
                               }}
@@ -2352,26 +3251,7 @@ function DetailsContent() {
                             <button
                               type="button"
                               onClick={async () => {
-                                setEditingPet(null);
-
-                                if (
-                                  pricingChangedPets.includes(
-                                    index
-                                  )
-                                ) {
-                                  await refreshPricing(
-                                    pets
-                                  );
-
-                                  setPricingChangedPets(
-                                    (current) =>
-                                      current.filter(
-                                        (petIndex) =>
-                                          petIndex !==
-                                          index
-                                      )
-                                  );
-                                }
+                                await finishPetEdit(index);
                               }}
                               className="
                                 flex-shrink-0
@@ -2390,6 +3270,12 @@ function DetailsContent() {
                           )}
 
                         </div>
+                        {unfinishedEditError === "pet" &&
+                          editingPet === index && (
+                            <p className="text-sm text-red-600 mb-4">
+                              Please press Done to finish editing before continuing.
+                            </p>
+                          )}
 
                         {/* PET NAME */}
 
@@ -2399,21 +3285,44 @@ function DetailsContent() {
                             readOnly={
                               editingPet !== index
                             }
-                            onChange={(e) =>
-                              updatePet(
-                                index,
-                                {
-                                  name:
-                                    e.target.value,
-                                }
-                              )
-                            }
+                            onChange={(e) => {
+                              const value = e.target.value;
+
+                              updatePet(index, {
+                                name: value,
+                              });
+
+                              const validPetName =
+                                /^[\p{L}\s'’-]+$/u.test(
+                                  value.trim()
+                                );
+
+                              if (validPetName) {
+                                setPetErrors((current) => ({
+                                  ...current,
+                                  [index]: {
+                                    ...(current[index] ?? {
+                                      name: "",
+                                      breed: "",
+                                      dob: "",
+                                      gender: "",
+                                    }),
+                                    name: "",
+                                  },
+                                }));
+                              }
+                            }}
                             className={`
                               ${inputStyle}
                               ${
                                 editingPet !== index
                                   ? "bg-gray-100 cursor-not-allowed"
                                   : "bg-white"
+                              }
+                              ${
+                                petErrors[index]?.name
+                                  ? "border-red-500 focus:ring-red-500"
+                                  : ""
                               }
                             `}
                             style={{
@@ -2423,6 +3332,13 @@ function DetailsContent() {
                                   : "#111827",
                             }}
                           />
+
+                          {petErrors[index]?.name && (
+                            <ErrorMessage>
+                              {petErrors[index].name}
+                            </ErrorMessage>
+                          )}
+
                         </FormField>
 
                         {/* BREED */}
@@ -2434,6 +3350,19 @@ function DetailsContent() {
                               false
                             >
                               options={options}
+
+                              menuIsOpen={openBreedDropdown === index}
+
+                              onMenuOpen={() => {
+                                setOpenDatePicker(null);
+                                setOpenBreedDropdown(index);
+                              }}
+
+                              onMenuClose={() => {
+                                setOpenBreedDropdown((current) =>
+                                  current === index ? null : current
+                                );
+                              }}
 
                               value={
                                 options.find(
@@ -2470,9 +3399,43 @@ function DetailsContent() {
                                         | "dog",
                                   }
                                 );
+                                setPetErrors((current) => ({
+                                  ...current,
+                                  [index]: {
+                                    ...(current[index] ?? {
+                                      name: "",
+                                      breed: "",
+                                      dob: "",
+                                      gender: "",
+                                    }),
+                                    breed: "",
+                                  },
+                                }));
                               }}
 
-                              styles={selectStyles}
+                              styles={{
+                                ...selectStyles,
+
+                                control: (
+                                  base: any,
+                                  state: any
+                                ) => ({
+                                  ...selectStyles.control(
+                                    base,
+                                    state
+                                  ),
+
+                                  border: petErrors[index]?.breed
+                                    ? "1px solid #ef4444"
+                                    : "1px solid #d1d5db",
+
+                                  boxShadow:
+                                    petErrors[index]?.breed &&
+                                    state.isFocused
+                                      ? "0 0 0 2px #ef4444"
+                                      : "none",
+                                }),
+                              }}
 
                               components={{
                                 IndicatorSeparator: () => null,
@@ -2510,6 +3473,13 @@ function DetailsContent() {
                                   : "No breeds found"
                               }
                             />
+
+                            {petErrors[index]?.breed && (
+                              <ErrorMessage>
+                                {petErrors[index].breed}
+                              </ErrorMessage>
+                            )}
+
                           </FormField>
                         </div>
 
@@ -2532,6 +3502,7 @@ function DetailsContent() {
                                 }
                                 onFocus={() => {
                                   if (editingPet === index) {
+                                    setOpenBreedDropdown(null);
                                     setOpenDatePicker(index);
                                   }
                                 }}
@@ -2556,6 +3527,10 @@ function DetailsContent() {
                                   }));
 
                                   if (digits.length !== 8) {
+                                    updatePet(index, {
+                                      dob: "",
+                                    });
+
                                     return;
                                   }
 
@@ -2575,6 +3550,23 @@ function DetailsContent() {
                                     typedDate.getDate() === day;
 
                                   if (!isValidDate) {
+                                    updatePet(index, {
+                                      dob: "",
+                                    });
+
+                                    setPetErrors((current) => ({
+                                      ...current,
+                                      [index]: {
+                                        ...(current[index] ?? {
+                                          name: "",
+                                          breed: "",
+                                          dob: "",
+                                          gender: "",
+                                        }),
+                                        dob: "Please enter a valid date of birth.",
+                                      },
+                                    }));
+
                                     return;
                                   }
 
@@ -2584,6 +3576,18 @@ function DetailsContent() {
                                   updatePet(index, {
                                     dob: `${year}-${monthString}-${dayString}`,
                                   });
+                                  setPetErrors((current) => ({
+                                  ...current,
+                                  [index]: {
+                                    ...(current[index] ?? {
+                                      name: "",
+                                      breed: "",
+                                      dob: "",
+                                      gender: "",
+                                    }),
+                                    dob: "",
+                                  },
+                                }));
                                 }}
                                 className={`
                                   ${inputStyle}
@@ -2593,17 +3597,26 @@ function DetailsContent() {
                                       ? "bg-gray-100 cursor-not-allowed text-gray-500"
                                       : "bg-white text-gray-900"
                                   }
+                                  ${
+                                    petErrors[index]?.dob
+                                      ? "border-red-500 focus:ring-red-500"
+                                      : ""
+                                  }
                                 `}
                               />
 
                               <button
                                 type="button"
                                 disabled={editingPet !== index}
-                                onClick={() =>
+                                onClick={() => {
+                                  setOpenBreedDropdown(null);
+
                                   setOpenDatePicker(
-                                    openDatePicker === index ? null : index
-                                  )
-                                }
+                                    openDatePicker === index
+                                      ? null
+                                      : index
+                                  );
+                                }}
                                 aria-label="Open date picker"
                                 className="
                                   absolute
@@ -2699,6 +3712,19 @@ function DetailsContent() {
                                     updatePet(index, {
                                       dob: `${year}-${month}-${day}`,
                                     });
+                                    
+                                    setPetErrors((current) => ({
+                                      ...current,
+                                      [index]: {
+                                        ...(current[index] ?? {
+                                          name: "",
+                                          breed: "",
+                                          dob: "",
+                                          gender: "",
+                                        }),
+                                        dob: "",
+                                      },
+                                    }));
 
                                     setDobInputs((current) => ({
                                       ...current,
@@ -2710,6 +3736,11 @@ function DetailsContent() {
                                 />
                               </div>
                             )}
+                            {petErrors[index]?.dob && (
+                              <ErrorMessage>
+                                {petErrors[index].dob}
+                              </ErrorMessage>
+                            )}
                           </FormField>
 
                           <FormField label="Sex">
@@ -2718,17 +3749,30 @@ function DetailsContent() {
                               <select
                                 value={pet.gender || ""}
                                 disabled={editingPet !== index}
-                                onChange={(e) =>
-                                  updatePet(
-                                    index,
-                                    {
-                                      gender:
-                                        e.target.value as
-                                          | "male"
-                                          | "female",
-                                    }
-                                  )
-                                }
+                                onChange={(e) => {
+                                  const value =
+                                    e.target.value as
+                                      | "male"
+                                      | "female";
+
+                                  updatePet(index, {
+                                    gender: value,
+                                  });
+
+                                  setPetErrors((current) => ({
+                                    ...current,
+                                    [index]: {
+                                      ...(current[index] ?? {
+                                        name: "",
+                                        breed: "",
+                                        dob: "",
+                                        gender: "",
+                                      }),
+                                      gender: "",
+                                    },
+                                  }));
+                                }}
+
                                 className={`
                                   ${inputStyle}
                                   appearance-none
@@ -2737,6 +3781,11 @@ function DetailsContent() {
                                     editingPet !== index
                                       ? "bg-gray-100 text-gray-600 cursor-not-allowed"
                                       : "bg-white text-gray-900 cursor-pointer"
+                                  }
+                                  ${
+                                    petErrors[index]?.gender
+                                      ? "border-red-500 focus:ring-red-500"
+                                      : ""
                                   }
                                 `}
                               >
@@ -2774,6 +3823,11 @@ function DetailsContent() {
                                 <polyline points="6 9 12 15 18 9" />
                               </svg>
                             </div>
+                            {petErrors[index]?.gender && (
+                              <ErrorMessage>
+                                {petErrors[index].gender}
+                              </ErrorMessage>
+                            )}
                           </FormField>
 
                         </div>
@@ -2876,13 +3930,19 @@ function DetailsContent() {
                   return (
                     <div
                       key={index}
-                      className="
+                      id={`pet-cover-${index}`}
+                      className={`
                         px-5
                         py-5
                         border-b
-                        border-gray-200
+                        ${
+                          unfinishedEditError === "cover" &&
+                          editingCover === index
+                            ? "border-2 border-red-500 bg-red-50/30"
+                            : "border-gray-200"
+                        }
                         last:border-b-0
-                      "
+                      `}
                     >
 
                       {/* COVER TOP ROW */}
@@ -2902,60 +3962,67 @@ function DetailsContent() {
 
                         <div className="flex-shrink-0 flex items-center gap-3">
 
-                          <div className="text-right">
+                          {pets.length > 1 && (
+                            <div className="text-right">
 
-                            {pricingLoading ? (
-                              <span className="inline-flex items-center gap-2 text-xs text-gray-500">
+                              {pricingLoading ? (
+                                <span className="inline-flex items-center gap-2 text-xs text-gray-500">
 
-                                <span
-                                  className="
-                                    w-3.5
-                                    h-3.5
-                                    border-2
-                                    border-gray-300
-                                    border-t-gray-700
-                                    rounded-full
-                                    animate-spin
-                                  "
-                                />
+                                  <span
+                                    className="
+                                      w-3.5
+                                      h-3.5
+                                      border-2
+                                      border-gray-300
+                                      border-t-gray-700
+                                      rounded-full
+                                      animate-spin
+                                    "
+                                  />
 
-                                Updating
+                                  Updating
 
-                              </span>
-                            ) : price !== null ? (
-                              <>
-                                <div className="text-lg font-semibold text-gray-900">
-                                  ${price.toFixed(2)}
-                                </div>
+                                </span>
+                              ) : price !== null ? (
+                                <>
+                                  <div className="text-lg font-semibold text-gray-900">
+                                    ${price.toFixed(2)}
+                                  </div>
 
-                                <div className="text-[10px] text-gray-500">
-                                  per month
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="text-lg font-semibold text-gray-400">
-                                  —
-                                </div>
+                                  <div className="text-[10px] text-gray-500">
+                                    per month
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="text-lg font-semibold text-gray-400">
+                                    —
+                                  </div>
 
-                                <div className="text-[10px] text-gray-500">
-                                  Price unavailable
-                                </div>
-                              </>
-                            )}
+                                  <div className="text-[10px] text-gray-500">
+                                    Price unavailable
+                                  </div>
+                                </>
+                              )}
 
-                          </div>
+                            </div>
+                          )}
 
                           {/* COVER EDIT BUTTON */}
 
                           {editingCover !== index ? (
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={async () => {
+                                const canSwitch =
+                                  await finishCurrentEdit();
+
+                                if (!canSwitch) {
+                                  return;
+                                }
+
                                 setCoverToEdit(index);
-                                setShowCoverEditWarning(
-                                  true
-                                );
+                                setShowCoverEditWarning(true);
                               }}
                               className="
                                 flex-shrink-0
@@ -2975,8 +4042,8 @@ function DetailsContent() {
                           ) : (
                             <button
                               type="button"
-                              onClick={() => {
-                                setEditingCover(null);
+                              onClick={async () => {
+                                await finishCoverEdit();
                               }}
                               className="
                                 flex-shrink-0
@@ -2997,6 +4064,13 @@ function DetailsContent() {
                         </div>
 
                       </div>
+                      
+                      {unfinishedEditError === "cover" &&
+                        editingCover === index && (
+                          <p className="text-sm text-red-600 mb-4">
+                            Please press Done to finish editing before continuing.
+                          </p>
+                        )}
 
                       {/* COVER OPTIONS */}
 
@@ -3626,7 +4700,7 @@ function DetailsContent() {
               hover:bg-gray-50
               active:bg-gray-100
               text-gray-800
-              rounded-xl
+              rounded-md
               font-semibold
               text-sm
               transition
@@ -3641,18 +4715,16 @@ function DetailsContent() {
               !termsAccepted ||
               !privacyAccepted ||
               pricingLoading ||
-              pricing.total ===
-                null
+              pricing.total === null
             }
-            onClick={
-              confirmPayment
-            }
+            onClick={confirmPayment}
             className="
               flex-1
               h-12
-              rounded-xl
+              rounded-md
               font-semibold
               text-sm
+              shadow-sm
               transition
               bg-amber-400
               hover:bg-amber-500
@@ -3718,13 +4790,20 @@ function DetailsContent() {
               )
             }
             onContinue={() => {
-              setEditingAddress(
-                true
+              setAddressSelected(
+                Boolean(
+                  customer.address.trim() &&
+                  customer.suburb.trim() &&
+                  customer.state.trim() &&
+                  customer.postcode.trim()
+                )
               );
 
-              setShowAddressEditWarning(
-                false
-              );
+              setAddressError("");
+
+              setEditingAddress(true);
+
+              setShowAddressEditWarning(false);
             }}
           />
         )}
