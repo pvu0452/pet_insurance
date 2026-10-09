@@ -1,12 +1,31 @@
 "use client";
-
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Select, { components } from "react-select";
+import Select, { components, type StylesConfig } from "react-select";
 import { DayPicker } from "@daypicker/react";
 import "@daypicker/react/style.css";
-import { importLibrary, setOptions as setGoogleMapsOptions, } from "@googlemaps/js-api-loader";
+import {
+  importLibrary,
+  setOptions as setGoogleMapsOptions,
+} from "@googlemaps/js-api-loader";
 
+/**
+ * HANDOVER — Quote page (app/page.tsx)
+ *
+ * First step of the customer journey: collect one or more pets and a shared
+ * Australian address. On success, persist the form in sessionStorage under
+ * "petDetails" and redirect to /plans with the quote parameters in its URL.
+ * /plans and /details depend on these field names, so coordinate changes
+ * across those pages rather than renaming them here in isolation.
+ *
+ * External services: pet breed catalogue and Google Places autocomplete.
+ * Google Places suggests addresses and automatically fills suburb, state and postcode.
+ * If the API fails, the existing fallback input is shown automatically.
+ */
+const BREED_API_URL =
+  "https://api4pet-dev-msac6e2qpq-ts.a.run.app/api/v1/category/pet-breed";
+
+// Google Maps loader options can only be configured once in a browser session.
 let googleMapsConfigured = false;
 
 interface Option {
@@ -21,77 +40,184 @@ interface Pet {
   petType: "cat" | "dog" | null;
   gender: "male" | "female" | null;
   breed: string;
+  dob: string; // ISO date (YYYY-MM-DD); text input displays DD/MM/YYYY.
+}
+
+interface PetErrors {
+  name: boolean;
+  gender: boolean;
+  breed: boolean;
   dob: string;
 }
 
+// Using factories keeps defaults consistent across add, reset and restoration.
+const emptyPet = (): Pet => ({
+  name: "",
+  petType: null,
+  gender: null,
+  breed: "",
+  dob: "",
+});
+
+const emptyPetErrors = (): PetErrors => ({
+  name: false,
+  gender: false,
+  breed: false,
+  dob: "",
+});
+
+/** Date values are exchanged with later pages as YYYY-MM-DD. */
+function toIsoDate(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+/** The same 14-day minimum must apply to typed, picked and submitted DOBs. */
+function getDobError(dob: string): string {
+  if (!dob) return "Date of Birth is required";
+
+  const minAgeDate = new Date();
+  minAgeDate.setHours(0, 0, 0, 0);
+  minAgeDate.setDate(minAgeDate.getDate() - 14);
+
+  return dob > toIsoDate(minAgeDate)
+    ? "Your pet must be at least 14 days old"
+    : "";
+}
+
+/**
+ * HANDOVER — UI consistency: use the same 48px controls, 12px radius,
+ * grey borders, amber primary actions and inline red errors as Plans/Details.
+ * Keep these values in sync if the team's design system changes.
+ */
+const FIELD_BORDER = "#d1d5db";
+const ERROR_BORDER = "#ef4444";
+
+// Shared control styles. Defined once rather than recreated each render.
+const buttonStyle = (active: boolean) => ({
+  flex: 1,
+  height: 48,
+  padding: "0 15px",
+  borderRadius: 12,
+  border: `1px solid ${FIELD_BORDER}`,
+  background: active ? "#fdba2e" : "#fff",
+  color: "#111",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: 14,
+});
+
+// Form label.
+const labelStyle = {
+  color: "#111827",
+  fontSize: 14,
+  fontWeight: 600,
+  marginBottom: 8,
+  display: "block",
+};
+// Text input.
+const inputStyle = {
+  width: "100%",
+  height: 48,
+  padding: "0 15px",
+  borderRadius: 12,
+  border: `1px solid ${FIELD_BORDER}`,
+  backgroundColor: "#fff",
+  color: "#111",
+  outline: "none",
+  boxSizing: "border-box" as const,
+  fontSize: 14,
+};
+// Validation message.
+const errorStyle = {
+  color: "#dc2626",
+  fontSize: 14,
+  marginTop: 5,
+};
+// react-select needs a function so its border can respond to validation.
+const selectStyles = (hasError: boolean): StylesConfig<Option, false> => ({
+  control: (base, state) => ({
+    ...base,
+    minHeight: "48px",
+    height: "48px",
+    borderRadius: "12px",
+    border: `1px solid ${hasError ? ERROR_BORDER : FIELD_BORDER}`,
+    // Keyboard/mouse focus uses the same outline treatment as other fields.
+    boxShadow: state.isFocused
+      ? `0 0 0 2px ${hasError ? ERROR_BORDER : "#1f2937"}`
+      : "none",
+    backgroundColor: "#fff",
+    "&:hover": {
+      borderColor:
+        hasError ? ERROR_BORDER : FIELD_BORDER,
+    },
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    height: "48px",
+    padding: "0 15px",
+    fontSize: "14px",
+  }),
+  indicatorsContainer: (base) => ({
+    ...base,
+    height: "48px",
+  }),
+  indicatorSeparator: () => ({
+    display: "none",
+  }),
+  dropdownIndicator: (base) => ({
+    ...base,
+    padding: 0,
+    marginRight: "15px",
+    color: "#555",
+    "&:hover": {
+      color: "#555",
+    },
+  }),
+  singleValue: (base) => ({
+    ...base,
+    color: "#111",
+  }),
+  input: (base) => ({
+    ...base,
+    color: "#111",
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: "#666",
+  }),
+  menu: (base) => ({
+    ...base,
+    backgroundColor: "#fff",
+  }),
+  option: (base, state) => ({
+    ...base,
+    color: "#111",
+    backgroundColor: state.isFocused
+      ? "#f3f3f3"
+      : "#fff",
+    cursor: "pointer",
+  }),
+});
+
 export default function Home() {
   const router = useRouter();
-
   const [options, setOptions] = useState<Option[]>([]);
   const [mounted, setMounted] = useState(false);
   const [loadingBreeds, setLoadingBreeds] = useState(true);
-
   const [openDatePicker, setOpenDatePicker] =
-  useState<number | null>(null);
-
+    useState<number | null>(null);
   const [openBreedDropdown, setOpenBreedDropdown] =
-  useState<number | null>(null);
-
+    useState<number | null>(null);
   const [dobInputs, setDobInputs] =
-  useState<Record<number, string>>({});
-
-  const handleLogoClick = () => {
-    sessionStorage.removeItem("petDetails");
-    sessionStorage.removeItem("cover");
-
-    // Reset the page back to the initial state
-    setPets([
-      {
-        name: "",
-        petType: null,
-        gender: null,
-        breed: "",
-        dob: "",
-      },
-    ]);
-
-    setErrors([
-      {
-        name: false,
-        petType: false,
-        gender: false,
-        breed: false,
-        dob: "",
-      },
-    ]);
-
-    setAddress("");
-    setAddressDetails({
-      suburb: "",
-      state: "",
-      postcode: "",
-    });
-
-    setAddressError("");
-
-    if (autocompleteRef.current) {
-      autocompleteRef.current.value = "";
-    }
-  };
-
+    useState<Record<number, string>>({});
   // -----------------------------
   // PETS
   // -----------------------------
-  const [pets, setPets] = useState<Pet[]>([
-    {
-      name: "",
-      petType: null,
-      gender: null,
-      breed: "",
-      dob: "",
-    },
-  ]);
-
+  const [pets, setPets] = useState<Pet[]>([emptyPet()]);
   // -----------------------------
   // ADDRESS
   // -----------------------------
@@ -101,78 +227,66 @@ export default function Home() {
     state: "",
     postcode: "",
   });
-
   const [googleMapsFailed, setGoogleMapsFailed] = useState(false);
-
   const addressContainerRef = useRef<HTMLDivElement>(null);
-  const autocompleteRef = useRef<any>(null);
+  const autocompleteRef = useRef<(HTMLElement & { value: string }) | null>(null);
+  /**
+   * A valid address must come from a Google suggestion, not free typing.
+   * Save the widget's displayed text so submit can catch edits even if
+   * the widget's internal input event does not reach React (Shadow DOM).
+   */
+  const selectedGoogleAddressTextRef = useRef("");
   const petRefs = useRef<(HTMLDivElement | null)[]>([]);
-
   // -----------------------------
   // ERRORS
   // -----------------------------
-  const [errors, setErrors] = useState<
-    {
-      name: boolean;
-      petType: boolean;
-      gender: boolean;
-      breed: boolean;
-      dob: string;
-    }[]
-  >([
-    {
-      name: false,
-      petType: false,
-      gender: false,
-      breed: false,
-      dob: "",
-    },
-  ]);
-
+  const [errors, setErrors] = useState<PetErrors[]>([emptyPetErrors()]);
   const [addressError, setAddressError] = useState("");
+
+  /** Reset both in-memory form state and the cross-page quote snapshot. */
+  const handleLogoClick = () => {
+    sessionStorage.removeItem("petDetails");
+    sessionStorage.removeItem("cover");
+    setPets([emptyPet()]);
+    setErrors([emptyPetErrors()]);
+    setAddress("");
+    setAddressDetails({ suburb: "", state: "", postcode: "" });
+    selectedGoogleAddressTextRef.current = "";
+    setAddressError("");
+    setDobInputs({});
+    setOpenBreedDropdown(null);
+    setOpenDatePicker(null);
+    if (autocompleteRef.current) autocompleteRef.current.value = "";
+  };
 
   // -----------------------------
   // ADD ANOTHER PET
   // -----------------------------
   const addPet = () => {
-    setPets((currentPets) => [
-      ...currentPets,
-      {
-        name: "",
-        petType: null,
-        gender: null,
-        breed: "",
-        dob: "",
-      },
-    ]);
-
-    setErrors((currentErrors) => [
-      ...currentErrors,
-      {
-        name: false,
-        petType: false,
-        gender: false,
-        breed: false,
-        dob: "",
-      },
-    ]);
+    setPets((current) => [...current, emptyPet()]);
+    setErrors((current) => [...current, emptyPetErrors()]);
   };
-
   // -----------------------------
   // REMOVE ANOTHER PET IF ADDED BY ACCIDENT
   // -----------------------------
   const removePet = (index: number) => {
-    setPets((currentPets) =>
-      currentPets.filter((_, i) => i !== index)
-    );
+    setPets((current) => current.filter((_, i) => i !== index));
+    setErrors((current) => current.filter((_, i) => i !== index));
 
-    setErrors((currentErrors) =>
-      currentErrors.filter((_, i) => i !== index)
+    // DOB drafts use array indexes; shift them with the pets after removal.
+    setDobInputs((current) =>
+      Object.fromEntries(
+        Object.entries(current)
+          .map(([key, value]) => [Number(key), value] as const)
+          .filter(([key]) => key !== index)
+          .map(([key, value]) => [key > index ? key - 1 : key, value])
+      )
     );
+    // Open overlays also use indexes. Close them to avoid targeting a new pet.
+    setOpenDatePicker(null);
+    setOpenBreedDropdown(null);
   };
-  // -----------------------------
-  // UPDATE PET
-  // -----------------------------
+  // Immutable update so editing one pet doesn't overwrite another.
   const updatePet = (
     index: number,
     changes: Partial<Pet>
@@ -185,53 +299,45 @@ export default function Home() {
       )
     );
   };
-
-  // -----------------------------
-  // MANUAL FALLBACK ADDRESS PARSER (IF GOOGLE MAPS FAILS)
-  // -----------------------------
+  /**
+   * Best-effort manual fallback for comma-separated Australian addresses.
+   * Expects something like "123 Queen Street, Brisbane QLD 4000".
+   * This parser is not an address verification service; the quote API should
+   * still validate the extracted location before issuing a policy.
+   */
   const parseManualAddress = (value: string) => {
     const upper = value.toUpperCase().trim();
-
     const stateMatch = upper.match(
       /\b(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\b/
     );
-
     const postcodeMatch = upper.match(
       /\b(\d{4})\b/
     );
-
     const state = stateMatch
       ? stateMatch[1]
       : "";
-
     const postcode = postcodeMatch
       ? postcodeMatch[1]
       : "";
-
     let suburb = "";
-
     if (stateMatch) {
       const beforeState = upper.substring(
         0,
         stateMatch.index
       );
-
       const parts = beforeState
         .split(",")
         .map((part) => part.trim())
         .filter(Boolean);
-
       if (parts.length >= 2) {
         suburb = parts[parts.length - 1];
       }
     }
-
     setAddressDetails({
       suburb,
       state,
       postcode,
     });
-
     if (value.trim() === "") {
       setAddressError("Home Address is required");
     } else if (state === "") {
@@ -250,72 +356,54 @@ export default function Home() {
       setAddressError("");
     }
   };
-
-  // -----------------------------
-  // SUBMIT
-  // -----------------------------
+  // Final validation -> save form snapshot -> navigate to plan selection.
   const handleSubmit = () => {
+    // Validate every pet before navigating; later pages assume complete data.
     const newErrors = pets.map((pet) => ({
       name: pet.name.trim() === "",
-      petType: false,
       gender: pet.gender === null,
       breed: pet.breed.trim() === "",
-      dob: "",
+      dob: getDobError(pet.dob),
     }));
-
-    // Validate every pet's DOB
-    pets.forEach((pet, index) => {
-      if (pet.dob === "") {
-        newErrors[index].dob =
-          "Date of Birth is required";
-      } else {
-        const fourteenDaysAgo = new Date();
-
-        fourteenDaysAgo.setDate(
-          fourteenDaysAgo.getDate() - 14
-        );
-
-        const minimumDob =
-          fourteenDaysAgo
-            .toISOString()
-            .split("T")[0];
-
-        if (pet.dob > minimumDob) {
-          newErrors[index].dob =
-            "Your pet must be at least 14 days old";
-        }
-      }
-    });
-
     setErrors(newErrors);
-
     const firstInvalidPetIndex = newErrors.findIndex(
       (error) =>
         error.name ||
-        error.petType ||
         error.gender ||
         error.breed ||
         error.dob
     );
-
     const hasPetErrors = firstInvalidPetIndex !== -1;
-
     let hasAddressError = false;
+    // Handover: Google Places has its own input (inside Shadow DOM). React's
+    // `address` can still hold the PREVIOUS selection after somebody types a
+    // different value, so always compare with the live widget text at submit.
+    const visibleAddress = googleMapsFailed
+      ? address.trim()
+      : (autocompleteRef.current?.value ?? "").trim();
+    const selectionStillMatches =
+      googleMapsFailed ||
+      (selectedGoogleAddressTextRef.current !== "" &&
+        visibleAddress === selectedGoogleAddressTextRef.current);
 
-    if (address.trim() === "") {
+    if (!visibleAddress) {
       setAddressError("Home Address is required");
       hasAddressError = true;
+    } else if (!selectionStillMatches) {
+      setAddressError("Please select a valid address from the suggestions.");
+      hasAddressError = true;
     } else if (
-      addressDetails.suburb === "" ||
-      addressDetails.state === "" ||
-      addressDetails.postcode === ""
+      !addressDetails.suburb.trim() ||
+      !addressDetails.state.trim() ||
+      !addressDetails.postcode.trim()
     ) {
       setAddressError(
-        "Please enter a valid Australian address including suburb, state and postcode."
+        "Please select a complete Australian address including suburb, state and postcode."
       );
       hasAddressError = true;
+    } else {
+      setAddressError("");
     }
-
     // Scroll to the first error
     if (firstInvalidPetIndex !== -1) {
       requestAnimationFrame(() => {
@@ -332,12 +420,10 @@ export default function Home() {
         });
       });
     }
-
     // Stop if anything is invalid
     if (hasPetErrors || hasAddressError) {
       return;
     }
-
     // Save all pets and shared address
     sessionStorage.setItem(
       "petDetails",
@@ -345,342 +431,185 @@ export default function Home() {
         pets,
         address,
         addressDetails,
+        // Used on returning to Quote from Plans to validate the restored text.
+        selectedGoogleAddressText: googleMapsFailed
+          ? ""
+          : selectedGoogleAddressTextRef.current,
       })
     );
-
     // Build the URL for the Plans page
-const params = new URLSearchParams();
-
-// Customer details are collected later
-params.set("first_name", "");
-params.set("last_name", "");
-params.set("email", "");
-params.set("mobile", "");
-
-// Address
-params.set("address", address);
-params.set("region", addressDetails.suburb);
-params.set("state", addressDetails.state);
-params.set("postcode", addressDetails.postcode);
-
-// Payment frequency
-params.set("payment_frequency", "monthly");
-
-// Pet details
-const urlPets = pets.map((pet, index) => ({
-  pet_no: String(index),
-  pet_name: pet.name,
-  pet_type:
-    pet.petType === "dog"
-      ? "Dog"
-      : pet.petType === "cat"
-      ? "Cat"
-      : "",
-  pet_sex:
-    pet.gender === "male"
-      ? "Male"
-      : pet.gender === "female"
-      ? "Female"
-      : "",
-  pet_breed: pet.breed,
-  pet_dob: pet.dob,
-  policy_start_date: new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Brisbane",
-  }).format(new Date()),
-  selectedPlan: null,
-  annual_limit: null,
-  benefit_percentage: null,
-  annual_excess: null,
-}));
-
-params.set("pets", JSON.stringify(urlPets));
-
-// Navigate to Plans with the full quote information
-router.push(`/plans?${params.toString()}`);
-};
-
-
-
-  // -----------------------------
-  // BUTTON STYLE
-  // -----------------------------
-  const buttonStyle = (active: boolean) => ({
-    flex: 1,
-    height: 48,
-    padding: "0 15px",
-    borderRadius: 5,
-    border: "1px solid #e6e3e0",
-    background: active ? "#fdba2e" : "#fff",
-    color: "#111",
-    cursor: "pointer",
-    fontWeight: 600,
-    fontSize: 15,
-  });
-
-  // -----------------------------
-  // LABEL STYLE
-  // -----------------------------
-  const labelStyle = {
-    color: "#374151",
-    fontSize: 14,
-    fontWeight: 500,
-    marginBottom: 6,
-    display: "block",
+    const params = new URLSearchParams();
+    // Customer details are collected later
+    params.set("first_name", "");
+    params.set("last_name", "");
+    params.set("email", "");
+    params.set("mobile", "");
+    // Address
+    params.set("address", address);
+    params.set("region", addressDetails.suburb);
+    params.set("state", addressDetails.state);
+    params.set("postcode", addressDetails.postcode);
+    // Payment frequency
+    params.set("payment_frequency", "monthly");
+    // Pet details. Brisbane's date is required by the downstream quote API.
+    const policyStartDate = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Australia/Brisbane",
+    }).format(new Date());
+    const urlPets = pets.map((pet, index) => ({
+      pet_no: String(index),
+      pet_name: pet.name,
+      pet_type:
+        pet.petType === "dog"
+          ? "Dog"
+          : pet.petType === "cat"
+            ? "Cat"
+            : "",
+      pet_sex:
+        pet.gender === "male"
+          ? "Male"
+          : pet.gender === "female"
+            ? "Female"
+            : "",
+      pet_breed: pet.breed,
+      pet_dob: pet.dob,
+      policy_start_date: policyStartDate,
+      selectedPlan: null,
+      annual_limit: null,
+      benefit_percentage: null,
+      annual_excess: null,
+    }));
+    params.set("pets", JSON.stringify(urlPets));
+    // Navigate to Plans with the full quote information
+    router.push(`/plans?${params.toString()}`);
   };
-
-  // -----------------------------
-  // INPUT STYLE
-  // -----------------------------
-  const inputStyle = {
-    width: "100%",
-    height: 48,
-    padding: "15px",
-    borderRadius: 5,
-    border: "1px solid #e6e3e0",
-    backgroundColor: "#fff",
-    color: "#111",
-    outline: "none",
-    boxSizing: "border-box" as const,
-    fontSize: 15,
-  };
-
-  // -----------------------------
-  // ERROR STYLE
-  // -----------------------------
-
-  const errorStyle = {
-  color: "#d50000",
-  fontSize: 14,
-  marginTop: 5,
-};
-
-  // -----------------------------
-  // SELECT STYLES
-  // -----------------------------
-  const selectStyles = (hasError: boolean) => ({
-    control: (base: any, state: any) => ({
-      ...base,
-      minHeight: "48px",
-      height: "48px",
-      borderRadius: "5px",
-      border: `1px solid ${
-        hasError ? "#d50000" : "#e6e3e0"
-      }`,
-      boxShadow: "none",
-      backgroundColor: "#fff",
-
-      "&:hover": {
-        borderColor:
-          hasError ? "#d50000" : "#e6e3e0",
-      },
-    }),
-
-    valueContainer: (base: any) => ({
-      ...base,
-      height: "48px",
-      padding: "0 15px",
-      fontSize: "15px",
-    }),
-
-    indicatorsContainer: (base: any) => ({
-      ...base,
-      height: "48px",
-    }),
-
-    indicatorSeparator: () => ({
-      display: "none",
-    }),
-
-    dropdownIndicator: (base: any) => ({
-      ...base,
-      padding: 0,
-      marginRight: "15px",
-      color: "#555",
-
-      "&:hover": {
-        color: "#555",
-      },
-    }),
-
-    singleValue: (base: any) => ({
-      ...base,
-      color: "#111",
-    }),
-
-    input: (base: any) => ({
-      ...base,
-      color: "#111",
-    }),
-
-    placeholder: (base: any) => ({
-      ...base,
-      color: "#666",
-    }),
-
-    menu: (base: any) => ({
-      ...base,
-      backgroundColor: "#fff",
-    }),
-
-    option: (base: any, state: any) => ({
-      ...base,
-      color: "#111",
-      backgroundColor: state.isFocused
-        ? "#f3f3f3"
-        : "#fff",
-      cursor: "pointer",
-    }),
-  });
-
-
   useEffect(() => {
     setMounted(true);
     fetchOptions();
-
-    // -----------------------------
-    // RESTORE SAVED PET DETAILS
-    // -----------------------------
+    // Restore a partially completed quote after navigation or refresh.
+    // This storage is tab-scoped, not a long-term policy record.
     const storedPetDetails = sessionStorage.getItem("petDetails");
-
     let savedAddress = "";
-
     if (storedPetDetails) {
-      const saved = JSON.parse(storedPetDetails);
-
-      if (saved.pets) {
-        setPets(saved.pets);
-
-        setErrors(
-          saved.pets.map(() => ({
-            name: false,
-            petType: false,
-            gender: false,
-            breed: false,
-            dob: "",
-          }))
-        );
-      }
-
-      if (saved.address) {
-        savedAddress = saved.address;
-        setAddress(saved.address);
-      }
-
-      if (saved.addressDetails) {
-        setAddressDetails(saved.addressDetails);
+      try {
+        const saved = JSON.parse(storedPetDetails);
+        if (Array.isArray(saved.pets) && saved.pets.length > 0) {
+          setPets(saved.pets);
+          setErrors(saved.pets.map(() => emptyPetErrors()));
+        }
+        if (saved.address) {
+          savedAddress = saved.address;
+          setAddress(saved.address);
+        }
+        if (saved.addressDetails) {
+          setAddressDetails(saved.addressDetails);
+        }
+        // Only quotes created by this validation flow carry a verified
+        // Google selection. Older session snapshots must be reselected.
+        if (typeof saved.selectedGoogleAddressText === "string") {
+          selectedGoogleAddressTextRef.current =
+            saved.selectedGoogleAddressText.trim();
+        }
+      } catch (error) {
+        // Corrupt storage shouldn't prevent a customer from starting again.
+        console.warn("Could not restore saved pet details:", error);
       }
     }
-
     let cancelled = false;
     let autocomplete: HTMLElement | null = null;
-
     const loadGoogleMaps = async () => {
       try {
         if (!googleMapsConfigured) {
-          console.log(
-            "Google Maps API key exists:",
-            !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-          );
-
-          setGoogleMapsOptions({
-            key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-            v: "weekly",
-          });
-
+          const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+          if (!mapsApiKey) {
+            throw new Error("Google Maps API key is not configured");
+          }
+          setGoogleMapsOptions({ key: mapsApiKey, v: "weekly" });
           googleMapsConfigured = true;
         }
-
         const { PlaceAutocompleteElement } =
           await importLibrary("places");
-
-        console.log(
-          "Places library loaded:",
-          PlaceAutocompleteElement
-        );
-
         if (cancelled) {
           return;
         }
-
         if (!addressContainerRef.current) {
           return;
         }
-
-        // Remove anything that may already be inside
-        // the container.
-        addressContainerRef.current.innerHTML = "";
-
+        // Google Places mounts its own custom element into this React ref.
+        addressContainerRef.current.replaceChildren();
         const newAutocomplete =
           new PlaceAutocompleteElement();
-
-        console.log(
-          "Autocomplete created:",
-          newAutocomplete
-        );
-
         newAutocomplete.style.width = "100%";
         newAutocomplete.style.display = "block";
-
+        // Google supports border-radius on the widget itself. Its input remains
+        // controlled by Google, so avoid absolute overlays or overflow clipping.
+        newAutocomplete.style.borderRadius = "12px";
         autocomplete = newAutocomplete;
         autocompleteRef.current = newAutocomplete;
-
         if (savedAddress) {
-          newAutocomplete.value = savedAddress;
+          // Restore exactly what Google displayed when originally selected.
+          // Older stored quotes only have the formatted address and therefore
+          // require the user to select a suggestion again before submitting.
+          newAutocomplete.value =
+            selectedGoogleAddressTextRef.current || savedAddress;
         }
-
         newAutocomplete.setAttribute(
           "included-region-codes",
           "au"
         );
-
         newAutocomplete.setAttribute(
           "placeholder",
           "e.g. 123 Queen Street, Brisbane QLD 4000"
         );
-
         // Check again before adding it.
         if (cancelled) {
           return;
         }
-
         addressContainerRef.current.appendChild(
           newAutocomplete
         );
+        // Invalidate any previous Google selection as soon as the user edits
+        // the field. Never reuse a suburb/state/postcode from an old address.
+        newAutocomplete.addEventListener("input", () => {
+          const typedText = newAutocomplete.value.trim();
+          if (typedText !== selectedGoogleAddressTextRef.current) {
+            selectedGoogleAddressTextRef.current = "";
+            setAddress(typedText);
+            setAddressDetails({ suburb: "", state: "", postcode: "" });
+            setAddressError("");
+          }
+        });
 
-        // -----------------------------
-        // GOOGLE PLACE SELECTED
-        // -----------------------------
-
+        // Only selecting one of Google's suggestions authorises this address.
+        // The pricing API still receives the normalised formatted address.
         newAutocomplete.addEventListener(
           "gmp-select",
           async (event: any) => {
             try {
+              // Capture the suggestion's visible text before the async lookup.
+              // If the user keeps typing while Google fetches address fields,
+              // do not validate that old suggestion against their new text.
+              const inputWhenSelected = newAutocomplete.value.trim();
               const place =
                 event.placePrediction.toPlace();
-
               await place.fetchFields({
                 fields: [
                   "formattedAddress",
                   "addressComponents",
                 ],
               });
-
               if (
                 !cancelled &&
-                place.formattedAddress
+                place.formattedAddress &&
+                newAutocomplete.value.trim() === inputWhenSelected
               ) {
+                selectedGoogleAddressTextRef.current = inputWhenSelected;
                 setAddress(place.formattedAddress);
-
                 const components = place.addressComponents || [];
-                console.log("GOOGLE ADDRESS COMPONENTS:", components);
-
                 let suburb = "";
                 let state = "";
                 let postcode = "";
-
                 components.forEach((component: any) => {
                   const types = component.types || [];
-
                   if (
                     types.includes("locality") ||
                     types.includes("postal_town") ||
@@ -691,7 +620,6 @@ router.push(`/plans?${params.toString()}`);
                       component.shortText ||
                       "";
                   }
-
                   if (
                     types.includes(
                       "administrative_area_level_1"
@@ -702,7 +630,6 @@ router.push(`/plans?${params.toString()}`);
                       component.longText ||
                       "";
                   }
-
                   if (
                     types.includes("postal_code")
                   ) {
@@ -712,23 +639,14 @@ router.push(`/plans?${params.toString()}`);
                       "";
                   }
                 });
-
                 state = state
                   .toUpperCase()
                   .trim();
-
-                console.log("EXTRACTED ADDRESS:", {
-                  suburb,
-                  state,
-                  postcode,
-                });
-
                 setAddressDetails({
                   suburb,
                   state,
                   postcode,
                 });
-
                 setAddressError("");
               }
             } catch (error) {
@@ -736,25 +654,19 @@ router.push(`/plans?${params.toString()}`);
                 "Failed to get selected address:",
                 error
               );
-
               if (!cancelled) {
                 setGoogleMapsFailed(true);
               }
             }
           }
         );
-
-        // -----------------------------
-        // GOOGLE MAPS ERROR / QUOTA
-        // -----------------------------
-
+        // On quota, network or SDK failures, reveal manual address entry.
         newAutocomplete.addEventListener(
           "gmp-error",
           () => {
             console.warn(
               "Google Maps autocomplete failed. Switching to manual address entry."
             );
-
             if (!cancelled) {
               setGoogleMapsFailed(true);
             }
@@ -766,48 +678,38 @@ router.push(`/plans?${params.toString()}`);
             "Google Maps failed to load. Using manual address entry.",
             error
           );
-
           setGoogleMapsFailed(true);
         }
       }
     };
-
     loadGoogleMaps();
-
     // -----------------------------
     // CLEANUP
     // -----------------------------
-
     return () => {
       cancelled = true;
-
       if (autocomplete) {
         autocomplete.remove();
         autocomplete = null;
       }
-
+      // Cleanup is important when React remounts effects in development.
       if (addressContainerRef.current) {
-        addressContainerRef.current.innerHTML = "";
+        addressContainerRef.current.replaceChildren();
       }
     };
   }, []);
-
+  // Fetch once on mount; names are sorted for the searchable breed dropdown.
   const fetchOptions = async () => {
     try {
       setLoadingBreeds(true);
-
-      const response = await fetch(
-        "https://api4pet-dev-msac6e2qpq-ts.a.run.app/api/v1/category/pet-breed"
-      );
-
+      const response = await fetch(BREED_API_URL);
       if (!response.ok) {
         throw new Error("Failed to fetch options");
       }
-
+      // API contract: data.data[] has breed_name and pet_type.
       const data = await response.json();
-
       const options = data.data
-        .map((item: any) => ({
+        .map((item: { breed_name: string; pet_type: string }) => ({
           value: item.breed_name,
           label: `${item.breed_name} (${item.pet_type})`,
           petType: item.pet_type,
@@ -816,7 +718,6 @@ router.push(`/plans?${params.toString()}`);
         .sort((a: Option, b: Option) =>
           a.petBreed.localeCompare(b.petBreed)
         );
-
       setOptions(options);
     } catch (err) {
       console.error(err);
@@ -824,7 +725,6 @@ router.push(`/plans?${params.toString()}`);
       setLoadingBreeds(false);
     }
   };
-
   return (
     <main
       style={{
@@ -843,7 +743,7 @@ router.push(`/plans?${params.toString()}`);
           maxWidth: 672,
           display: "flex",
           justifyContent: "center",
-          marginBottom: 20,
+          marginBottom: 24,
         }}
       >
         <button
@@ -860,57 +760,38 @@ router.push(`/plans?${params.toString()}`);
             src="/was-logo.min.webp"
             alt="WAS Insurance"
             style={{
-              width: 120,
-              opacity: 0.65,
+              width: 112,
+              opacity: 0.7,
             }}
           />
         </button>
       </div>
-
-      {/* CARD */}
+      {/* Launch page: keep the welcome heading, but begin progress tracking on /plans. */}
+      <div className="mb-7 w-full max-w-2xl text-center">
+        <h1 className="text-2xl font-semibold text-gray-900">
+          Pet Insurance Quote
+        </h1>
+        <p className="mt-2 text-sm text-gray-500">
+          Enter your pet details to generate a quote.
+        </p>
+      </div>
+      {/* Main quote card: same visual surface as Plans and Details. */}
       <div
         style={{
           width: "100%",
           maxWidth: 672,
           background: "#fff",
-          border: "1px solid #eee",
-          borderRadius: 16,
-          padding: 30,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          padding: 24,
+          boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
         }}
       >
-        {/* TITLE */}
-        <h2
-          style={{
-            color: "#111",
-            fontSize: 22,
-            fontWeight: 700,
-            marginBottom: 8,
-            letterSpacing: "-0.5px",
-          }}
-        >
-          Pet Insurance Quote
-        </h2>
-
-        <p
-          style={{
-            color: "#666",
-            fontSize: 14,
-            marginTop: 0,
-            marginBottom: 25,
-            lineHeight: 1.5,
-          }}
-        >
-          Enter your pet details to generate a quote
-        </p>
-
         {/* =========================
             PETS
         ========================== */}
-
         {pets.map((pet, index) => {
           const petError = errors[index];
-
           return (
             <div
               key={index}
@@ -918,13 +799,13 @@ router.push(`/plans?${params.toString()}`);
                 petRefs.current[index] = el;
               }}
               style={{
-                marginTop: 25,
+                marginTop: index === 0 ? 0 : 24,
                 paddingTop:
-                  index === 0 ? 0 : 25,
+                  index === 0 ? 0 : 24,
                 borderTop:
                   index === 0
                     ? "none"
-                    : "1px solid #eee",
+                    : "1px solid #e5e7eb",
               }}
             >
               {/* PET TITLE */}
@@ -951,9 +832,8 @@ router.push(`/plans?${params.toString()}`);
                     : pet.petType === "dog"
                       ? "🐶"
                       : ""}{" "}
-                  {pet.name || (index === 0 ? "" : `Pet ${index + 1}`)}
+                  {pet.name || `Pet ${index + 1}`}
                 </h3>
-
                 {/* REMOVE PET */}
                 {index > 0 && (
                   <button
@@ -986,9 +866,8 @@ router.push(`/plans?${params.toString()}`);
               {/* NAME */}
               <div>
                 <label style={labelStyle}>
-                  Pet's Name
+                  Pet Name
                 </label>
-
                 <input
                   type="text"
                   value={pet.name}
@@ -997,40 +876,36 @@ router.push(`/plans?${params.toString()}`);
                       /[^a-zA-Z\s'-]/g,
                       ""
                     );
-
                     // Capitalise the first letter
                     if (value.length > 0) {
                       value =
                         value.charAt(0).toUpperCase() +
                         value.slice(1);
                     }
-
                     updatePet(index, {
                       name: value,
                     });
                   }}
                   placeholder="Enter your pet's name"
+                  className="focus-visible:ring-2 focus-visible:ring-gray-800"
                   style={{
                     ...inputStyle,
                     border: petError?.name
-                      ? "2px solid #d50000"
-                      : "1px solid #e6e3e0",
+                      ? `2px solid ${ERROR_BORDER}`
+                      : `1px solid ${FIELD_BORDER}`,
                   }}
                 />
-
                 {petError?.name && (
                   <p style={errorStyle}>
                     Pet's name is required
                   </p>
                 )}
               </div>
-
               {/* GENDER */}
-              <div style={{ marginTop: 10 }}>
+              <div style={{ marginTop: 16 }}>
                 <span style={labelStyle}>
-                  Gender
+                  Sex
                 </span>
-
                 <div
                   style={{
                     display: "flex",
@@ -1044,8 +919,8 @@ router.push(`/plans?${params.toString()}`);
                         pet.gender === "male"
                       ),
                       border: petError?.gender
-                        ? "2px solid #d50000"
-                        : "1px solid #e6e3e0",
+                        ? `2px solid ${ERROR_BORDER}`
+                        : `1px solid ${FIELD_BORDER}`,
                     }}
                     onClick={() =>
                       updatePet(index, {
@@ -1055,7 +930,6 @@ router.push(`/plans?${params.toString()}`);
                   >
                     Male
                   </button>
-
                   <button
                     type="button"
                     style={{
@@ -1063,8 +937,8 @@ router.push(`/plans?${params.toString()}`);
                         pet.gender === "female"
                       ),
                       border: petError?.gender
-                        ? "2px solid #d50000"
-                        : "1px solid #e6e3e0",
+                        ? `2px solid ${ERROR_BORDER}`
+                        : `1px solid ${FIELD_BORDER}`,
                     }}
                     onClick={() =>
                       updatePet(index, {
@@ -1075,37 +949,30 @@ router.push(`/plans?${params.toString()}`);
                     Female
                   </button>
                 </div>
-
                 {petError?.gender && (
                   <p style={errorStyle}>
                     Please select Male or Female
                   </p>
                 )}
               </div>
-
               {/* BREED */}
-              <div style={{ marginTop: 10 }}>
+              <div style={{ marginTop: 16 }}>
                 <label style={labelStyle}>
                   Breed
                 </label>
-
                 {mounted && (
                   <Select<Option, false>
                     options={options}
-
                     menuIsOpen={openBreedDropdown === index}
-
                     onMenuOpen={() => {
                       setOpenDatePicker(null);
                       setOpenBreedDropdown(index);
                     }}
-
                     onMenuClose={() => {
                       setOpenBreedDropdown((current) =>
                         current === index ? null : current
                       );
                     }}
-
                     value={
                       options.find(
                         (option) => option.value === pet.breed
@@ -1119,7 +986,6 @@ router.push(`/plans?${params.toString()}`);
                         });
                         return;
                       }
-
                       updatePet(index, {
                         breed: selected.value,
                         petType:
@@ -1129,10 +995,9 @@ router.push(`/plans?${params.toString()}`);
                       });
                     }}
                     styles={selectStyles(!!petError?.breed)}
-
                     components={{
                       IndicatorSeparator: () => null,
-                      DropdownIndicator: (props: any) => (
+                      DropdownIndicator: (props) => (
                         <components.DropdownIndicator {...props}>
                           <svg
                             width="14"
@@ -1149,7 +1014,6 @@ router.push(`/plans?${params.toString()}`);
                         </components.DropdownIndicator>
                       ),
                     }}
-
                     isLoading={loadingBreeds}
                     placeholder="Select your pet's breed"
                     noOptionsMessage={() =>
@@ -1159,20 +1023,17 @@ router.push(`/plans?${params.toString()}`);
                     }
                   />
                 )}
-
                 {petError?.breed && (
                   <p style={errorStyle}>
                     Breed is required
                   </p>
                 )}
               </div>
-
               {/* DOB */}
-              <div style={{ marginTop: 10 }}>
+              <div style={{ marginTop: 16 }}>
                 <label style={labelStyle}>
-                  Pet's Date of Birth
+                  Date of Birth
                 </label>
-
                 <div
                   style={{
                     position: "relative",
@@ -1197,9 +1058,7 @@ router.push(`/plans?${params.toString()}`);
                       const digits = e.target.value
                         .replace(/\D/g, "")
                         .slice(0, 8);
-
                       let formatted = digits;
-
                       if (digits.length > 4) {
                         formatted =
                           `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
@@ -1207,120 +1066,75 @@ router.push(`/plans?${params.toString()}`);
                         formatted =
                           `${digits.slice(0, 2)}/${digits.slice(2)}`;
                       }
-
                       setDobInputs((current) => ({
                         ...current,
                         [index]: formatted,
                       }));
-
                       // Don't save until DD/MM/YYYY is complete
                       if (digits.length !== 8) {
                         updatePet(index, {
                           dob: "",
                         });
-
                         return;
                       }
-
                       const day = Number(
                         digits.slice(0, 2)
                       );
-
                       const month = Number(
                         digits.slice(2, 4)
                       );
-
                       const year = Number(
                         digits.slice(4, 8)
                       );
-
                       const typedDate = new Date(
                         year,
                         month - 1,
                         day
                       );
-
                       // Make sure the date actually exists
                       const isValidDate =
                         typedDate.getFullYear() === year &&
                         typedDate.getMonth() === month - 1 &&
                         typedDate.getDate() === day;
-
                       if (!isValidDate) {
                         updatePet(index, {
                           dob: "",
                         });
-
                         setErrors((current) =>
                           current.map((error, i) =>
                             i === index
                               ? {
-                                  ...error,
-                                  dob: "Please enter a valid date",
-                                }
+                                ...error,
+                                dob: "Please enter a valid date",
+                              }
                               : error
                           )
                         );
-
                         return;
                       }
-
-                      const monthString = String(
-                        month
-                      ).padStart(2, "0");
-
-                      const dayString = String(
-                        day
-                      ).padStart(2, "0");
-
-                      const selectedDob =
-                        `${year}-${monthString}-${dayString}`;
-
-                      updatePet(index, {
-                        dob: selectedDob,
-                      });
-
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-
-                      const minimumDobDate =
-                        new Date(today);
-
-                      minimumDobDate.setDate(
-                        today.getDate() - 14
-                      );
-
-                      typedDate.setHours(0, 0, 0, 0);
-
+                      const selectedDob = toIsoDate(typedDate);
+                      updatePet(index, { dob: selectedDob });
                       setErrors((current) =>
                         current.map((error, i) =>
                           i === index
-                            ? {
-                                ...error,
-                                dob:
-                                  typedDate >
-                                  minimumDobDate
-                                    ? "Your pet must be at least 14 days old"
-                                    : "",
-                              }
+                            ? { ...error, dob: getDobError(selectedDob) }
                             : error
                         )
                       );
                     }}
+                    className="focus-visible:ring-2 focus-visible:ring-gray-800"
                     style={{
                       ...inputStyle,
                       paddingRight: 45,
                       border: petError?.dob
-                        ? "1px solid #d50000"
-                        : "1px solid #e6e3e0",
+                        ? `1px solid ${ERROR_BORDER}`
+                        : `1px solid ${FIELD_BORDER}`,
                     }}
                   />
-
                   <button
                     type="button"
                     onClick={() => {
                       setOpenBreedDropdown(null);
-
                       setOpenDatePicker(
                         openDatePicker === index
                           ? null
@@ -1367,7 +1181,6 @@ router.push(`/plans?${params.toString()}`);
                     </svg>
                   </button>
                 </div>
-
                 {openDatePicker === index && (
                   <div
                     className="
@@ -1407,66 +1220,24 @@ router.push(`/plans?${params.toString()}`);
                       }
                       onSelect={(selectedDate) => {
                         if (!selectedDate) return;
-
-                        const year =
-                          selectedDate.getFullYear();
-
-                        const month = String(
-                          selectedDate.getMonth() + 1
-                        ).padStart(2, "0");
-
-                        const day = String(
-                          selectedDate.getDate()
-                        ).padStart(2, "0");
-
-                        const selectedDob =
-                          `${year}-${month}-${day}`;
-
-                        updatePet(index, {
-                          dob: selectedDob,
-                        });
-
+                        const selectedDob = toIsoDate(selectedDate);
+                        updatePet(index, { dob: selectedDob });
                         setDobInputs((current) => ({
                           ...current,
-                          [index]: `${day}/${month}/${year}`,
+                          [index]: selectedDob.split("-").reverse().join("/"),
                         }));
-
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-
-                        const minimumDobDate =
-                          new Date(today);
-
-                        minimumDobDate.setDate(
-                          today.getDate() - 14
-                        );
-
-                        const selectedDateOnly =
-                          new Date(
-                            selectedDob + "T00:00:00"
-                          );
-
                         setErrors((current) =>
                           current.map((error, i) =>
                             i === index
-                              ? {
-                                  ...error,
-                                  dob:
-                                    selectedDateOnly >
-                                    minimumDobDate
-                                      ? "Your pet must be at least 14 days old"
-                                      : "",
-                                }
+                              ? { ...error, dob: getDobError(selectedDob) }
                               : error
                           )
                         );
-
                         setOpenDatePicker(null);
                       }}
                     />
                   </div>
                 )}
-
                 {petError?.dob && (
                   <p style={errorStyle}>
                     {petError.dob}
@@ -1476,44 +1247,14 @@ router.push(`/plans?${params.toString()}`);
             </div>
           );
         })}
-
         {/* =========================
             ADD ANOTHER PET
         ========================== */}
-
+        {/* Keep the optional second-pet action pink; amber is for Generate Quote. */}
         <button
           type="button"
           onClick={addPet}
-          style={{
-            marginTop: 25,
-            width: "100%",
-            padding: "8px",
-            borderRadius: 8,
-            border: "none",
-            background: "#f42868",
-            color: "#fff",
-            cursor: "pointer",
-            fontWeight: 600,
-            fontSize: 14,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            boxShadow: "0 4px 10px rgba(244, 40, 104, 0.20)",
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#e51f5d";
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow =
-              "0 6px 14px rgba(244, 40, 104, 0.25)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "#f42868";
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow =
-              "0 4px 10px rgba(244, 40, 104, 0.20)";
-          }}
+          className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl border-0 bg-[#f42868] text-sm font-semibold text-white shadow-[0_4px_10px_rgba(244,40,104,0.20)] transition-all hover:-translate-y-px hover:bg-[#e51f5d] hover:shadow-[0_6px_14px_rgba(244,40,104,0.25)] active:translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f42868]"
         >
           <span
             style={{
@@ -1524,68 +1265,74 @@ router.push(`/plans?${params.toString()}`);
           >
             +
           </span>
-
           Add another pet
         </button>
-
         {/* =========================
               SHARED ADDRESS
             ========================== */}
-
         <div style={{ marginTop: 15 }}>
           <label style={labelStyle}>
             Home Address
           </label>
-          
           {/*
-             Manual fallback if Google Maps fails for demonstration purposes */}
-
+            Google Places provides the address suggestions and extracts suburb,
+            state and postcode after selection. Only fall back to a plain
+            address field automatically if the Google API fails to load.
+          */}
           {googleMapsFailed ? (
             <input
               type="text"
               value={address}
               onChange={(e) => {
                 const value = e.target.value;
-
                 setAddress(value);
                 parseManualAddress(value);
               }}
               placeholder="e.g. 123 Queen Street, Brisbane QLD 4000"
+              className="focus-visible:ring-2 focus-visible:ring-gray-800"
               style={{
                 ...inputStyle,
                 border: addressError
-                  ? "2px solid #d50000"
-                  : "1px solid #e6e3e0",
+                  ? `2px solid ${ERROR_BORDER}`
+                  : `1px solid ${FIELD_BORDER}`,
               }}
             />
           ) : (
             <div
               ref={addressContainerRef}
+              className="quote-address-autocomplete focus-within:ring-2 focus-within:ring-gray-800"
               style={{
                 width: "100%",
                 minHeight: 48,
-                borderRadius: 5,
+                borderRadius: 12,
                 border: addressError
-                  ? "2px solid #d50000"
-                  : "1px solid #e6e3e0",
+                  ? `2px solid ${ERROR_BORDER}`
+                  : `1px solid ${FIELD_BORDER}`,
                 backgroundColor: "#fff",
                 boxSizing: "border-box",
+                // Do not clip Google's address suggestions dropdown.
                 overflow: "visible",
               }}
             />
           )}
-
+          {/* The Google widget uses Shadow DOM. Google exposes its input as
+              ::part(input), allowing rounded corners without covering or
+              disabling typing, and without clipping the suggestions menu. */}
+          <style>{`
+            .quote-address-autocomplete gmp-place-autocomplete,
+            .quote-address-autocomplete gmp-place-autocomplete::part(input) {
+              border-radius: 12px;
+            }
+          `}</style>
           {addressError && (
             <p style={errorStyle}>
               {addressError}
             </p>
           )}
         </div>
-        
         {/* =========================
             GENERATE QUOTE
         ========================== */}
-
         <div className="mt-4 flex gap-3 pb-8">
           <button
             type="button"
@@ -1593,7 +1340,7 @@ router.push(`/plans?${params.toString()}`);
             className="
               flex-1
               h-12
-              rounded-md
+              rounded-xl
               bg-amber-400
               hover:bg-amber-500
               active:bg-amber-600
@@ -1602,6 +1349,7 @@ router.push(`/plans?${params.toString()}`);
               font-semibold
               shadow-sm
               transition
+              focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-800
             "
           >
             Generate Quote
