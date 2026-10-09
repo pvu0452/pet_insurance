@@ -1,17 +1,15 @@
 "use client";
 
 
-import React, {
+import {
+  type ReactNode,
   Suspense,
   useEffect,
   useRef,
   useState,
 } from "react";
 
-import {
-useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import Select, { components } from "react-select";
 import { DayPicker } from "@daypicker/react";
@@ -24,9 +22,32 @@ import {
 
 let googleMapsConfigured = false;
 
-/* -----------------------------
-   TYPES
-------------------------------*/
+/**
+ * HANDOVER — Details page (app/details/page.tsx)
+ *
+ * Step 3 of Quote → Plans → Details. It restores the URL/sessionStorage quote,
+ * lets the customer review or edit pets, address and cover, then recalculates
+ * the monthly price via POST /api/quote before Stripe checkout.
+ *
+ * Cross-page data contracts:
+ * - sessionStorage "petDetails": pets and Australian address information.
+ * - sessionStorage "cover": per-pet plan/limit/benefit/excess settings.
+ * - sessionStorage "checkout": snapshot used by the checkout success/webhook.
+ * - The "pets" URL query parameter contains WAS API-compatible pet fields.
+ *
+ * "Silver" uses the upstream API plan key "upgraded"; Gold uses "gold".
+ * Keep these keys stable unless all three pages and API handlers are updated.
+ * The payment API route is /api/create-checkout-session; it returns a URL.
+ *
+ * Handover: legal document links (PDS, TMD and Privacy Policy) are placeholders.
+ * Replace href="#" with approved links before a production release.
+ * "Lock in my quote" is owned by a different team member. This file preserves
+ * the original button, pending quote payload and integration point. The email
+ * endpoint / 30-day price lock MUST be verified when that feature is merged;
+ * this version does not itself send emails or lock prices.
+ */
+
+// Data structures passed between pages and the WAS pricing API.
 
 interface Option {
   value: string;
@@ -52,14 +73,83 @@ interface PetCoverSetting {
 }
 
 interface Cover {
-  petSettings: {
-    [key: string]: PetCoverSetting;
-  };
-  plans: {
-    [key: string]: string;
-  };
+  petSettings: Record<string, PetCoverSetting>;
+  plans: Record<string, string>;
   price: number;
   applyToAllPets: boolean;
+}
+
+type PetErrors = { name: string; breed: string; dob: string; gender: string };
+
+const NAME_PATTERN = /^[\p{L}\s'’-]+$/u;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/**
+ * HANDOVER — UI consistency: this uses the same 48px controls, 12px radius,
+ * grey borders, amber primary actions, and inline validation as Quote/Plans.
+ * Keep UI changes separate from teammate-owned quote email and Stripe logic.
+ */
+const INPUT_CLASS = `w-full h-12 px-4 rounded-xl border border-gray-300 text-sm
+  placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-800
+  focus:border-transparent transition`;
+
+/** Used in WAS quote payloads so the policy date is based on Brisbane time. */
+function brisbaneToday(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Brisbane",
+  }).format(new Date());
+}
+
+/** Names may contain international letters, spaces, apostrophes and hyphens. */
+function isValidName(value: string): boolean {
+  return NAME_PATTERN.test(value.trim());
+}
+
+/** Accept 04xxxxxxxx or +61 4xxxxxxxx (including normal separators). */
+function isValidAustralianMobile(value: string): boolean {
+  const trimmed = value.trim();
+  if (!/^\+?[\d\s()-]+$/.test(trimmed)) return false;
+  const digits = trimmed.replace(/\D/g, "");
+  return /^04\d{8}$/.test(digits) || /^614\d{8}$/.test(digits);
+}
+
+function isValidEmail(value: string): boolean {
+  return EMAIL_PATTERN.test(value.trim());
+}
+
+/** Shared by Save/Pay and Done so both use identical pet validation. */
+function validatePet(pet: Pet): PetErrors {
+  const errors: PetErrors = { name: "", breed: "", dob: "", gender: "" };
+  if (!pet.name.trim()) {
+    errors.name = "Please enter your pet's name.";
+  } else if (!isValidName(pet.name)) {
+    errors.name = "Please enter a valid pet name.";
+  }
+  if (!pet.breed.trim()) errors.breed = "Please select a breed.";
+  if (!pet.gender) errors.gender = "Please select your pet's sex.";
+  if (!pet.dob) {
+    errors.dob = "Please enter your pet's date of birth.";
+  } else {
+    const dobDate = new Date(`${pet.dob}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const minimumDobDate = new Date(today);
+    minimumDobDate.setDate(today.getDate() - 14);
+    if (Number.isNaN(dobDate.getTime())) {
+      errors.dob = "Please enter a valid date of birth.";
+    } else if (dobDate > minimumDobDate) {
+      errors.dob = "Your pet must be at least 14 days old.";
+    }
+  }
+  return errors;
+}
+
+/** Bring the first invalid/unfinished section into view. */
+function scrollToField(id: string, afterRender = false): void {
+  const scroll = () => document.getElementById(id)?.scrollIntoView({
+    behavior: "smooth", block: "center",
+  });
+  if (afterRender) requestAnimationFrame(scroll);
+  else scroll();
 }
 
 /* -----------------------------
@@ -102,10 +192,10 @@ function DetailsContent() {
       mobile: "",
       email: "",
     });
-  
+
   const [addressError, setAddressError] =
     useState("");
-  
+
   const [unfinishedEditError, setUnfinishedEditError] =
     useState<
       "address" | "pet" | "cover" | null
@@ -155,8 +245,9 @@ function DetailsContent() {
       total: null,
     });
 
-  const [pricingLoading, setPricingLoading] =
-    useState(false);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  // Increasing request ID ensures slow responses cannot overwrite newer prices.
+  const pricingRequestId = useRef(0);
 
   const [termsAccepted, setTermsAccepted] =
     useState(false);
@@ -168,11 +259,13 @@ function DetailsContent() {
     useState<string | null>(null);
 
   const [openPetDetails, setOpenPetDetails] =
-  useState(false);
+    useState(false);
 
   const [openPetCover, setOpenPetCover] =
     useState(false);
-  
+
+  // Save-quote integration is owned by another team member. Preserve these
+  // states and the handler below so their implementation can be merged safely.
   const [savingQuote, setSavingQuote] = useState(false);
   const [saveQuoteMessage, setSaveQuoteMessage] = useState("");
   const [saveQuoteError, setSaveQuoteError] = useState("");
@@ -227,47 +320,11 @@ function DetailsContent() {
   const addressContainerRef =
     useRef<HTMLDivElement>(null);
 
-  const autocompleteRef =
-    useRef<any>(null);
-
   const [googleMapsFailed, setGoogleMapsFailed] =
     useState(false);
-  /* -----------------------------
-     PROGRESS
-  ------------------------------*/
-
-  const steps = [
-    "Quote",
-    "Plans",
-    "Details",
-  ];
-
-  const currentStep = 2;
-
-  const progress =
-    (currentStep /
-      (steps.length - 1)) *
-    100;
-
-  /* -----------------------------
-     STYLES
-  ------------------------------*/
-
-  const inputStyle = `
-    w-full
-    h-12
-    px-4
-    rounded-xl
-    border
-    border-gray-300
-    text-sm
-    placeholder-gray-400
-    focus:outline-none
-    focus:ring-2
-    focus:ring-gray-800
-    focus:border-transparent
-    transition
-  `;
+  // Details is the final step (100%) in the three-stage progress bar.
+  const progress = 100;
+  const steps = ["Quote", "Plans", "Details"];
 
   /* -----------------------------
      ADDRESS PARSER
@@ -329,9 +386,9 @@ function DetailsContent() {
       currentPets.map((pet, i) =>
         i === index
           ? {
-              ...pet,
-              ...changes,
-            }
+            ...pet,
+            ...changes,
+          }
           : pet
       )
     );
@@ -345,9 +402,9 @@ function DetailsContent() {
         current.includes(index)
           ? current
           : [
-              ...current,
-              index,
-            ]
+            ...current,
+            index,
+          ]
       );
     }
   };
@@ -367,7 +424,7 @@ function DetailsContent() {
 
       const currentSettings =
         currentCover.petSettings?.[
-          String(index)
+        String(index)
         ];
 
       if (!currentSettings) {
@@ -411,14 +468,14 @@ function DetailsContent() {
           (pet, petIndex) =>
             petIndex === index
               ? {
-                  ...pet,
+                ...pet,
 
-                  tier:
-                    changes.plan ===
+                tier:
+                  changes.plan ===
                     "gold"
-                      ? "Gold"
-                      : "Silver",
-                }
+                    ? "Gold"
+                    : "Silver",
+              }
               : pet
         )
       );
@@ -475,11 +532,6 @@ function DetailsContent() {
       setOptions(
         breedOptions
       );
-
-      console.log(
-        "BREED OPTIONS:",
-        breedOptions
-      );
     } catch (err) {
       console.error(err);
     } finally {
@@ -495,6 +547,7 @@ function DetailsContent() {
     updatedPets: Pet[],
     updatedCustomer = customer
   ) {
+    const requestId = ++pricingRequestId.current;
     try {
       setPricingLoading(true);
 
@@ -506,31 +559,7 @@ function DetailsContent() {
         return;
       }
 
-      const today =
-        new Intl.DateTimeFormat(
-          "en-CA",
-          {
-            timeZone:
-              "Australia/Brisbane",
-          }
-        ).format(new Date());
-
-      console.log(
-        "PRICING ADDRESS:",
-        {
-          address:
-            updatedCustomer.address,
-
-          suburb:
-            updatedCustomer.suburb,
-
-          state:
-            updatedCustomer.state,
-
-          postcode:
-            updatedCustomer.postcode,
-        }
-      );
+      const today = brisbaneToday();
 
       const pricingPets =
         await Promise.all(
@@ -541,7 +570,7 @@ function DetailsContent() {
             ) => {
               const petSettings =
                 cover.petSettings?.[
-                  String(index)
+                String(index)
                 ];
 
               /*
@@ -556,8 +585,7 @@ function DetailsContent() {
                 petSettings?.excess == null
               ) {
                 console.error(
-                  `Incomplete cover information for Pet ${
-                    index + 1
+                  `Incomplete cover information for Pet ${index + 1
                   }:`,
                   petSettings
                 );
@@ -565,13 +593,12 @@ function DetailsContent() {
                 return {
                   name:
                     pet.name ||
-                    `Pet ${
-                      index + 1
+                    `Pet ${index + 1
                     }`,
 
                   tier:
                     pet.tier ===
-                    "Gold"
+                      "Gold"
                       ? ("Gold" as const)
                       : ("Silver" as const),
 
@@ -581,7 +608,7 @@ function DetailsContent() {
 
               const planKey =
                 petSettings.plan ===
-                "gold"
+                  "gold"
                   ? "gold"
                   : "upgraded";
 
@@ -614,21 +641,21 @@ function DetailsContent() {
 
                     pet_type:
                       pet.petType ===
-                      "dog"
+                        "dog"
                         ? "Dog"
                         : pet.petType ===
                           "cat"
-                        ? "Cat"
-                        : "",
+                          ? "Cat"
+                          : "",
 
                     pet_sex:
                       pet.gender ===
-                      "male"
+                        "male"
                         ? "Male"
                         : pet.gender ===
                           "female"
-                        ? "Female"
-                        : "",
+                          ? "Female"
+                          : "",
 
                     pet_breed:
                       pet.breed,
@@ -653,13 +680,6 @@ function DetailsContent() {
                 },
               };
 
-              console.log(
-                `PRICING REQUEST - Pet ${
-                  index + 1
-                }:`,
-                payload
-              );
-
               const response =
                 await fetch(
                   "/api/quote",
@@ -680,21 +700,13 @@ function DetailsContent() {
 
               if (!response.ok) {
                 throw new Error(
-                  `Quote request failed for Pet ${
-                    index + 1
+                  `Quote request failed for Pet ${index + 1
                   }`
                 );
               }
 
               const data =
                 await response.json();
-
-              console.log(
-                `PRICING RESPONSE - Pet ${
-                  index + 1
-                }:`,
-                data
-              );
 
               const quotePet =
                 data?.[
@@ -707,19 +719,18 @@ function DetailsContent() {
                   quotePet
                     ?.premiums
                     ?.installment ??
-                    0
+                  0
                 );
 
               return {
                 name:
                   pet.name ||
-                  `Pet ${
-                    index + 1
+                  `Pet ${index + 1
                   }`,
 
                 tier:
                   petSettings.plan ===
-                  "gold"
+                    "gold"
                     ? ("Gold" as const)
                     : ("Silver" as const),
 
@@ -739,32 +750,16 @@ function DetailsContent() {
           0
         );
 
-      console.log(
-        "UPDATED PRICING:",
-        pricingPets
-      );
-
-      console.log(
-        "UPDATED TOTAL:",
-        total
-      );
-
-      setPricing({
-        pets:
-          pricingPets,
-
-        total:
-          Number(
-            total.toFixed(2)
-          ),
-      });
+      if (requestId === pricingRequestId.current) {
+        setPricing({ pets: pricingPets, total: Number(total.toFixed(2)) });
+      }
     } catch (error) {
-      console.error(
-        "PRICING REFRESH ERROR:",
-        error
-      );
+      console.error("Unable to refresh pricing:", error);
+      if (requestId === pricingRequestId.current) {
+        setPricing((current) => ({ ...current, total: null }));
+      }
     } finally {
-      setPricingLoading(false);
+      if (requestId === pricingRequestId.current) setPricingLoading(false);
     }
   }
 
@@ -780,16 +775,11 @@ function DetailsContent() {
       email: "",
     };
 
-    const namePattern =
-      /^[\p{L}\s'’-]+$/u;
-
     if (!customer.firstName.trim()) {
       errors.firstName =
         "Please enter your first name.";
     } else if (
-      !namePattern.test(
-        customer.firstName.trim()
-      )
+      !isValidName(customer.firstName)
     ) {
       errors.firstName =
         "Please enter a valid first name.";
@@ -799,31 +789,14 @@ function DetailsContent() {
       errors.lastName =
         "Please enter your last name.";
     } else if (
-      !namePattern.test(
-        customer.lastName.trim()
-      )
+      !isValidName(customer.lastName)
     ) {
       errors.lastName =
         "Please enter a valid last name.";
     }
 
-    const mobileValue =
-      customer.mobile.trim();
-
-    const cleanedMobile =
-      mobileValue.replace(/\D/g, "");
-
-    const validMobileCharacters =
-      /^\+?[\d\s()-]+$/.test(
-        mobileValue
-      );
-
-    const validAustralianMobile =
-      validMobileCharacters &&
-      (
-        /^04\d{8}$/.test(cleanedMobile) ||
-        /^614\d{8}$/.test(cleanedMobile)
-      );
+    const cleanedMobile = customer.mobile.trim().replace(/\D/g, "");
+    const validAustralianMobile = isValidAustralianMobile(customer.mobile);
 
     if (!cleanedMobile) {
       errors.mobile =
@@ -840,9 +813,7 @@ function DetailsContent() {
       errors.email =
         "Please enter your email address.";
     } else if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        email
-      )
+      !isValidEmail(email)
     ) {
       errors.email =
         "Please enter a valid email address.";
@@ -851,55 +822,35 @@ function DetailsContent() {
     setCustomerErrors(errors);
 
     if (errors.firstName) {
-      document
-        .getElementById("customer-first-name")
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+      scrollToField("customer-first-name");
 
       return false;
     }
 
     if (errors.lastName) {
-      document
-        .getElementById("customer-last-name")
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+      scrollToField("customer-last-name");
 
       return false;
     }
 
     if (errors.mobile) {
-      document
-        .getElementById("customer-mobile")
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+      scrollToField("customer-mobile");
 
       return false;
     }
 
     if (errors.email) {
-      document
-        .getElementById("customer-email")
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+      scrollToField("customer-email");
 
       return false;
     }
 
     return true;
   }
-  
-    /* -----------------------------
-     VALIDATE CUSTOMER
-  ------------------------------*/
+
+  /* -----------------------------
+   VALIDATE CUSTOMER
+------------------------------*/
 
   function validateReviewDetails() {
     const nextPetErrors: Record<
@@ -915,69 +866,7 @@ function DetailsContent() {
     let hasPetErrors = false;
 
     pets.forEach((pet, index) => {
-      const errors = {
-        name: "",
-        breed: "",
-        dob: "",
-        gender: "",
-      };
-
-      if (!pet.name.trim()) {
-        errors.name =
-          "Please enter your pet's name.";
-      } else if (
-        !/^[\p{L}\s'’-]+$/u.test(
-          pet.name.trim()
-        )
-      ) {
-        errors.name =
-          "Please enter a valid pet name.";
-      }
-
-      if (!pet.breed.trim()) {
-        errors.breed =
-          "Please select a breed.";
-      }
-
-      if (!pet.dob) {
-        errors.dob =
-          "Please enter your pet's date of birth.";
-      } else {
-        const dobDate =
-          new Date(`${pet.dob}T00:00:00`);
-
-        const today =
-          new Date();
-
-        today.setHours(0, 0, 0, 0);
-
-        const minimumDobDate =
-          new Date(today);
-
-        minimumDobDate.setDate(
-          today.getDate() - 14
-        );
-
-        if (
-          Number.isNaN(
-            dobDate.getTime()
-          )
-        ) {
-          errors.dob =
-            "Please enter a valid date of birth.";
-        } else if (
-          dobDate >
-          minimumDobDate
-        ) {
-          errors.dob =
-            "Your pet must be at least 14 days old.";
-        }
-      }
-
-      if (!pet.gender) {
-        errors.gender =
-          "Please select your pet's sex.";
-      }
+      const errors = validatePet(pet);
 
       nextPetErrors[index] =
         errors;
@@ -1025,130 +914,60 @@ function DetailsContent() {
 
     return true;
   }
-  
-/* -----------------------------
-  FINISH PET EDIT
-------------------------------*/
 
-async function finishPetEdit(
-  index: number
-) {
-  const pet = pets[index];
+  /* -----------------------------
+    FINISH PET EDIT
+  ------------------------------*/
 
-  if (!pet) {
-    return true;
-  }
-
-  const errors = {
-    name: "",
-    breed: "",
-    dob: "",
-    gender: "",
-  };
-
-  if (!pet.name.trim()) {
-    errors.name =
-      "Please enter your pet's name.";
-  } else if (
-    !/^[\p{L}\s'’-]+$/u.test(
-      pet.name.trim()
-    )
+  async function finishPetEdit(
+    index: number
   ) {
-    errors.name =
-      "Please enter a valid pet name.";
-  }
+    const pet = pets[index];
 
-  if (!pet.breed.trim()) {
-    errors.breed =
-      "Please select a breed.";
-  }
+    if (!pet) {
+      return true;
+    }
 
-  if (!pet.dob) {
-    errors.dob =
-      "Please enter your pet's date of birth.";
-  } else {
-    const dobDate =
-      new Date(`${pet.dob}T00:00:00`);
+    const errors = validatePet(pet);
 
-    const today =
-      new Date();
+    setPetErrors((current) => ({
+      ...current,
+      [index]: errors,
+    }));
 
-    today.setHours(0, 0, 0, 0);
+    const hasErrors =
+      Object.values(errors).some(
+        Boolean
+      );
 
-    const minimumDobDate =
-      new Date(today);
+    if (hasErrors) {
+      setOpenPetDetails(true);
+      setEditingPet(index);
 
-    minimumDobDate.setDate(
-      today.getDate() - 14
-    );
+      scrollToField(`pet-details-${index}`, true);
+
+      return false;
+    }
+
+    setUnfinishedEditError(null);
+    setEditingPet(null);
 
     if (
-      Number.isNaN(
-        dobDate.getTime()
-      )
+      pricingChangedPets.includes(index)
     ) {
-      errors.dob =
-        "Please enter a valid date of birth.";
-    } else if (
-      dobDate > minimumDobDate
-    ) {
-      errors.dob =
-        "Your pet must be at least 14 days old.";
+      await refreshPricing(pets);
+
+      setPricingChangedPets(
+        (current) =>
+          current.filter(
+            (petIndex) =>
+              petIndex !== index
+          )
+      );
     }
+
+    return true;
   }
-
-  if (!pet.gender) {
-    errors.gender =
-      "Please select your pet's sex.";
-  }
-
-  setPetErrors((current) => ({
-    ...current,
-    [index]: errors,
-  }));
-
-  const hasErrors =
-    Object.values(errors).some(
-      Boolean
-    );
-
-  if (hasErrors) {
-    setOpenPetDetails(true);
-    setEditingPet(index);
-
-    requestAnimationFrame(() => {
-      document
-        .getElementById(
-          `pet-details-${index}`
-        )
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-    });
-
-    return false;
-  }
-
-  setUnfinishedEditError(null);
-  setEditingPet(null);
-
-  if (
-    pricingChangedPets.includes(index)
-  ) {
-    await refreshPricing(pets);
-
-    setPricingChangedPets(
-      (current) =>
-        current.filter(
-          (petIndex) =>
-            petIndex !== index
-        )
-    );
-  }
-
-  return true;
-}
 
   async function finishAddressEdit() {
     if (!editingAddress) {
@@ -1160,14 +979,7 @@ async function finishPetEdit(
         "Please enter your home address."
       );
 
-      requestAnimationFrame(() => {
-        document
-          .getElementById("address-details")
-          ?.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-      });
+      scrollToField("address-details", true);
 
       return false;
     }
@@ -1180,14 +992,7 @@ async function finishPetEdit(
         "Please select your address from the suggestions."
       );
 
-      requestAnimationFrame(() => {
-        document
-          .getElementById("address-details")
-          ?.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-      });
+      scrollToField("address-details", true);
 
       return false;
     }
@@ -1201,14 +1006,7 @@ async function finishPetEdit(
         "Please enter a valid Australian address including suburb, state and postcode."
       );
 
-      requestAnimationFrame(() => {
-        document
-          .getElementById("address-details")
-          ?.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-      });
+      scrollToField("address-details", true);
 
       return false;
     }
@@ -1225,56 +1023,59 @@ async function finishPetEdit(
     return true;
   }
 
-async function finishCoverEdit() {
-  if (editingCover === null) {
+  async function finishCoverEdit() {
+    if (editingCover === null) {
+      return true;
+    }
+
+    setUnfinishedEditError(null);
+    setEditingCover(null);
+
+    await refreshPricing(
+      pets
+    );
+
     return true;
   }
 
-  setUnfinishedEditError(null);
-  setEditingCover(null);
+  async function finishCurrentEdit() {
+    if (editingAddress) {
+      const addressFinished =
+        await finishAddressEdit();
 
-  await refreshPricing(
-    pets
-  );
-
-  return true;
-}
-
-async function finishCurrentEdit() {
-  if (editingAddress) {
-    const addressFinished =
-      await finishAddressEdit();
-
-    if (!addressFinished) {
-      return false;
+      if (!addressFinished) {
+        return false;
+      }
     }
-  }
 
-  if (editingPet !== null) {
-    const petFinished =
-      await finishPetEdit(
-        editingPet
-      );
+    if (editingPet !== null) {
+      const petFinished =
+        await finishPetEdit(
+          editingPet
+        );
 
-    if (!petFinished) {
-      return false;
+      if (!petFinished) {
+        return false;
+      }
     }
-  }
 
-  if (editingCover !== null) {
-    const coverFinished =
-      await finishCoverEdit();
+    if (editingCover !== null) {
+      const coverFinished =
+        await finishCoverEdit();
 
-    if (!coverFinished) {
-      return false;
+      if (!coverFinished) {
+        return false;
+      }
     }
-  }
 
-  return true;
-}
+    return true;
+  }
 
   /* -----------------------------
      SAVE DETAILS TO URL
+     TODO (handover): raw contact/address data travels in query parameters
+     for compatibility with Plans. Prefer a quote ID and server-side lookup
+     before moving beyond this prototype.
   ------------------------------*/
 
   function buildPlansUrl() {
@@ -1294,15 +1095,15 @@ async function finishCurrentEdit() {
         CUSTOMER NAME
       ------------------------------*/
 
-      params.set(
-        "first_name",
-        customer.firstName
-      );
+    params.set(
+      "first_name",
+      customer.firstName
+    );
 
-      params.set(
-        "last_name",
-        customer.lastName
-      );
+    params.set(
+      "last_name",
+      customer.lastName
+    );
 
     /* -----------------------------
        CUSTOMER DETAILS
@@ -1392,7 +1193,7 @@ async function finishCurrentEdit() {
         (pet, index) => {
           const settings =
             cover?.petSettings?.[
-              String(index)
+            String(index)
             ];
 
           return {
@@ -1404,21 +1205,21 @@ async function finishCurrentEdit() {
 
             pet_type:
               pet.petType ===
-              "dog"
+                "dog"
                 ? "Dog"
                 : pet.petType ===
                   "cat"
-                ? "Cat"
-                : "",
+                  ? "Cat"
+                  : "",
 
             pet_sex:
               pet.gender ===
-              "male"
+                "male"
                 ? "Male"
                 : pet.gender ===
                   "female"
-                ? "Female"
-                : "",
+                  ? "Female"
+                  : "",
 
             pet_breed:
               pet.breed ?? "",
@@ -1426,16 +1227,7 @@ async function finishCurrentEdit() {
             pet_dob:
               pet.dob ?? "",
 
-            policy_start_date:
-              new Intl.DateTimeFormat(
-                "en-CA",
-                {
-                  timeZone:
-                    "Australia/Brisbane",
-                }
-              ).format(
-                new Date()
-              ),
+            policy_start_date: brisbaneToday(),
 
             selectedPlan:
               settings?.plan ??
@@ -1474,7 +1266,7 @@ async function finishCurrentEdit() {
       "annual_limit",
       String(
         firstPetSettings?.limit ??
-          20000
+        20000
       )
     );
 
@@ -1482,7 +1274,7 @@ async function finishCurrentEdit() {
       "benefit_percentage",
       String(
         firstPetSettings?.benefit ??
-          80
+        80
       )
     );
 
@@ -1490,14 +1282,14 @@ async function finishCurrentEdit() {
       "annual_excess",
       String(
         firstPetSettings?.excess ??
-          250
+        250
       )
     );
 
     params.set(
       "selectedPlan",
       firstPetSettings?.plan ??
-        ""
+      ""
     );
 
     return `/plans?${params.toString()}`;
@@ -1568,6 +1360,7 @@ async function finishCurrentEdit() {
 
   /* -----------------------------
      BACK TO PLANS
+     Preserve URL keys and saved quote state so edits are not lost.
   ------------------------------*/
 
   function goBackToPlans() {
@@ -1590,174 +1383,76 @@ async function finishCurrentEdit() {
     );
   }
 
-  /* -----------------------------
-      SAVE QUOTE
-    ------------------------------*/
-
-    async function saveQuote() {
-      // Clear previous messages
-      setSaveQuoteMessage("");
-      setSaveQuoteError("");
-
-      if (editingAddress) {
-        setUnfinishedEditError("address");
-
-        document
-          .getElementById("address-details")
-          ?.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-
-        return;
-      }
-
-      if (editingPet !== null) {
-        setUnfinishedEditError("pet");
-
-        document
-          .getElementById(
-            `pet-details-${editingPet}`
-          )
-          ?.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-
-        return;
-      }
-
-      if (editingCover !== null) {
-        setUnfinishedEditError("cover");
-
-        document
-          .getElementById(
-            `pet-cover-${editingCover}`
-          )
-          ?.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-
-        return;
-      }
-
+  /** Prevent saving/checkout with an unfinished address, pet or cover edit. */
+  function hasUnfinishedEdit(): boolean {
+    const editing: { field: "address" | "pet" | "cover"; id: string } | null =
+      editingAddress
+        ? { field: "address", id: "address-details" }
+        : editingPet !== null
+          ? { field: "pet", id: `pet-details-${editingPet}` }
+          : editingCover !== null
+            ? { field: "cover", id: `pet-cover-${editingCover}` }
+            : null;
+    if (!editing) {
       setUnfinishedEditError(null);
-
-      // Validate customer details before saving
-      if (!validateCustomerDetails()) {
-        return;
-      }
-
-      if (!validateReviewDetails()) {
-        return;
-      }
-
-      // Make sure a valid price exists before attempting to save
-      if (pricing.total === null) {
-        setSaveQuoteError(
-          "Your quote price is currently unavailable. Please try again."
-        );
-        return;
-      }
-
-      setSavingQuote(true);
-
-      try {
-        /*
-        * Prepare the quote information that will eventually
-        * be sent to the email/save-quote service.
-        */
-        const quoteData = {
-          customer,
-          pets,
-          cover,
-          pricing,
-          quoteUrl: buildPlansUrl(),
-        };
-
-        /*
-        * TODO:
-        * Send quoteData to the Save Quote API.
-        *
-        * The email/API implementation will be added by the
-        * team member responsible for the Save Quote email.
-        *
-        * Example:
-        * await fetch("/api/save-quote", {
-        *   method: "POST",
-        *   headers: {
-        *     "Content-Type": "application/json",
-        *   },
-        *   body: JSON.stringify(quoteData),
-        * });
-        */
-
-        console.log("SAVE QUOTE DATA:", quoteData);
-
-        // Temporary success state until the email functionality is implemented
-        setSaveQuoteMessage(
-          "Your quote is ready to be sent to your email."
-        );
-      } catch (error) {
-        console.error("Save quote error:", error);
-
-        setSaveQuoteError(
-          "We couldn't save your quote. Please try again."
-        );
-      } finally {
-        setSavingQuote(false);
-      }
+      return false;
     }
+    setUnfinishedEditError(editing.field);
+    scrollToField(editing.id);
+    return true;
+  }
+
+  /**
+   * HANDOVER — Save quote integration (owned by teammate).
+   * Retain the payload shape and UI states while the email feature is developed.
+   * TODO: POST quoteData to the teammate's save-quote endpoint, handle errors,
+   * and only show delivery/30-day lock confirmation after server confirmation.
+   * Do not log quoteData: it contains customer personal information.
+   */
+  async function saveQuote() {
+    setSaveQuoteMessage("");
+    setSaveQuoteError("");
+
+    if (hasUnfinishedEdit()) return;
+    if (!validateCustomerDetails() || !validateReviewDetails()) return;
+
+    if (pricing.total === null) {
+      setSaveQuoteError("Your quote price is currently unavailable. Please try again.");
+      return;
+    }
+
+    setSavingQuote(true);
+    try {
+      const quoteData = {
+        customer,
+        pets,
+        cover,
+        pricing,
+        quoteUrl: buildPlansUrl(),
+      };
+
+      // TODO (save-quote owner): Send quoteData to the Save Quote/email API.
+      // The backend needs to confirm that the quote was saved and/or emailed.
+      void quoteData; // Intentionally kept as the future API request payload.
+
+      // Preserve the original prototype response, which does NOT claim delivery.
+      setSaveQuoteMessage("Your quote is ready to be sent to your email.");
+    } catch (error) {
+      console.error("Save quote error:", error);
+      setSaveQuoteError("We couldn't save your quote. Please try again.");
+    } finally {
+      setSavingQuote(false);
+    }
+  }
+
   /* -----------------------------
      CONFIRM PAYMENT
+     Handover: the server must derive checkout amounts from a verified quote.
+     A client-provided unit_amount is not authoritative.
   ------------------------------*/
 
   async function confirmPayment() {
-   if (editingAddress) {
-    setUnfinishedEditError("address");
-
-    document
-      .getElementById("address-details")
-      ?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-
-    return;
-  }
-
-  if (editingPet !== null) {
-    setUnfinishedEditError("pet");
-
-    document
-      .getElementById(
-        `pet-details-${editingPet}`
-      )
-      ?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-
-    return;
-  }
-
-  if (editingCover !== null) {
-    setUnfinishedEditError("cover");
-
-    document
-      .getElementById(
-        `pet-cover-${editingCover}`
-      )
-      ?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-
-    return;
-  }
-
-  setUnfinishedEditError(null);
+    if (hasUnfinishedEdit()) return;
 
     if (
       !validateCustomerDetails()
@@ -1855,7 +1550,10 @@ async function finishCurrentEdit() {
   }
 
   /* -----------------------------
-     INITIAL LOAD
+     INITIAL RESTORATION — URL fields take precedence when session petDetails exists.
+     Direct URLs with no session petDetails still need a restoration improvement.
+     We convert snake_case API fields into the React Pet model so edits
+     and repricing work even when the user follows a copied quote URL.
   ------------------------------*/
 
   useEffect(() => {
@@ -1873,23 +1571,13 @@ async function finishCurrentEdit() {
         "petDetails"
       );
 
-    console.log(
-      "COVER STORAGE:",
-      storedCover
-    );
-
-    console.log(
-      "PET STORAGE:",
-      storedPet
-    );
-
     const coverData:
       | Cover
       | null =
       storedCover
         ? JSON.parse(
-            storedCover
-          )
+          storedCover
+        )
         : null;
 
     if (coverData) {
@@ -2009,7 +1697,7 @@ async function finishCurrentEdit() {
             const storedPlan =
               coverData
                 ?.plans?.[
-                index
+              index
               ];
 
             const urlPlan =
@@ -2032,16 +1720,16 @@ async function finishCurrentEdit() {
                   pet?.petType ??
                   ""
                 ).toLowerCase() ===
-                "dog"
+                  "dog"
                   ? "dog"
                   : (
-                      pet?.pet_type ??
-                      pet?.petType ??
-                      ""
-                    ).toLowerCase() ===
+                    pet?.pet_type ??
+                    pet?.petType ??
+                    ""
+                  ).toLowerCase() ===
                     "cat"
-                  ? "cat"
-                  : null,
+                    ? "cat"
+                    : null,
 
               breed:
                 pet?.pet_breed ??
@@ -2059,24 +1747,24 @@ async function finishCurrentEdit() {
                   pet?.gender ??
                   ""
                 ).toLowerCase() ===
-                "male"
+                  "male"
                   ? "male"
                   : (
-                      pet?.pet_sex ??
-                      pet?.gender ??
-                      ""
-                    ).toLowerCase() ===
+                    pet?.pet_sex ??
+                    pet?.gender ??
+                    ""
+                  ).toLowerCase() ===
                     "female"
-                  ? "female"
-                  : null,
+                    ? "female"
+                    : null,
 
               tier:
                 plan === "gold"
                   ? "Gold"
                   : plan ===
                     "upgraded"
-                  ? "Silver"
-                  : "",
+                    ? "Silver"
+                    : "",
             };
           }
         )
@@ -2187,219 +1875,219 @@ async function finishCurrentEdit() {
     }
   }, []);
 
-/* -----------------------------
-   GOOGLE ADDRESS AUTOCOMPLETE
-------------------------------*/
+  /* -----------------------------
+     GOOGLE ADDRESS AUTOCOMPLETE
+     Loaded only when the address editor opens; limits suggestions to AU.
+     If Maps fails, the text fallback uses parseAddress(), so leave it intact.
+     Event listeners are scoped to the widget and removed when it is removed.
+  ------------------------------*/
 
-useEffect(() => {
-  if (!editingAddress || googleMapsFailed) {
-    return;
-  }
+  useEffect(() => {
+    if (!editingAddress || googleMapsFailed) {
+      return;
+    }
 
-  let cancelled = false;
-  let autocomplete: HTMLElement | null = null;
+    let cancelled = false;
+    let autocomplete: HTMLElement | null = null;
 
-  const loadGoogleMaps = async () => {
-    try {
-      if (
-        !process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-      ) {
-        setGoogleMapsFailed(true);
-        return;
-      }
-
-      if (!googleMapsConfigured) {
-        setGoogleMapsOptions({
-          key: process.env
-            .NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-          v: "weekly",
-        });
-
-        googleMapsConfigured = true;
-      }
-
-      const { PlaceAutocompleteElement } =
-        await importLibrary("places");
-
-      if (
-        cancelled ||
-        !addressContainerRef.current
-      ) {
-        return;
-      }
-
-      addressContainerRef.current.innerHTML =
-        "";
-
-      const newAutocomplete =
-        new PlaceAutocompleteElement();
-
-      newAutocomplete.style.width = "100%";
-      newAutocomplete.style.display = "block";
-
-      newAutocomplete.value =
-        customer.address;
-
-      newAutocomplete.setAttribute(
-        "included-region-codes",
-        "au"
-      );
-
-      newAutocomplete.setAttribute(
-        "placeholder",
-        "Start typing your address..."
-      );
-
-      autocomplete =
-        newAutocomplete;
-
-      autocompleteRef.current =
-        newAutocomplete;
-
-      addressContainerRef.current.appendChild(
-        newAutocomplete
-      );
-
-      newAutocomplete.addEventListener(
-        "input",
-        () => {
-          if (!cancelled) {
-            setAddressSelected(false);
-            setAddressError("");
-          }
+    const loadGoogleMaps = async () => {
+      try {
+        if (
+          !process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        ) {
+          setGoogleMapsFailed(true);
+          return;
         }
-      );
 
-      newAutocomplete.addEventListener(
-        "gmp-select",
-        async (event: any) => {
-          try {
-            const place =
-              event.placePrediction.toPlace();
+        if (!googleMapsConfigured) {
+          setGoogleMapsOptions({
+            key: process.env
+              .NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+            v: "weekly",
+          });
 
-            await place.fetchFields({
-              fields: [
-                "formattedAddress",
-                "addressComponents",
-              ],
-            });
+          googleMapsConfigured = true;
+        }
 
-            if (
-              cancelled ||
-              !place.formattedAddress
-            ) {
-              return;
+        const { PlaceAutocompleteElement } =
+          await importLibrary("places");
+
+        if (
+          cancelled ||
+          !addressContainerRef.current
+        ) {
+          return;
+        }
+
+        addressContainerRef.current.innerHTML =
+          "";
+
+        const newAutocomplete =
+          new PlaceAutocompleteElement();
+
+        newAutocomplete.style.width = "100%";
+        newAutocomplete.style.display = "block";
+
+        newAutocomplete.value =
+          customer.address;
+
+        newAutocomplete.setAttribute(
+          "included-region-codes",
+          "au"
+        );
+
+        newAutocomplete.setAttribute(
+          "placeholder",
+          "Start typing your address..."
+        );
+
+        autocomplete =
+          newAutocomplete;
+
+        addressContainerRef.current.appendChild(
+          newAutocomplete
+        );
+
+        newAutocomplete.addEventListener(
+          "input",
+          () => {
+            if (!cancelled) {
+              setAddressSelected(false);
+              setAddressError("");
             }
+          }
+        );
 
-            newAutocomplete.value =
-              place.formattedAddress;
+        newAutocomplete.addEventListener(
+          "gmp-select",
+          async (event: any) => {
+            try {
+              const place =
+                event.placePrediction.toPlace();
 
-            let suburb = "";
-            let state = "";
-            let postcode = "";
+              await place.fetchFields({
+                fields: [
+                  "formattedAddress",
+                  "addressComponents",
+                ],
+              });
 
-            const components =
-              place.addressComponents || [];
-
-            components.forEach(
-              (component: any) => {
-                const types =
-                  component.types || [];
-
-                if (
-                  types.includes("locality") ||
-                  types.includes("postal_town") ||
-                  types.includes("sublocality")
-                ) {
-                  suburb =
-                    component.longText ||
-                    component.shortText ||
-                    "";
-                }
-
-                if (
-                  types.includes(
-                    "administrative_area_level_1"
-                  )
-                ) {
-                  state =
-                    component.shortText ||
-                    component.longText ||
-                    "";
-                }
-
-                if (
-                  types.includes("postal_code")
-                ) {
-                  postcode =
-                    component.longText ||
-                    component.shortText ||
-                    "";
-                }
+              if (
+                cancelled ||
+                !place.formattedAddress
+              ) {
+                return;
               }
-            );
 
-            setCustomer((prev) => ({
-              ...prev,
-              address:
-                place.formattedAddress,
-              suburb,
-              state:
-                state.toUpperCase().trim(),
-              postcode,
-            }));
+              newAutocomplete.value =
+                place.formattedAddress;
 
-            setAddressSelected(true);
-            setAddressError("");
-          } catch (error) {
-            console.error(
-              "Failed to get selected address:",
-              error
-            );
+              let suburb = "";
+              let state = "";
+              let postcode = "";
+
+              const components =
+                place.addressComponents || [];
+
+              components.forEach(
+                (component: any) => {
+                  const types =
+                    component.types || [];
+
+                  if (
+                    types.includes("locality") ||
+                    types.includes("postal_town") ||
+                    types.includes("sublocality")
+                  ) {
+                    suburb =
+                      component.longText ||
+                      component.shortText ||
+                      "";
+                  }
+
+                  if (
+                    types.includes(
+                      "administrative_area_level_1"
+                    )
+                  ) {
+                    state =
+                      component.shortText ||
+                      component.longText ||
+                      "";
+                  }
+
+                  if (
+                    types.includes("postal_code")
+                  ) {
+                    postcode =
+                      component.longText ||
+                      component.shortText ||
+                      "";
+                  }
+                }
+              );
+
+              setCustomer((prev) => ({
+                ...prev,
+                address:
+                  place.formattedAddress,
+                suburb,
+                state:
+                  state.toUpperCase().trim(),
+                postcode,
+              }));
+
+              setAddressSelected(true);
+              setAddressError("");
+            } catch (error) {
+              console.error(
+                "Failed to get selected address:",
+                error
+              );
+            }
           }
-        }
-      );
+        );
 
-      newAutocomplete.addEventListener(
-        "gmp-error",
-        () => {
-          if (!cancelled) {
-            setGoogleMapsFailed(true);
+        newAutocomplete.addEventListener(
+          "gmp-error",
+          () => {
+            if (!cancelled) {
+              setGoogleMapsFailed(true);
+            }
           }
-        }
-      );
-    } catch (error) {
-      console.error(
-        "Google Maps failed to load:",
-        error
-      );
+        );
+      } catch (error) {
+        console.error(
+          "Google Maps failed to load:",
+          error
+        );
 
-      if (!cancelled) {
-        setGoogleMapsFailed(true);
+        if (!cancelled) {
+          setGoogleMapsFailed(true);
+        }
       }
-    }
-  };
+    };
 
-  loadGoogleMaps();
+    loadGoogleMaps();
 
-  return () => {
-    cancelled = true;
+    return () => {
+      cancelled = true;
 
-    if (autocomplete) {
-      autocomplete.remove();
-    }
+      if (autocomplete) {
+        autocomplete.remove();
+      }
 
-    autocompleteRef.current = null;
-
-    if (addressContainerRef.current) {
-      addressContainerRef.current.innerHTML =
-        "";
-    }
-  };
-}, [editingAddress]);
+      if (addressContainerRef.current) {
+        addressContainerRef.current.innerHTML =
+          "";
+      }
+    };
+  }, [editingAddress]);
 
   /* -----------------------------
      INITIAL / COVER PRICING
+     Recalculate whenever the restored cover changes; explicit Done handlers
+     also call refreshPricing after address, pet, or cover edits.
   ------------------------------*/
 
   useEffect(() => {
@@ -2497,20 +2185,20 @@ useEffect(() => {
       fontSize:
         "14px",
     }),
-      indicatorSeparator: () => ({
-        display: "none",
-      }),
+    indicatorSeparator: () => ({
+      display: "none",
+    }),
 
-      dropdownIndicator: (base: any) => ({
-        ...base,
-        padding: 0,
-        marginRight: "15px",
+    dropdownIndicator: (base: any) => ({
+      ...base,
+      padding: 0,
+      marginRight: "15px",
+      color: "#555",
+
+      "&:hover": {
         color: "#555",
-
-        "&:hover": {
-          color: "#555",
-        },
-      }),
+      },
+    }),
 
     menu: (
       base: any
@@ -2609,7 +2297,7 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen text-gray-900">
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-2xl mx-auto px-4 py-8">
 
         {/* LOGO */}
 
@@ -2618,7 +2306,7 @@ useEffect(() => {
           className="
             w-28
             opacity-70
-            mb-5
+            mb-6
             mx-auto
             block
           "
@@ -2639,15 +2327,16 @@ useEffect(() => {
 
         {/* PROGRESS */}
 
-        <div className="mb-8">
+        <nav aria-label="Quote progress" className="mb-8">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
             {steps.map(
               (step) => (
                 <span
                   key={step}
+                  aria-current={step === "Details" ? "step" : undefined}
                   className={
                     step ===
-                    "Details"
+                      "Details"
                       ? "font-semibold text-gray-900"
                       : ""
                   }
@@ -2672,7 +2361,7 @@ useEffect(() => {
               }}
             />
           </div>
-        </div>
+        </nav>
 
         {/* CUSTOMER DETAILS */}
 
@@ -2681,87 +2370,81 @@ useEffect(() => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-  {/* FIRST NAME */}
+              {/* FIRST NAME */}
 
-  <FormField label="First Name">
-    <input
-      id="customer-first-name"
-      value={customer.firstName}
-      onChange={(e) => {
-        const value = e.target.value;
+              <FormField label="First Name">
+                <input
+                  id="customer-first-name"
+                  value={customer.firstName}
+                  onChange={(e) => {
+                    const value = e.target.value;
 
-        setCustomer({
-          ...customer,
-          firstName: value,
-        });
+                    setCustomer({
+                      ...customer,
+                      firstName: value,
+                    });
 
-        const validName =
-          /^[\p{L}\s'’-]+$/u.test(
-            value.trim()
-          );
+                    const validName =
+                      isValidName(value);
 
-        if (validName) {
-          setCustomerErrors((current) => ({
-            ...current,
-            firstName: "",
-          }));
-        }
-      }}
-      className={`${inputStyle} ${
-        customerErrors.firstName
-          ? "border-red-500 focus:ring-red-500"
-          : ""
-      }`}
-    />
+                    if (validName) {
+                      setCustomerErrors((current) => ({
+                        ...current,
+                        firstName: "",
+                      }));
+                    }
+                  }}
+                  className={`${INPUT_CLASS} ${customerErrors.firstName
+                      ? "border-red-500 focus:ring-red-500"
+                      : ""
+                    }`}
+                />
 
-    {customerErrors.firstName && (
-      <ErrorMessage>
-        {customerErrors.firstName}
-      </ErrorMessage>
-    )}
-  </FormField>
+                {customerErrors.firstName && (
+                  <ErrorMessage>
+                    {customerErrors.firstName}
+                  </ErrorMessage>
+                )}
+              </FormField>
 
-  {/* LAST NAME */}
+              {/* LAST NAME */}
 
-  <FormField label="Last Name">
-    <input
-      id="customer-last-name"
-      value={customer.lastName}
-      onChange={(e) => {
-        const value = e.target.value;
+              <FormField label="Last Name">
+                <input
+                  id="customer-last-name"
+                  value={customer.lastName}
+                  onChange={(e) => {
+                    const value = e.target.value;
 
-        setCustomer({
-          ...customer,
-          lastName: value,
-        });
+                    setCustomer({
+                      ...customer,
+                      lastName: value,
+                    });
 
-        const validName =
-          /^[\p{L}\s'’-]+$/u.test(
-            value.trim()
-          );
+                    const validName =
+                      isValidName(value);
 
-        if (validName) {
-          setCustomerErrors((current) => ({
-            ...current,
-            lastName: "",
-          }));
-        }
-      }}
-      className={`${inputStyle} ${
-        customerErrors.lastName
-          ? "border-red-500 focus:ring-red-500"
-          : ""
-      }`}
-    />
+                    if (validName) {
+                      setCustomerErrors((current) => ({
+                        ...current,
+                        lastName: "",
+                      }));
+                    }
+                  }}
+                  className={`${INPUT_CLASS} ${customerErrors.lastName
+                      ? "border-red-500 focus:ring-red-500"
+                      : ""
+                    }`}
+                />
 
-    {customerErrors.lastName && (
-      <ErrorMessage>
-        {customerErrors.lastName}
-      </ErrorMessage>
-    )}
-  </FormField>
+                {customerErrors.lastName && (
+                  <ErrorMessage>
+                    {customerErrors.lastName}
+                  </ErrorMessage>
+                )}
+              </FormField>
 
-</div>
+            </div>
 
             <FormField label="Mobile Number">
               <input
@@ -2777,23 +2460,7 @@ useEffect(() => {
                     mobile: value,
                   });
 
-                  const mobileValue =
-                    value.trim();
-
-                  const cleanedMobile =
-                    mobileValue.replace(/\D/g, "");
-
-                  const validMobileCharacters =
-                    /^\+?[\d\s()-]+$/.test(
-                      mobileValue
-                    );
-
-                  const validAustralianMobile =
-                    validMobileCharacters &&
-                    (
-                      /^04\d{8}$/.test(cleanedMobile) ||
-                      /^614\d{8}$/.test(cleanedMobile)
-                    );
+                  const validAustralianMobile = isValidAustralianMobile(value);
 
                   if (validAustralianMobile) {
                     setCustomerErrors((current) => ({
@@ -2802,11 +2469,10 @@ useEffect(() => {
                     }));
                   }
                 }}
-                className={`${inputStyle} ${
-                  customerErrors.mobile
+                className={`${INPUT_CLASS} ${customerErrors.mobile
                     ? "border-red-500 focus:ring-red-500"
                     : ""
-                }`}
+                  }`}
               />
 
               {customerErrors.mobile && (
@@ -2832,9 +2498,7 @@ useEffect(() => {
                   });
 
                   if (
-                    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-                      value.trim()
-                    )
+                    isValidEmail(value)
                   ) {
                     setCustomerErrors((current) => ({
                       ...current,
@@ -2842,14 +2506,13 @@ useEffect(() => {
                     }));
                   }
                 }}
-                className={`${inputStyle} ${
-                  customerErrors.email
+                className={`${INPUT_CLASS} ${customerErrors.email
                     ? "border-red-500 focus:ring-red-500"
                     : ""
-                }`}
+                  }`}
               />
 
-               {customerErrors.email && (
+              {customerErrors.email && (
                 <ErrorMessage>
                   {customerErrors.email}
                 </ErrorMessage>
@@ -2894,9 +2557,7 @@ useEffect(() => {
                     transition
                   "
                 >
-                  {savingQuote
-                    ? "Saving quote..."
-                    : "Lock in my quote"}
+                  {savingQuote ? "Saving quote..." : "Lock in my quote"}
                 </button>
 
               </div>
@@ -2906,7 +2567,6 @@ useEffect(() => {
                   {saveQuoteMessage}
                 </p>
               )}
-
               {saveQuoteError && (
                 <p className="text-sm text-red-600 mt-3">
                   {saveQuoteError}
@@ -2993,10 +2653,9 @@ useEffect(() => {
                   px-5
                   py-5
                   border-b
-                  ${
-                    unfinishedEditError === "address"
-                      ? "border-2 border-red-500 bg-red-50/30"
-                      : "border-gray-200"
+                  ${unfinishedEditError === "address"
+                    ? "border-2 border-red-500 bg-red-50/30"
+                    : "border-gray-200"
                   }
                 `}
               >
@@ -3072,14 +2731,13 @@ useEffect(() => {
                     value={customer.address}
                     readOnly
                     className={`
-                      ${inputStyle}
+                      ${INPUT_CLASS}
                       bg-gray-100
                       cursor-not-allowed
                       text-gray-500
-                      ${
-                        addressError
-                          ? "border-red-500 focus:ring-red-500"
-                          : ""
+                      ${addressError
+                        ? "border-red-500 focus:ring-red-500"
+                        : ""
                       }
                     `}
                   />
@@ -3112,12 +2770,11 @@ useEffect(() => {
                       setAddressError("");
                     }}
                     className={`
-                      ${inputStyle}
+                      ${INPUT_CLASS}
                       bg-white
-                      ${
-                        addressError
-                          ? "border-red-500 focus:ring-red-500"
-                          : ""
+                      ${addressError
+                        ? "border-red-500 focus:ring-red-500"
+                        : ""
                       }
                     `}
                   />
@@ -3131,10 +2788,9 @@ useEffect(() => {
                         rounded-xl
                         border
                         bg-white
-                        ${
-                          addressError
-                            ? "border-red-500"
-                            : "border-gray-300"
+                        ${addressError
+                          ? "border-red-500"
+                          : "border-gray-300"
                         }
                       `}
                     />
@@ -3181,11 +2837,10 @@ useEffect(() => {
                           border
                           rounded-xl
                           p-4
-                          ${
-                            unfinishedEditError === "pet" &&
+                          ${unfinishedEditError === "pet" &&
                             editingPet === index
-                              ? "border-2 border-red-500 bg-red-50/30"
-                              : "border-gray-200 bg-gray-50/30"
+                            ? "border-2 border-red-500 bg-red-50/30"
+                            : "border-gray-200 bg-gray-50/30"
                           }
                         `}
                       >
@@ -3208,9 +2863,9 @@ useEffect(() => {
                               <span className="text-sm font-medium text-gray-500">
                                 {pet.petType
                                   ? pet.petType
-                                      .charAt(0)
-                                      .toUpperCase() +
-                                    pet.petType.slice(1)
+                                    .charAt(0)
+                                    .toUpperCase() +
+                                  pet.petType.slice(1)
                                   : "Pet"}
                               </span>
 
@@ -3293,36 +2948,27 @@ useEffect(() => {
                               });
 
                               const validPetName =
-                                /^[\p{L}\s'’-]+$/u.test(
-                                  value.trim()
-                                );
+                                isValidName(value);
 
                               if (validPetName) {
                                 setPetErrors((current) => ({
                                   ...current,
                                   [index]: {
-                                    ...(current[index] ?? {
-                                      name: "",
-                                      breed: "",
-                                      dob: "",
-                                      gender: "",
-                                    }),
+                                    ...(current[index] ?? { name: "", breed: "", dob: "", gender: "" }),
                                     name: "",
                                   },
                                 }));
                               }
                             }}
                             className={`
-                              ${inputStyle}
-                              ${
-                                editingPet !== index
-                                  ? "bg-gray-100 cursor-not-allowed"
-                                  : "bg-white"
+                              ${INPUT_CLASS}
+                              ${editingPet !== index
+                                ? "bg-gray-100 cursor-not-allowed"
+                                : "bg-white"
                               }
-                              ${
-                                petErrors[index]?.name
-                                  ? "border-red-500 focus:ring-red-500"
-                                  : ""
+                              ${petErrors[index]?.name
+                                ? "border-red-500 focus:ring-red-500"
+                                : ""
                               }
                             `}
                             style={{
@@ -3395,19 +3041,14 @@ useEffect(() => {
 
                                     petType:
                                       selected.petType.toLowerCase() as
-                                        | "cat"
-                                        | "dog",
+                                      | "cat"
+                                      | "dog",
                                   }
                                 );
                                 setPetErrors((current) => ({
                                   ...current,
                                   [index]: {
-                                    ...(current[index] ?? {
-                                      name: "",
-                                      breed: "",
-                                      dob: "",
-                                      gender: "",
-                                    }),
+                                    ...(current[index] ?? { name: "", breed: "", dob: "", gender: "" }),
                                     breed: "",
                                   },
                                 }));
@@ -3431,7 +3072,7 @@ useEffect(() => {
 
                                   boxShadow:
                                     petErrors[index]?.breed &&
-                                    state.isFocused
+                                      state.isFocused
                                       ? "0 0 0 2px #ef4444"
                                       : "none",
                                 }),
@@ -3577,30 +3218,28 @@ useEffect(() => {
                                     dob: `${year}-${monthString}-${dayString}`,
                                   });
                                   setPetErrors((current) => ({
-                                  ...current,
-                                  [index]: {
-                                    ...(current[index] ?? {
-                                      name: "",
-                                      breed: "",
+                                    ...current,
+                                    [index]: {
+                                      ...(current[index] ?? {
+                                        name: "",
+                                        breed: "",
+                                        dob: "",
+                                        gender: "",
+                                      }),
                                       dob: "",
-                                      gender: "",
-                                    }),
-                                    dob: "",
-                                  },
-                                }));
+                                    },
+                                  }));
                                 }}
                                 className={`
-                                  ${inputStyle}
+                                  ${INPUT_CLASS}
                                   pr-[45px]
-                                  ${
-                                    editingPet !== index
-                                      ? "bg-gray-100 cursor-not-allowed text-gray-500"
-                                      : "bg-white text-gray-900"
+                                  ${editingPet !== index
+                                    ? "bg-gray-100 cursor-not-allowed text-gray-500"
+                                    : "bg-white text-gray-900"
                                   }
-                                  ${
-                                    petErrors[index]?.dob
-                                      ? "border-red-500 focus:ring-red-500"
-                                      : ""
+                                  ${petErrors[index]?.dob
+                                    ? "border-red-500 focus:ring-red-500"
+                                    : ""
                                   }
                                 `}
                               />
@@ -3712,7 +3351,7 @@ useEffect(() => {
                                     updatePet(index, {
                                       dob: `${year}-${month}-${day}`,
                                     });
-                                    
+
                                     setPetErrors((current) => ({
                                       ...current,
                                       [index]: {
@@ -3752,8 +3391,8 @@ useEffect(() => {
                                 onChange={(e) => {
                                   const value =
                                     e.target.value as
-                                      | "male"
-                                      | "female";
+                                    | "male"
+                                    | "female";
 
                                   updatePet(index, {
                                     gender: value,
@@ -3774,18 +3413,16 @@ useEffect(() => {
                                 }}
 
                                 className={`
-                                  ${inputStyle}
+                                  ${INPUT_CLASS}
                                   appearance-none
                                   pr-[45px]
-                                  ${
-                                    editingPet !== index
-                                      ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                      : "bg-white text-gray-900 cursor-pointer"
+                                  ${editingPet !== index
+                                    ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                    : "bg-white text-gray-900 cursor-pointer"
                                   }
-                                  ${
-                                    petErrors[index]?.gender
-                                      ? "border-red-500 focus:ring-red-500"
-                                      : ""
+                                  ${petErrors[index]?.gender
+                                    ? "border-red-500 focus:ring-red-500"
+                                    : ""
                                   }
                                 `}
                               >
@@ -3917,7 +3554,7 @@ useEffect(() => {
                 (pet, index) => {
                   const petSettings =
                     cover?.petSettings?.[
-                      String(index)
+                    String(index)
                     ];
 
                   const selectedPlan =
@@ -3935,11 +3572,10 @@ useEffect(() => {
                         px-5
                         py-5
                         border-b
-                        ${
-                          unfinishedEditError === "cover" &&
+                        ${unfinishedEditError === "cover" &&
                           editingCover === index
-                            ? "border-2 border-red-500 bg-red-50/30"
-                            : "border-gray-200"
+                          ? "border-2 border-red-500 bg-red-50/30"
+                          : "border-gray-200"
                         }
                         last:border-b-0
                       `}
@@ -3952,8 +3588,7 @@ useEffect(() => {
                         <div className="min-w-0">
                           <div className="text-base font-semibold text-gray-900">
                             {pet.name ||
-                              `Pet ${
-                                index + 1
+                              `Pet ${index + 1
                               }`}
                           </div>
                         </div>
@@ -4064,7 +3699,7 @@ useEffect(() => {
                         </div>
 
                       </div>
-                      
+
                       {unfinishedEditError === "cover" &&
                         editingCover === index && (
                           <p className="text-sm text-red-600 mb-4">
@@ -4090,39 +3725,39 @@ useEffect(() => {
                                 px-3
                                 py-3
                               ">
-                                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-900 mb-2">
                                   Annual limit
                                 </label>
 
                                 <div className="relative">
 
-                                <select
-                                  value={
-                                    petSettings.limit
-                                  }
-                                  disabled={
-                                    editingCover !==
-                                    index
-                                  }
-                                  onChange={(e) =>
-                                    updateCoverSetting(
-                                      index,
-                                      {
-                                        limit:
-                                          Number(
-                                            e.target
-                                              .value
-                                          ),
-                                      }
-                                    )
-                                  }
-                                  className={`
+                                  <select
+                                    value={
+                                      petSettings.limit
+                                    }
+                                    disabled={
+                                      editingCover !==
+                                      index
+                                    }
+                                    onChange={(e) =>
+                                      updateCoverSetting(
+                                        index,
+                                        {
+                                          limit:
+                                            Number(
+                                              e.target
+                                                .value
+                                            ),
+                                        }
+                                      )
+                                    }
+                                    className={`
                                     w-full
-                                    h-10
-                                    pl-3
+                                    h-12
+                                    pl-4
                                     pr-[45px]
                                     appearance-none
-                                    rounded-lg
+                                    rounded-xl
                                     border
                                     border-gray-300
                                     text-sm
@@ -4130,46 +3765,45 @@ useEffect(() => {
                                     focus:outline-none
                                     focus:ring-2
                                     focus:ring-gray-800
-                                    ${
-                                      editingCover !==
-                                      index
+                                    ${editingCover !==
+                                        index
                                         ? "bg-gray-100 text-gray-600 cursor-not-allowed"
                                         : "bg-white text-gray-900 cursor-pointer"
-                                    }
+                                      }
                                   `}
-                                >
-                                  {Array.from(
-                                    {
-                                      length: 26,
-                                    },
-                                    (_, i) => {
-                                      const value =
-                                        5000 +
-                                        i * 1000;
+                                  >
+                                    {Array.from(
+                                      {
+                                        length: 26,
+                                      },
+                                      (_, i) => {
+                                        const value =
+                                          5000 +
+                                          i * 1000;
 
-                                      return (
-                                        <option
-                                          key={value}
-                                          value={value}
-                                        >
-                                          $
-                                          {value.toLocaleString()}
-                                        </option>
-                                      );
-                                    }
-                                  )}
-                                </select>
+                                        return (
+                                          <option
+                                            key={value}
+                                            value={value}
+                                          >
+                                            $
+                                            {value.toLocaleString()}
+                                          </option>
+                                        );
+                                      }
+                                    )}
+                                  </select>
 
-                                <svg
-                                  width="14"
-                                  height="14"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="
                                     absolute
                                     right-[15px]
                                     top-1/2
@@ -4177,12 +3811,12 @@ useEffect(() => {
                                     pointer-events-none
                                     text-[#555]
                                   "
-                                >
-                                  <polyline points="6 9 12 15 18 9" />
-                                </svg>
+                                  >
+                                    <polyline points="6 9 12 15 18 9" />
+                                  </svg>
 
                                 </div>
-                                </div>
+                              </div>
 
                               {/* BENEFIT */}
 
@@ -4194,7 +3828,7 @@ useEffect(() => {
                                 px-3
                                 py-3
                               ">
-                                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-900 mb-2">
                                   Benefit
                                 </label>
 
@@ -4220,11 +3854,11 @@ useEffect(() => {
                                     }
                                     className={`
                                       w-full
-                                      h-10
-                                      pl-3
+                                      h-12
+                                      pl-4
                                       pr-[45px]
                                       appearance-none
-                                      rounded-lg
+                                      rounded-xl
                                       border
                                       border-gray-300
                                       text-sm
@@ -4232,10 +3866,9 @@ useEffect(() => {
                                       focus:outline-none
                                       focus:ring-2
                                       focus:ring-gray-800
-                                      ${
-                                        editingCover !== index
-                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                          : "bg-white text-gray-900 cursor-pointer"
+                                      ${editingCover !== index
+                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                        : "bg-white text-gray-900 cursor-pointer"
                                       }
                                     `}
                                   >
@@ -4289,7 +3922,7 @@ useEffect(() => {
                                 px-3
                                 py-3
                               ">
-                                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-900 mb-2">
                                   Annual excess
                                 </label>
 
@@ -4315,11 +3948,11 @@ useEffect(() => {
                                     }
                                     className={`
                                       w-full
-                                      h-10
-                                      pl-3
+                                      h-12
+                                      pl-4
                                       pr-[45px]
                                       appearance-none
-                                      rounded-lg
+                                      rounded-xl
                                       border
                                       border-gray-300
                                       text-sm
@@ -4327,10 +3960,9 @@ useEffect(() => {
                                       focus:outline-none
                                       focus:ring-2
                                       focus:ring-gray-800
-                                      ${
-                                        editingCover !== index
-                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                          : "bg-white text-gray-900 cursor-pointer"
+                                      ${editingCover !== index
+                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                        : "bg-white text-gray-900 cursor-pointer"
                                       }
                                     `}
                                   >
@@ -4384,7 +4016,7 @@ useEffect(() => {
                                 px-3
                                 py-3
                               ">
-                                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">
+                                <label className="block text-sm font-semibold text-gray-900 mb-2">
                                   Plan
                                 </label>
 
@@ -4392,7 +4024,7 @@ useEffect(() => {
                                   <select
                                     value={
                                       petSettings.plan ===
-                                      "gold"
+                                        "gold"
                                         ? "gold"
                                         : "upgraded"
                                     }
@@ -4411,11 +4043,11 @@ useEffect(() => {
                                     }
                                     className={`
                                       w-full
-                                      h-10
-                                      pl-3
+                                      h-12
+                                      pl-4
                                       pr-[45px]
                                       appearance-none
-                                      rounded-lg
+                                      rounded-xl
                                       border
                                       border-gray-300
                                       text-sm
@@ -4423,10 +4055,9 @@ useEffect(() => {
                                       focus:outline-none
                                       focus:ring-2
                                       focus:ring-gray-800
-                                      ${
-                                        editingCover !== index
-                                          ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                          : "bg-white text-gray-900 cursor-pointer"
+                                      ${editingCover !== index
+                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                        : "bg-white text-gray-900 cursor-pointer"
                                       }
                                     `}
                                   >
@@ -4700,7 +4331,7 @@ useEffect(() => {
               hover:bg-gray-50
               active:bg-gray-100
               text-gray-800
-              rounded-md
+              rounded-xl
               font-semibold
               text-sm
               transition
@@ -4721,7 +4352,7 @@ useEffect(() => {
             className="
               flex-1
               h-12
-              rounded-md
+              rounded-xl
               font-semibold
               text-sm
               shadow-sm
@@ -4873,8 +4504,8 @@ function Section({
   action,
 }: {
   title: string;
-  children: React.ReactNode;
-  action?: React.ReactNode;
+  children: ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <section
@@ -4883,7 +4514,7 @@ function Section({
         rounded-xl
         border
         border-gray-200
-        p-5
+        p-6
         mb-5
         shadow-sm
       "
@@ -4912,7 +4543,7 @@ function FormField({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div>
@@ -4940,7 +4571,7 @@ function FormField({
 function ErrorMessage({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <p className="text-sm text-red-600 mt-1.5">
@@ -4974,7 +4605,7 @@ function Acknowledgement({
   setChecked: (
     value: boolean
   ) => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const isOpen =
     openTerms === id;
@@ -5089,7 +4720,7 @@ function Acknowledgement({
 
         <span className="text-sm text-gray-700 leading-5">
           {id ===
-          "terms"
+            "terms"
             ? "I confirm all the statements above and acknowledge that I have read and understood the important information."
             : "I have read, understood and agree to the Privacy Policy."}
         </span>
