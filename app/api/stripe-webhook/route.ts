@@ -375,7 +375,17 @@ export async function POST(request: Request) {
       });
       const masterPolicyId = generateMasterPolicyId();
       if (process.env.NEXT_PUBLIC_BASE_URL == "http://localhost:3000"){
-      
+        var collisionCheck = true
+        while (collisionCheck == true){
+          const collisions = db.prepare(
+            "SELECT COUNT(master_policy_id) AS count FROM policies WHERE master_policy_id = ?"
+          ).get(masterPolicyId) as { count: number };
+
+          if (collisions.count < 1) {
+            // Collision detected
+            collisionCheck = false
+          }
+        }
         const metadata = session.metadata ?? {};
         const petCount = Number(metadata.petCount);
 
@@ -430,10 +440,9 @@ export async function POST(request: Request) {
 
         savePurchase();
 
-        
+        console.log("Master policy created:", masterPolicyId);
         console.log("Number of pets saved:", pets.length);
       }
-      console.log("Master policy created:", masterPolicyId);
       console.log("Master policy created with ID:", masterPolicyId);
       console.log("=== PURCHASE EMAIL SENT ===");
 
