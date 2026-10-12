@@ -1,6 +1,7 @@
 "use client";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams, } from "next/navigation";
+import { ResponsiveSelect } from "../../components/ResponsiveSelect";
 /**
  * HANDOVER — Plans page (app/plans/page.tsx)
  *
@@ -94,22 +95,7 @@ const PLAN_PROGRESS = 50; // The second of three steps.
 const ANNUAL_LIMIT_OPTIONS = Array.from({ length: 26 }, (_, i) => 5000 + i * 1000);
 const BENEFIT_OPTIONS = Array.from({ length: 7 }, (_, i) => 60 + i * 5);
 const EXCESS_OPTIONS = Array.from({ length: 21 }, (_, i) => i * 50);
-/**
- * HANDOVER — UI consistency: match Details/Quote (48px controls, rounded-xl,
- * grey borders, amber primary actions and inline red errors). Keep the
- * Silver/Gold colours separate because they communicate cover tiers.
- */
-const COVER_SELECT_CLASS = `
-  w-full h-12 pl-4 pr-[45px] border border-gray-300
-  rounded-xl bg-white text-gray-900 text-sm
-  appearance-none focus:outline-none focus:ring-2 focus:ring-gray-800
-  focus:border-transparent cursor-pointer
-`;
-function SelectChevron() {
-  return (<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute right-[15px] top-1/2 -translate-y-1/2 pointer-events-none text-[#555]">
-    <polyline points="6 9 12 15 18 9" />
-  </svg>);
-}
+// Cover dropdowns use the shared responsive component below.
 /** Policy start dates must use the Australia/Brisbane calendar date. */
 function brisbaneToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Brisbane" }).format(new Date());
@@ -765,7 +751,7 @@ function PlanComparisonContent() {
           relative
           block
           min-h-[190px]
-          rounded-xl
+          rounded-md
           border
           p-5
           cursor-pointer
@@ -1082,8 +1068,8 @@ function PlanComparisonContent() {
           mb-6
           bg-white
           border
-          border-gray-200
-          rounded-xl
+          border-gray-300
+          rounded-md
           shadow-sm
           overflow-visible
         ">
@@ -1156,20 +1142,20 @@ function PlanComparisonContent() {
             <label htmlFor={`limit-${petIndex}`} className="
                   block
                   text-sm
-                  font-semibold
-                  text-gray-900
-                  mb-2
+                  font-medium
+                  text-gray-700
+                  mb-1.5
                 ">
               Annual limit
             </label>
 
-            <div className="relative">
-              <select id={`limit-${petIndex}`} value={settings.limit} onChange={(e) => updatePetSetting(petIndex, "limit", Number(e.target.value))} className={COVER_SELECT_CLASS}>
-                {ANNUAL_LIMIT_OPTIONS.map((value) => (<option key={value} value={value}>${value.toLocaleString()}</option>))}
-              </select>
-
-              <SelectChevron />
-            </div>
+            <ResponsiveSelect
+              id={`limit-${petIndex}`}
+              ariaLabel="Annual limit"
+              value={settings.limit}
+              options={ANNUAL_LIMIT_OPTIONS.map((value) => ({ value: String(value), label: `$${value.toLocaleString()}` }))}
+              onChange={(nextValue) => updatePetSetting(petIndex, "limit", Number(nextValue))}
+            />
           </div>
 
           {/* BENEFIT */}
@@ -1178,20 +1164,20 @@ function PlanComparisonContent() {
             <label htmlFor={`benefit-${petIndex}`} className="
                   block
                   text-sm
-                  font-semibold
-                  text-gray-900
-                  mb-2
+                  font-medium
+                  text-gray-700
+                  mb-1.5
                 ">
               Benefit percentage
             </label>
 
-            <div className="relative">
-              <select id={`benefit-${petIndex}`} value={settings.benefit} onChange={(e) => updatePetSetting(petIndex, "benefit", Number(e.target.value))} className={COVER_SELECT_CLASS}>
-                {BENEFIT_OPTIONS.map((value) => (<option key={value} value={value}>{value}%</option>))}
-              </select>
-
-              <SelectChevron />
-            </div>
+            <ResponsiveSelect
+              id={`benefit-${petIndex}`}
+              ariaLabel="Benefit percentage"
+              value={settings.benefit}
+              options={BENEFIT_OPTIONS.map((value) => ({ value: String(value), label: `${value}%` }))}
+              onChange={(nextValue) => updatePetSetting(petIndex, "benefit", Number(nextValue))}
+            />
           </div>
 
           {/* EXCESS */}
@@ -1200,20 +1186,20 @@ function PlanComparisonContent() {
             <label htmlFor={`excess-${petIndex}`} className="
                   block
                   text-sm
-                  font-semibold
-                  text-gray-900
-                  mb-2
+                  font-medium
+                  text-gray-700
+                  mb-1.5
                 ">
               Annual excess
             </label>
 
-            <div className="relative">
-              <select id={`excess-${petIndex}`} value={settings.excess} onChange={(e) => updatePetSetting(petIndex, "excess", Number(e.target.value))} className={COVER_SELECT_CLASS}>
-                {EXCESS_OPTIONS.map((value) => (<option key={value} value={value}>${value.toLocaleString()}</option>))}
-              </select>
-
-              <SelectChevron />
-            </div>
+            <ResponsiveSelect
+              id={`excess-${petIndex}`}
+              ariaLabel="Annual excess"
+              value={settings.excess}
+              options={EXCESS_OPTIONS.map((value) => ({ value: String(value), label: `$${value.toLocaleString()}` }))}
+              onChange={(nextValue) => updatePetSetting(petIndex, "excess", Number(nextValue))}
+            />
           </div>
         </div>
 
@@ -1238,7 +1224,7 @@ function PlanComparisonContent() {
             aria-labelledby={`plan-heading-${petIndex}`}
             aria-invalid={hasPlanError}
             aria-describedby={hasPlanError ? `plan-error-${petIndex}` : undefined}
-            className={`grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl ${
+            className={`grid grid-cols-2 gap-4 rounded-md ${
               hasPlanError ? "border-2 border-red-500 p-3" : ""
             }`}
           >
@@ -1387,14 +1373,14 @@ function PlanComparisonContent() {
       <img src="/was-logo.min.webp" className="
             w-28
             opacity-70
-            mb-6
+            mb-8
             mx-auto
             block
           " alt="WAS Insurance" />
 
       {/* PAGE TITLE */}
 
-      <div className="text-center mb-7">
+      <div className="text-center mb-8">
         <h1 className="text-2xl font-semibold text-gray-900">
           Choose your cover
         </h1>
@@ -1406,9 +1392,9 @@ function PlanComparisonContent() {
 
       {/* PROGRESS */}
 
-      <nav aria-label="Quote progress" className="mb-8">
+      <div className="mb-8">
         <div className="flex justify-between text-xs text-gray-500 mb-2">
-          {STEPS.map((step) => (<span key={step} aria-current={step === "Plans" ? "step" : undefined} className={step === "Plans"
+          {STEPS.map((step) => (<span key={step} className={step === "Plans"
             ? "font-semibold text-gray-900"
             : ""}>
             {step}
@@ -1434,7 +1420,7 @@ function PlanComparisonContent() {
               width: `${PLAN_PROGRESS}%`,
             }} />
         </div>
-      </nav>
+      </div>
 
       {/* PET CONFIGURATION */}
 
@@ -1447,7 +1433,7 @@ function PlanComparisonContent() {
               bg-white
               border
               border-gray-200
-              rounded-xl
+              rounded-lg
               shadow-sm
               overflow-hidden
             ">
@@ -1608,7 +1594,7 @@ function PlanComparisonContent() {
               mb-6
               px-4
               py-4
-              rounded-xl
+              rounded-md
               border
               border-red-200
               bg-red-50
@@ -1624,7 +1610,7 @@ function PlanComparisonContent() {
         <button type="button" onClick={goBack} className="
               w-1/3
               h-12
-              rounded-xl
+              rounded-md
               border
               border-gray-400
               bg-white
@@ -1641,7 +1627,7 @@ function PlanComparisonContent() {
         <button type="button" onClick={continueToDetails} className="
               flex-1
               h-12
-              rounded-xl
+              rounded-md
               bg-amber-400
               hover:bg-amber-500
               active:bg-amber-600
