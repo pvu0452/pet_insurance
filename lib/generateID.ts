@@ -9,3 +9,7 @@ export function generateMasterPolicyId(): string {
 export function generatePolicyId(): string {
   return `WAS-P-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 }
+
+export function generateQuotePolicyId(): string {
+  return `WAS-Q-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+}

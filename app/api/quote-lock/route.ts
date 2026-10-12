@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { generateQuotePolicyId } from "@/lib/generateID";
+
 
 export async function POST(request: Request) {
   
@@ -7,7 +9,7 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   const customerEmail = body.customer_email
-  const quoteID = "WAS-Q-12345678"
+  const quoteID = generateQuotePolicyId();
   const pricing = body.pricing
 
   console.log("Customer email:", customerEmail);
