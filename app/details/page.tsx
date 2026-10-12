@@ -1430,7 +1430,25 @@ function DetailsContent() {
         pricing,
         quoteUrl: buildPlansUrl(),
       };
+      await fetch(
+          "/api/quote-lock",
+          {
+            method:
+              "POST",
 
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              customer_email:
+                customer.email,
+              pricing:
+                pricing.total.toFixed(2)
+            }),
+          }
+        );
       // TODO (save-quote owner): Send quoteData to the Save Quote/email API.
       // The backend needs to confirm that the quote was saved and/or emailed.
       void quoteData; // Intentionally kept as the future API request payload.
