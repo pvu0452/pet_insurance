@@ -1533,6 +1533,8 @@ function DetailsContent() {
 
               customer_email:
                 customer.email,
+              pets:
+                pets,
             }),
           }
         );
