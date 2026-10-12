@@ -5,15 +5,18 @@ import {
   type ReactNode,
   Suspense,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { createPortal } from "react-dom";
 
 import Select, { components } from "react-select";
 import { DayPicker } from "@daypicker/react";
 import "@daypicker/react/style.css";
+import { CalendarDropdown, ResponsiveSelect } from "../../components/ResponsiveSelect";
 
 import {
   importLibrary,
@@ -152,6 +155,143 @@ function scrollToField(id: string, afterRender = false): void {
   else scroll();
 }
 
+/**
+ * Render the DOB picker outside the collapsible pet card, so the card never
+ * expands or clips the calendar. Desktop: anchor beside the DOB field.
+ * Mobile: a touch-friendly bottom sheet; its month/year controls remain native.
+ *
+ * The calendar's React tree stays inside the pet editor, but its DOM is portalled
+ * to document.body. React-select month/year menus can therefore remain portalled
+ * above it without being clipped by any overflow-hidden parent.
+ */
+function DobCalendarPopover({
+  anchor,
+  onClose,
+  children,
+}: {
+  anchor: HTMLDivElement | null;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [position, setPosition] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+
+  // Reposition when the user scrolls/resizes or the mobile viewport changes.
+  useLayoutEffect(() => {
+    if (!anchor) return;
+
+    const updatePosition = () => {
+      const mobile = window.matchMedia("(max-width: 639px)").matches;
+      setIsMobile(mobile);
+      if (mobile) return;
+
+      const rect = anchor.getBoundingClientRect();
+      const gap = 8;
+      const margin = 12;
+      const width = Math.min(392, window.innerWidth - margin * 2);
+      const left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin));
+      const below = window.innerHeight - rect.bottom - gap - margin;
+      const above = rect.top - gap - margin;
+      const placeAbove = below < 410 && above > below;
+
+      setPosition({
+        left,
+        width,
+        ...(placeAbove
+          ? { bottom: window.innerHeight - rect.top + gap }
+          : { top: rect.bottom + gap }),
+        maxHeight: Math.max(160, placeAbove ? above : below),
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [anchor]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (popupRef.current?.contains(target) || anchor?.contains(target)) return;
+
+      // DayPicker's desktop month/year menus are react-select portals too.
+      // Treat option clicks in those menus as INSIDE the calendar.
+      if (target.closest('[role="listbox"], [role="option"]')) return;
+      onClose();
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      onClose();
+    };
+    document.addEventListener("pointerdown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [anchor, onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <>
+      {/* Mobile only: overlay + scrollable calendar sheet. */}
+      {isMobile ? (
+        <div className="fixed inset-0 z-[9000] sm:hidden">
+          <div
+            className="absolute inset-0 bg-black/40"
+            aria-hidden="true"
+            onClick={onClose}
+          />
+          <div
+            ref={popupRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Choose date of birth"
+            className="absolute inset-x-0 bottom-0 max-h-[90dvh] overflow-y-auto rounded-t-2xl border border-gray-200 bg-white px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-4 shadow-2xl"
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-gray-900">Date of birth</h3>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close calendar"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-800"
+              >
+                Close
+              </button>
+            </div>
+            {children}
+          </div>
+        </div>
+      ) : position ? (
+        <div
+          ref={popupRef}
+          role="dialog"
+          aria-label="Choose date of birth"
+          className="fixed z-[9000] overflow-y-auto rounded-xl border border-gray-300 bg-white p-3 shadow-xl"
+          style={position}
+        >
+          {children}
+        </div>
+      ) : null}
+    </>,
+    document.body,
+  );
+}
+
 /* -----------------------------
    MAIN PAGE
 ------------------------------*/
@@ -284,6 +424,8 @@ function DetailsContent() {
 
   const [dobInputs, setDobInputs] =
     useState<Record<number, string>>({});
+  // Anchors for the DOB popovers; only one calendar is open at a time.
+  const dobAnchorRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const [pricingChangedPets, setPricingChangedPets] =
     useState<number[]>([]);
@@ -3016,6 +3158,12 @@ function DetailsContent() {
                               false
                             >
                               options={options}
+                              // Portal the list outside the card's overflow-hidden
+                              // wrapper so all options remain visible and scrollable.
+                              menuPortalTarget={typeof document === "undefined" ? undefined : document.body}
+                              menuPosition="fixed"
+                              menuPlacement="auto"
+                              menuShouldScrollIntoView={false}
 
                               menuIsOpen={openBreedDropdown === index}
 
@@ -3076,6 +3224,10 @@ function DetailsContent() {
 
                               styles={{
                                 ...selectStyles,
+                                menuPortal: (base: any) => ({
+                                  ...base,
+                                  zIndex: 10020,
+                                }),
 
                                 control: (
                                   base: any,
@@ -3149,7 +3301,10 @@ function DetailsContent() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
 
                           <FormField label="Date of Birth">
-                            <div className="relative w-full">
+                            <div
+                              className="relative w-full"
+                              ref={(element) => { dobAnchorRefs.current[index] = element; }}
+                            >
                               <input
                                 type="text"
                                 inputMode="numeric"
@@ -3162,7 +3317,11 @@ function DetailsContent() {
                                     : "")
                                 }
                                 onFocus={() => {
-                                  if (editingPet === index) {
+                                  // Mobile users can type a DOB without a sheet
+                                  // covering their keyboard. Use the calendar
+                                  // icon to open the mobile date picker.
+                                  if (editingPet === index &&
+                                      window.matchMedia("(min-width: 640px)").matches) {
                                     setOpenBreedDropdown(null);
                                     setOpenDatePicker(index);
                                   }
@@ -3316,40 +3475,60 @@ function DetailsContent() {
                             </div>
 
                             {openDatePicker === index && (
-                              <div
-                                className="
-                                  mt-2
-                                  w-full
-                                  rounded-xl
-                                  border
-                                  border-gray-300
-                                  bg-white
-                                  p-3
-                                  shadow-lg
-                                "
+                              <DobCalendarPopover
+                                anchor={dobAnchorRefs.current[index]}
+                                onClose={() => setOpenDatePicker(null)}
                               >
+                                {/* HANDOVER: Month/year selectors match the shared form controls; calendar day styling is unchanged. Dropdown navigation lets customers jump directly to a pet's birth month and year. */}
                                 <DayPicker
                                   mode="single"
-
-                                  styles={{
-                                    root: {
-                                      width: "100%",
-                                      maxWidth: "none",
-                                    },
-                                    months: {
-                                      width: "100%",
-                                      maxWidth: "none",
-                                    },
-                                    month: {
-                                      width: "100%",
-                                    },
-                                    month_grid: {
-                                      width: "100%",
-                                      tableLayout: "fixed",
-                                    },
-                                  }}
-
-                                  selected={
+                                  captionLayout="dropdown"
+                      reverseYears
+                      classNames={{
+                        button_previous: "rdp-button_previous hover:!bg-gray-100 focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-gray-800",
+                        button_next: "rdp-button_next hover:!bg-gray-100 focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-gray-800",
+                      }}
+                                  navLayout="around"
+                                  startMonth={new Date(1900, 0)}
+                                  endMonth={new Date()}
+                                  defaultMonth={pet.dob ? new Date(`${pet.dob}T00:00:00`) : new Date()}
+                      // Reuse the Breed-style dropdown on desktop and native pickers on phones.
+                      components={{ Dropdown: CalendarDropdown }}
+                      styles={{
+                        root: { width: "100%", maxWidth: "none" },
+                        dropdowns: { display: "flex", alignItems: "center", gap: 6 },
+                        month_caption: { height: 48, alignItems: "center" },
+                        nav: { height: 48 },
+                        // DayPicker's "around" layout places these controls on
+                        // opposite sides of the month/year selectors.
+                        button_previous: {
+                          top: 6,
+                          width: 36,
+                          height: 36,
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "50%",
+                          backgroundColor: "#fff",
+                          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.06)",
+                          color: "#374151",
+                          transition: "background-color 150ms ease",
+                        },
+                        button_next: {
+                          top: 6,
+                          width: 36,
+                          height: 36,
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "50%",
+                          backgroundColor: "#fff",
+                          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.06)",
+                          color: "#374151",
+                          transition: "background-color 150ms ease",
+                        },
+                        chevron: { fill: "#374151", width: 18, height: 18 },
+                        months: { width: "100%", maxWidth: "none" },
+                        month: { width: "100%" },
+                        month_grid: { width: "100%", tableLayout: "fixed" },
+                      }}
+                      selected={
                                     pet.dob
                                       ? new Date(`${pet.dob}T00:00:00`)
                                       : undefined
@@ -3393,7 +3572,7 @@ function DetailsContent() {
                                     setOpenDatePicker(null);
                                   }}
                                 />
-                              </div>
+                              </DobCalendarPopover>
                             )}
                             {petErrors[index]?.dob && (
                               <ErrorMessage>
@@ -3404,82 +3583,27 @@ function DetailsContent() {
 
                           <FormField label="Sex">
 
-                            <div className="relative">
-                              <select
+                            <ResponsiveSelect
+                                ariaLabel="Sex"
+                                invalid={Boolean(petErrors[index]?.gender)}
                                 value={pet.gender || ""}
                                 disabled={editingPet !== index}
-                                onChange={(e) => {
-                                  const value =
-                                    e.target.value as
-                                    | "male"
-                                    | "female";
-
-                                  updatePet(index, {
-                                    gender: value,
-                                  });
-
+                                options={[
+                                  { value: "", label: "Select sex" },
+                                  { value: "male", label: "Male" },
+                                  { value: "female", label: "Female" },
+                                ]}
+                                onChange={(nextValue) => {
+                                  updatePet(index, { gender: nextValue as "male" | "female" });
                                   setPetErrors((current) => ({
                                     ...current,
                                     [index]: {
-                                      ...(current[index] ?? {
-                                        name: "",
-                                        breed: "",
-                                        dob: "",
-                                        gender: "",
-                                      }),
+                                      ...(current[index] ?? { name: "", breed: "", dob: "", gender: "" }),
                                       gender: "",
                                     },
                                   }));
                                 }}
-
-                                className={`
-                                  ${INPUT_CLASS}
-                                  appearance-none
-                                  pr-[45px]
-                                  ${editingPet !== index
-                                    ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                    : "bg-white text-gray-900 cursor-pointer"
-                                  }
-                                  ${petErrors[index]?.gender
-                                    ? "border-red-500 focus:ring-red-500"
-                                    : ""
-                                  }
-                                `}
-                              >
-                                <option value="">
-                                  Select sex
-                                </option>
-
-                                <option value="male">
-                                  Male
-                                </option>
-
-                                <option value="female">
-                                  Female
-                                </option>
-                              </select>
-
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="
-                                  absolute
-                                  right-[15px]
-                                  top-1/2
-                                  -translate-y-1/2
-                                  pointer-events-none
-                                  text-[#555]
-                                "
-                              >
-                                <polyline points="6 9 12 15 18 9" />
-                              </svg>
-                            </div>
+                              />
                             {petErrors[index]?.gender && (
                               <ErrorMessage>
                                 {petErrors[index].gender}
@@ -3749,93 +3873,16 @@ function DetailsContent() {
                                   Annual limit
                                 </label>
 
-                                <div className="relative">
-
-                                  <select
-                                    value={
-                                      petSettings.limit
-                                    }
-                                    disabled={
-                                      editingCover !==
-                                      index
-                                    }
-                                    onChange={(e) =>
-                                      updateCoverSetting(
-                                        index,
-                                        {
-                                          limit:
-                                            Number(
-                                              e.target
-                                                .value
-                                            ),
-                                        }
-                                      )
-                                    }
-                                    className={`
-                                    w-full
-                                    h-12
-                                    pl-4
-                                    pr-[45px]
-                                    appearance-none
-                                    rounded-xl
-                                    border
-                                    border-gray-300
-                                    text-sm
-                                    font-semibold
-                                    focus:outline-none
-                                    focus:ring-2
-                                    focus:ring-gray-800
-                                    ${editingCover !==
-                                        index
-                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                        : "bg-white text-gray-900 cursor-pointer"
-                                      }
-                                  `}
-                                  >
-                                    {Array.from(
-                                      {
-                                        length: 26,
-                                      },
-                                      (_, i) => {
-                                        const value =
-                                          5000 +
-                                          i * 1000;
-
-                                        return (
-                                          <option
-                                            key={value}
-                                            value={value}
-                                          >
-                                            $
-                                            {value.toLocaleString()}
-                                          </option>
-                                        );
-                                      }
-                                    )}
-                                  </select>
-
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="
-                                    absolute
-                                    right-[15px]
-                                    top-1/2
-                                    -translate-y-1/2
-                                    pointer-events-none
-                                    text-[#555]
-                                  "
-                                  >
-                                    <polyline points="6 9 12 15 18 9" />
-                                  </svg>
-
-                                </div>
+                                <ResponsiveSelect
+                                    ariaLabel="Annual limit"
+                                    value={petSettings.limit}
+                                    disabled={editingCover !== index}
+                                    options={Array.from({ length: 26 }, (_, i) => {
+                                      const value = 5000 + i * 1000;
+                                      return { value: String(value), label: `$${value.toLocaleString()}` };
+                                    })}
+                                    onChange={(nextValue) => updateCoverSetting(index, { limit: Number(nextValue) })}
+                                  />
                               </div>
 
                               {/* BENEFIT */}
@@ -3852,84 +3899,16 @@ function DetailsContent() {
                                   Benefit
                                 </label>
 
-                                <div className="relative">
-                                  <select
-                                    value={
-                                      petSettings.benefit
-                                    }
-                                    disabled={
-                                      editingCover !==
-                                      index
-                                    }
-                                    onChange={(e) =>
-                                      updateCoverSetting(
-                                        index,
-                                        {
-                                          benefit:
-                                            Number(
-                                              e.target.value
-                                            ),
-                                        }
-                                      )
-                                    }
-                                    className={`
-                                      w-full
-                                      h-12
-                                      pl-4
-                                      pr-[45px]
-                                      appearance-none
-                                      rounded-xl
-                                      border
-                                      border-gray-300
-                                      text-sm
-                                      font-semibold
-                                      focus:outline-none
-                                      focus:ring-2
-                                      focus:ring-gray-800
-                                      ${editingCover !== index
-                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                        : "bg-white text-gray-900 cursor-pointer"
-                                      }
-                                    `}
-                                  >
-                                    {Array.from(
-                                      { length: 7 },
-                                      (_, i) => {
-                                        const value = 60 + i * 5;
-
-                                        return (
-                                          <option
-                                            key={value}
-                                            value={value}
-                                          >
-                                            {value}%
-                                          </option>
-                                        );
-                                      }
-                                    )}
-                                  </select>
-
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="
-                                      absolute
-                                      right-[15px]
-                                      top-1/2
-                                      -translate-y-1/2
-                                      pointer-events-none
-                                      text-[#555]
-                                    "
-                                  >
-                                    <polyline points="6 9 12 15 18 9" />
-                                  </svg>
-                                </div>
+                                <ResponsiveSelect
+                                    ariaLabel="Benefit percentage"
+                                    value={petSettings.benefit}
+                                    disabled={editingCover !== index}
+                                    options={Array.from({ length: 7 }, (_, i) => {
+                                      const value = 60 + i * 5;
+                                      return { value: String(value), label: `${value}%` };
+                                    })}
+                                    onChange={(nextValue) => updateCoverSetting(index, { benefit: Number(nextValue) })}
+                                  />
                               </div>
 
                               {/* ANNUAL EXCESS */}
@@ -3946,84 +3925,16 @@ function DetailsContent() {
                                   Annual excess
                                 </label>
 
-                                <div className="relative">
-                                  <select
-                                    value={
-                                      petSettings.excess
-                                    }
-                                    disabled={
-                                      editingCover !==
-                                      index
-                                    }
-                                    onChange={(e) =>
-                                      updateCoverSetting(
-                                        index,
-                                        {
-                                          excess:
-                                            Number(
-                                              e.target.value
-                                            ),
-                                        }
-                                      )
-                                    }
-                                    className={`
-                                      w-full
-                                      h-12
-                                      pl-4
-                                      pr-[45px]
-                                      appearance-none
-                                      rounded-xl
-                                      border
-                                      border-gray-300
-                                      text-sm
-                                      font-semibold
-                                      focus:outline-none
-                                      focus:ring-2
-                                      focus:ring-gray-800
-                                      ${editingCover !== index
-                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                        : "bg-white text-gray-900 cursor-pointer"
-                                      }
-                                    `}
-                                  >
-                                    {Array.from(
-                                      { length: 21 },
-                                      (_, i) => {
-                                        const value = i * 50;
-
-                                        return (
-                                          <option
-                                            key={value}
-                                            value={value}
-                                          >
-                                            ${value.toLocaleString()}
-                                          </option>
-                                        );
-                                      }
-                                    )}
-                                  </select>
-
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="
-                                      absolute
-                                      right-[15px]
-                                      top-1/2
-                                      -translate-y-1/2
-                                      pointer-events-none
-                                      text-[#555]
-                                    "
-                                  >
-                                    <polyline points="6 9 12 15 18 9" />
-                                  </svg>
-                                </div>
+                                <ResponsiveSelect
+                                    ariaLabel="Annual excess"
+                                    value={petSettings.excess}
+                                    disabled={editingCover !== index}
+                                    options={Array.from({ length: 21 }, (_, i) => {
+                                      const value = i * 50;
+                                      return { value: String(value), label: `$${value.toLocaleString()}` };
+                                    })}
+                                    onChange={(nextValue) => updateCoverSetting(index, { excess: Number(nextValue) })}
+                                  />
                               </div>
 
                               {/* PLAN */}
@@ -4040,78 +3951,16 @@ function DetailsContent() {
                                   Plan
                                 </label>
 
-                                <div className="relative">
-                                  <select
-                                    value={
-                                      petSettings.plan ===
-                                        "gold"
-                                        ? "gold"
-                                        : "upgraded"
-                                    }
-                                    disabled={
-                                      editingCover !==
-                                      index
-                                    }
-                                    onChange={(e) =>
-                                      updateCoverSetting(
-                                        index,
-                                        {
-                                          plan:
-                                            e.target.value,
-                                        }
-                                      )
-                                    }
-                                    className={`
-                                      w-full
-                                      h-12
-                                      pl-4
-                                      pr-[45px]
-                                      appearance-none
-                                      rounded-xl
-                                      border
-                                      border-gray-300
-                                      text-sm
-                                      font-semibold
-                                      focus:outline-none
-                                      focus:ring-2
-                                      focus:ring-gray-800
-                                      ${editingCover !== index
-                                        ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                        : "bg-white text-gray-900 cursor-pointer"
-                                      }
-                                    `}
-                                  >
-                                    <option value="upgraded">
-                                      Silver
-                                    </option>
-
-                                    <option value="gold">
-                                      Gold
-                                    </option>
-                                  </select>
-
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="
-                                      absolute
-                                      right-[15px]
-                                      top-1/2
-                                      -translate-y-1/2
-                                      pointer-events-none
-                                      text-[#555]
-                                    "
-                                  >
-                                    <polyline points="6 9 12 15 18 9" />
-
-                                  </svg>
-                                </div>
+                                <ResponsiveSelect
+                                    ariaLabel="Plan"
+                                    value={petSettings.plan === "gold" ? "gold" : "upgraded"}
+                                    disabled={editingCover !== index}
+                                    options={[
+                                      { value: "upgraded", label: "Silver" },
+                                      { value: "gold", label: "Gold" },
+                                    ]}
+                                    onChange={(nextValue) => updateCoverSetting(index, { plan: nextValue })}
+                                  />
                               </div>
                             </div>
                           </div>
