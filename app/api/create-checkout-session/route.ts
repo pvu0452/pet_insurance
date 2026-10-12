@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
+interface Pet {
+  name: string;
+  breed: string;
+  dob: string;
+  petType: string;
+}
+
+interface CheckoutRequestBody {
+  pets: Pet[];
+  customer_email: string;
+  productName?: string;
+  unit_amount: number;
+}
+
 export async function POST(request: Request) {
   try {
     console.log("=== CREATE CHECKOUT SESSION ===");
@@ -26,7 +40,7 @@ export async function POST(request: Request) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-    const body = await request.json();
+    const body: CheckoutRequestBody = await request.json();
 
     console.log("Checkout request:", body);
 
@@ -36,7 +50,8 @@ export async function POST(request: Request) {
     );
 
     const quoteId = `WAS-${randomNumber}`;
-
+    const pets = body.pets
+    
     console.log("Generated Quote ID:", quoteId);
 
     // Create Stripe Checkout Session
@@ -49,6 +64,16 @@ export async function POST(request: Request) {
 
       metadata: {
         quoteId: quoteId,
+        petCount: String(pets.length),
+
+        ...Object.fromEntries(
+          pets.flatMap((pet, index) => [
+            [`pet_${index}_name`, pet.name],
+            [`pet_${index}_breed`, pet.breed],
+            [`pet_${index}_dob`, pet.dob],
+            [`pet_${index}_type`, pet.petType],
+          ])
+        ),
       },
 
       line_items: [

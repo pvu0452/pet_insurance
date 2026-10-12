@@ -2,7 +2,7 @@ import db from "@/lib/db";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
-import { generateMasterPolicyId } from "@/lib/generateID";
+import { generateMasterPolicyId, generatePolicyId } from "@/lib/generateID";
 
 export async function POST(request: Request) {
   console.log("=== STRIPE WEBHOOK STARTED ===");
@@ -47,8 +47,11 @@ export async function POST(request: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    const customerEmail = session.customer_email;
-    const quoteId = session.metadata?.quoteId;
+  const customerEmail = session.customer_details?.email
+    ?? session.customer_email;
+
+  const quoteId = session.metadata?.quoteId;
+
 
     console.log("Customer email:", customerEmail);
     console.log("Quote ID:", quoteId);
@@ -370,20 +373,68 @@ export async function POST(request: Request) {
           </html>
         `,
       });
-      /*const masterPolicyId = generateMasterPolicyId();
-
-      db.prepare(`
-        INSERT INTO policies(
-          master_policy_id,
-          email
-        )
-        VALUES (?, ?)
-      `).run(
-        masterPolicyId,
-        customerEmail
-      );
+      const masterPolicyId = generateMasterPolicyId();
+      if (process.env.NEXT_PUBLIC_BASE_URL == "http://localhost:3000"){
       
-      console.log("Master policy created with ID:", masterPolicyId);*/
+        const metadata = session.metadata ?? {};
+        const petCount = Number(metadata.petCount);
+
+        if (!Number.isInteger(petCount) || petCount < 1) {
+          throw new Error("Missing or invalid pet data in Stripe metadata");
+        }
+
+        const pets = Array.from({ length: petCount }, (_, index) => ({
+          name: metadata[`pet_${index}_name`],
+          breed: metadata[`pet_${index}_breed`],
+          dob: metadata[`pet_${index}_dob`],
+          petType: metadata[`pet_${index}_type`],
+        }));
+
+        // Validate the pet data before inserting anything.
+        for (const pet of pets) {
+          if (!pet.name || !pet.breed || !pet.dob || !pet.petType) {
+            throw new Error("Pet details are incomplete in Stripe metadata");
+          }
+        }
+        const savePurchase = db.transaction(() => {
+          db.prepare(`
+            INSERT INTO policies (master_policy_id, email)
+            VALUES (?, ?)
+          `).run(masterPolicyId, customerEmail);
+          
+          const insertPet = db.prepare(`
+            INSERT INTO pets (
+              policy_id,
+              name,
+              breed,
+              dob,
+              master_policy_id,
+              pet_type
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+          `);
+          
+          for (const pet of pets) {
+            const policyId = generatePolicyId();
+          
+            insertPet.run(
+              policyId,
+              pet.name,
+              pet.breed,
+              pet.dob,
+              masterPolicyId,
+              pet.petType
+            );
+          }
+        });
+
+        savePurchase();
+
+        
+        console.log("Number of pets saved:", pets.length);
+      }
+      console.log("Master policy created:", masterPolicyId);
+      console.log("Master policy created with ID:", masterPolicyId);
       console.log("=== PURCHASE EMAIL SENT ===");
 
     } catch (error) {
@@ -394,318 +445,7 @@ export async function POST(request: Request) {
     // 30-DAY PRICE LOCK EMAIL
     // =========================================================
 
-    const priceLockedEmail = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Your Price Has Been Locked</title>
-      </head>
-
-      <body style="
-        margin: 0;
-        padding: 0;
-        background-color: #f4f6f8;
-        font-family: Arial, Helvetica, sans-serif;
-      ">
-
-        <table
-          width="100%"
-          cellpadding="0"
-          cellspacing="0"
-          style="
-            padding: 40px 15px;
-            background-color: #f4f6f8;
-          "
-        >
-          <tr>
-            <td align="center">
-
-              <!-- Main Container -->
-              <table
-                width="600"
-                cellpadding="0"
-                cellspacing="0"
-                style="
-                  max-width: 600px;
-                  width: 100%;
-                  background-color: #ffffff;
-                  border-radius: 12px;
-                  overflow: hidden;
-                "
-              >
-
-                <!-- Header -->
-                <tr>
-                  <td style="
-                    padding: 30px 40px;
-                    border-bottom: 1px solid #e5e7eb;
-                  ">
-
-                    <h1 style="
-                      margin: 0;
-                      font-size: 26px;
-                      color: #111827;
-                    ">
-                      WAS Insurance
-                    </h1>
-
-                    <p style="
-                      margin: 6px 0 0;
-                      font-size: 14px;
-                      color: #6b7280;
-                    ">
-                      Pet Insurance
-                    </p>
-
-                  </td>
-                </tr>
-
-                <!-- Main Message -->
-                <tr>
-                  <td style="
-                    padding: 40px 40px 20px;
-                  ">
-
-                    <div style="
-                      width: 48px;
-                      height: 48px;
-                      background-color: #e8f7ee;
-                      border-radius: 50%;
-                      text-align: center;
-                      line-height: 48px;
-                      font-size: 24px;
-                      color: #15803d;
-                      margin-bottom: 20px;
-                    ">
-                      ✓
-                    </div>
-
-                    <h2 style="
-                      margin: 0 0 12px;
-                      font-size: 24px;
-                      color: #111827;
-                    ">
-                      Your price has been locked
-                    </h2>
-
-                    <p style="
-                      margin: 0;
-                      font-size: 15px;
-                      line-height: 1.6;
-                      color: #4b5563;
-                    ">
-                      Good news! Your quoted pet insurance price has been
-                      locked in for 30 days.
-                    </p>
-
-                  </td>
-                </tr>
-
-                <!-- Locked Price -->
-                <tr>
-                  <td style="
-                    padding: 10px 40px 30px;
-                  ">
-
-                    <table
-                      width="100%"
-                      cellpadding="0"
-                      cellspacing="0"
-                      style="
-                        background-color: #f8fafc;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 8px;
-                      "
-                    >
-
-                      <tr>
-                        <td style="padding: 20px;">
-
-                          <p style="
-                            margin: 0 0 8px;
-                            font-size: 12px;
-                            color: #6b7280;
-                            text-transform: uppercase;
-                            letter-spacing: 0.5px;
-                          ">
-                            Your Locked Price
-                          </p>
-
-                          <p style="
-                            margin: 0 0 8px;
-                            font-size: 28px;
-                            font-weight: bold;
-                            color: #111827;
-                          ">
-                            $XX / month
-                          </p>
-
-                          <p style="
-                            margin: 0;
-                            font-size: 14px;
-                            line-height: 1.5;
-                            color: #4b5563;
-                          ">
-                            This price is locked for 30 days.
-                          </p>
-
-                        </td>
-                      </tr>
-
-                    </table>
-
-                  </td>
-                </tr>
-
-                <!-- Quote ID -->
-                <tr>
-                  <td style="
-                    padding: 0 40px 35px;
-                  ">
-
-                    <table
-                      width="100%"
-                      cellpadding="0"
-                      cellspacing="0"
-                      style="
-                        background-color: #f8fafc;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 8px;
-                      "
-                    >
-
-                      <tr>
-                        <td style="padding: 20px;">
-
-                          <p style="
-                            margin: 0 0 8px;
-                            font-size: 12px;
-                            color: #6b7280;
-                            text-transform: uppercase;
-                            letter-spacing: 0.5px;
-                          ">
-                            Quote ID Reference
-                          </p>
-
-                          <p style="
-                            margin: 0;
-                            font-size: 20px;
-                            font-weight: bold;
-                            color: #111827;
-                          ">
-                            ${quoteId || "QUOTE-ID"}
-                          </p>
-
-                        </td>
-                      </tr>
-
-                    </table>
-
-                  </td>
-                </tr>
-
-                <!-- What's Next -->
-                <tr>
-                  <td style="
-                    padding: 0 40px 35px;
-                  ">
-
-                    <div style="
-                      background-color: #f9fafb;
-                      border-radius: 8px;
-                      padding: 20px;
-                    ">
-
-                      <h3 style="
-                        margin: 0 0 10px;
-                        font-size: 16px;
-                        color: #111827;
-                      ">
-                        What's Next?
-                      </h3>
-
-                      <p style="
-                        margin: 0;
-                        font-size: 14px;
-                        line-height: 1.6;
-                        color: #4b5563;
-                      ">
-                        Your quoted price will remain locked for 30 days.
-                        Please keep your Quote ID Reference for your records.
-                      </p>
-
-                    </div>
-
-                  </td>
-                </tr>
-
-                <!-- Footer -->
-                <tr>
-                  <td style="
-                    background-color: #111827;
-                    padding: 25px 40px;
-                    text-align: center;
-                  ">
-
-                    <p style="
-                      margin: 0 0 8px;
-                      color: #ffffff;
-                      font-size: 14px;
-                      font-weight: bold;
-                    ">
-                      WAS Insurance
-                    </p>
-
-                    <p style="
-                      margin: 0;
-                      color: #9ca3af;
-                      font-size: 12px;
-                    ">
-                      Thank you for choosing WAS Insurance.
-                    </p>
-
-                    <p style="
-                      margin: 12px 0 0;
-                      color: #6b7280;
-                      font-size: 11px;
-                    ">
-                      This is an automated email.
-                    </p>
-
-                  </td>
-                </tr>
-
-              </table>
-
-            </td>
-          </tr>
-        </table>
-
-      </body>
-      </html>
-    `;
-
-    // Send price-lock email
-    try {
-      const { data, error } = await resend.emails.send({
-        from: "onboarding@resend.dev",
-        to: customerEmail,
-        subject: "Your WAS Insurance price has been locked for 30 days",
-        html: priceLockedEmail,
-      });
-
-      if (error) {
-        console.error("Price lock email error:", error);
-      } else {
-        console.log("=== PRICE LOCK EMAIL SENT ===", data);
-      }
-
-    } catch (emailError) {
-      console.error("Price lock email failed:", emailError);
-    }
+    
   }
-
   return NextResponse.json({ received: true });
 }
