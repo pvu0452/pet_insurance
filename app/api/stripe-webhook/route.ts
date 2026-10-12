@@ -373,7 +373,7 @@ export async function POST(request: Request) {
           </html>
         `,
       });
-      const masterPolicyId = generateMasterPolicyId();
+      var masterPolicyId = generateMasterPolicyId();
       if (process.env.NEXT_PUBLIC_BASE_URL == "http://localhost:3000"){
         var collisionCheck = true
         while (collisionCheck == true){
@@ -382,8 +382,11 @@ export async function POST(request: Request) {
           ).get(masterPolicyId) as { count: number };
 
           if (collisions.count < 1) {
-            // Collision detected
+            
             collisionCheck = false
+          }
+          else {  // Collision detected
+            masterPolicyId = generateMasterPolicyId();
           }
         }
         const metadata = session.metadata ?? {};
