@@ -172,7 +172,7 @@ export function CalendarDropdown(props: DropdownProps) {
         label: String(option.label),
         isDisabled: option.disabled,
       }))}
-      value={value ?? ""}
+      value={typeof value === "string" || typeof value === "number" ? value : ""}
       onChange={(newValue) => {
         if (!onChange) return;
         // DayPicker expects a ChangeEvent<HTMLSelectElement>, not just a string.
