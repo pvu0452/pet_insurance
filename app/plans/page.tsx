@@ -1249,44 +1249,53 @@ function PlanComparisonContent() {
 
         {!applyToAllPets &&
           (petDetails?.pets?.length ?? 0) > 1 &&
-          petIndex ===
-          0 && (<label className="
-                  mt-5
-                  flex
-                  items-start
-                  gap-3
-                  p-4
-                  rounded-md
-                  border
-                  border-gray-300
-                  bg-white
-                  hover:bg-gray-50
-                  cursor-pointer
-                  transition
-                ">
-            <input type="checkbox" checked={applyToAllPets} disabled={!settings.plan} onChange={(e) => {
-              const checked = e.target
-                .checked;
-              if (checked) {
-                applyCurrentPetToAll(petIndex);
-              }
-            }} className="
-                    mt-1
-                    w-4
-                    h-4
-                    accent-gray-800
-                  "/>
+          petIndex === 0 && (
+            <label className="
+              mt-5
+              flex
+              items-start
+              gap-3
+              p-4
+              rounded-md
+              border
+              border-gray-300
+              bg-white
+              hover:bg-gray-50
+              cursor-pointer
+              transition
+            ">
+              <input
+                type="checkbox"
+                checked={applyToAllPets}
+                onChange={(e) => {
+                  const checked =
+                    e.target.checked;
 
-            <div>
-              <div className="text-sm font-semibold text-gray-900">
-                Apply this plan and cover settings to all pets
-              </div>
+                  if (checked) {
+                    applyCurrentPetToAll(
+                      petIndex
+                    );
+                  }
+                }}
+                className="
+                  mt-1
+                  w-4
+                  h-4
+                  accent-gray-800
+                "
+              />
 
-              <div className="mt-1 text-xs leading-5 text-gray-500">
-                Use the same plan, annual limit, benefit percentage and annual excess for every pet.
+              <div>
+                <div className="text-sm font-semibold text-gray-900">
+                  Apply this plan and cover settings to all pets
+                </div>
+
+                <div className="mt-1 text-xs leading-5 text-gray-500">
+                  Use the same plan, annual limit, benefit percentage and annual excess for every pet.
+                </div>
               </div>
-            </div>
-          </label>)}
+            </label>
+          )}
 
         {/* ACTIVE ALL-PETS INDICATOR */}
 
