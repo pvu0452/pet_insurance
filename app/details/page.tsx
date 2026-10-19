@@ -44,10 +44,23 @@ let googleMapsConfigured = false;
  *
  * Handover: legal document links (PDS, TMD and Privacy Policy) are placeholders.
  * Replace href="#" with approved links before a production release.
- * "Lock in my quote" is owned by a different team member. This file preserves
- * the original button, pending quote payload and integration point. The email
- * endpoint / 30-day price lock MUST be verified when that feature is merged;
- * this version does not itself send emails or lock prices.
+ *
+ * "Lock in my quote" is integrated with the /api/quote-lock endpoint.
+ * When selected, the customer's email address and current quoted monthly price
+ * are sent to the endpoint, which sends a quote lock confirmation email.
+ *
+ * The email confirms the quoted monthly price and states that the price is
+ * locked for 30 days.
+ *
+ * The Quote ID currently displayed in the email is a placeholder only.
+ * No unique Quote ID is currently generated, stored or linked to the quote.
+ *
+ * The email does not currently contain a link for reopening or restoring the
+ * customer's quote details, selected cover or pricing.
+ *
+ * Future development should replace the placeholder Quote ID with a generated
+ * identifier and add persistent quote storage/retrieval if saved quote recovery
+ * is required.
  */
 
 // Data structures passed between pages and the WAS pricing API.
@@ -1220,13 +1233,10 @@ function DetailsContent() {
      before moving beyond this prototype.
   ------------------------------*/
 
-  function buildPlansUrl() {
+  function buildQuoteParams() {
     /*
-     * Start with the existing URL parameters.
-     *
-     * This is important because the URL already
-     * contains the quote/pet/cover information
-     * coming from Plans.
+     * Start with the existing URL parameters so quote/pet/cover information
+     * coming from Plans is preserved.
      */
     const params =
       new URLSearchParams(
@@ -1234,8 +1244,8 @@ function DetailsContent() {
       );
 
     /* -----------------------------
-        CUSTOMER NAME
-      ------------------------------*/
+       CUSTOMER NAME
+    ------------------------------*/
 
     params.set(
       "first_name",
@@ -1321,21 +1331,15 @@ function DetailsContent() {
     ------------------------------*/
 
     /*
-     * Rebuild the pets JSON using the
-     * current React state and current
-     * cover settings.
-     *
-     * This means if the user edited a pet
-     * or cover before pressing Back,
-     * those changes are retained.
+     * Rebuild the pets JSON using the current React state and current cover
+     * settings. This keeps edits made on Details in a copied Details URL.
      */
-
     const urlPets =
       pets.map(
         (pet, index) => {
           const settings =
             cover?.petSettings?.[
-            String(index)
+              String(index)
             ];
 
           return {
@@ -1346,20 +1350,16 @@ function DetailsContent() {
               pet.name ?? "",
 
             pet_type:
-              pet.petType ===
-                "dog"
+              pet.petType === "dog"
                 ? "Dog"
-                : pet.petType ===
-                  "cat"
+                : pet.petType === "cat"
                   ? "Cat"
                   : "",
 
             pet_sex:
-              pet.gender ===
-                "male"
+              pet.gender === "male"
                 ? "Male"
-                : pet.gender ===
-                  "female"
+                : pet.gender === "female"
                   ? "Female"
                   : "",
 
@@ -1369,7 +1369,8 @@ function DetailsContent() {
             pet_dob:
               pet.dob ?? "",
 
-            policy_start_date: brisbaneToday(),
+            policy_start_date:
+              brisbaneToday(),
 
             selectedPlan:
               settings?.plan ??
@@ -1434,8 +1435,55 @@ function DetailsContent() {
       ""
     );
 
-    return `/plans?${params.toString()}`;
+    return params;
   }
+
+  /** Build the return link to Plans using the latest Details state. */
+  function buildPlansUrl() {
+    return `/plans?${buildQuoteParams().toString()}`;
+  }
+
+  /** Build a shareable/restorable Details link using the latest state. */
+  function buildDetailsUrl() {
+    return `/details?${buildQuoteParams().toString()}`;
+  }
+
+  /*
+   * Keep the address bar in sync with the current Details form without
+   * reloading the page or adding a browser-history entry for every keystroke.
+   */
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+
+    const timeout =
+      window.setTimeout(
+        () => {
+          const detailsUrl =
+            buildDetailsUrl();
+
+          window.history.replaceState(
+            null,
+            "",
+            detailsUrl
+          );
+        },
+        150
+      );
+
+    return () => {
+      window.clearTimeout(
+        timeout
+      );
+    };
+  }, [
+    mounted,
+    customer,
+    pets,
+    cover,
+    pricing.total,
+  ]);
 
   /* -----------------------------
      SAVE DETAILS TO SESSION STORAGE
@@ -1570,7 +1618,7 @@ function DetailsContent() {
         pets,
         cover,
         pricing,
-        quoteUrl: buildPlansUrl(),
+        quoteUrl: buildDetailsUrl(),
       };
       await fetch(
           "/api/quote-lock",
@@ -1596,7 +1644,7 @@ function DetailsContent() {
       void quoteData; // Intentionally kept as the future API request payload.
 
       // Preserve the original prototype response, which does NOT claim delivery.
-      setSaveQuoteMessage("Your quote is ready to be sent to your email.");
+      setSaveQuoteMessage("Your locked quote has been sent to your email.");
     } catch (error) {
       console.error("Save quote error:", error);
       setSaveQuoteError("We couldn't save your quote. Please try again.");
@@ -1712,15 +1760,13 @@ function DetailsContent() {
   }
 
   /* -----------------------------
-     INITIAL RESTORATION — URL fields take precedence when session petDetails exists.
-     Direct URLs with no session petDetails still need a restoration improvement.
-     We convert snake_case API fields into the React Pet model so edits
-     and repricing work even when the user follows a copied quote URL.
+     INITIAL RESTORATION
+     URL values take precedence over sessionStorage so a copied Details URL
+     can restore pets, cover and customer details in a fresh tab/browser.
+     sessionStorage remains the fallback for normal in-session navigation.
   ------------------------------*/
 
   useEffect(() => {
-    setMounted(true);
-
     fetchOptions();
 
     const storedCover =
@@ -1733,19 +1779,38 @@ function DetailsContent() {
         "petDetails"
       );
 
-    const coverData:
+    let coverData:
       | Cover
-      | null =
-      storedCover
-        ? JSON.parse(
-          storedCover
-        )
-        : null;
+      | null = null;
 
-    if (coverData) {
-      setCover(
-        coverData
-      );
+    if (storedCover) {
+      try {
+        coverData =
+          JSON.parse(
+            storedCover
+          );
+      } catch (error) {
+        console.error(
+          "Failed to parse cover from sessionStorage:",
+          error
+        );
+      }
+    }
+
+    let petData: any = {};
+
+    if (storedPet) {
+      try {
+        petData =
+          JSON.parse(
+            storedPet
+          );
+      } catch (error) {
+        console.error(
+          "Failed to parse petDetails from sessionStorage:",
+          error
+        );
+      }
     }
 
     /* -----------------------------
@@ -1825,31 +1890,47 @@ function DetailsContent() {
       }
     }
 
+    const normalisePlan = (
+      value: unknown
+    ): "gold" | "upgraded" | "" => {
+      const plan =
+        String(value ?? "")
+          .trim()
+          .toLowerCase();
+
+      if (plan === "gold") {
+        return "gold";
+      }
+
+      if (
+        plan === "silver" ||
+        plan === "upgraded"
+      ) {
+        return "upgraded";
+      }
+
+      return "";
+    };
+
     /* -----------------------------
        PET DATA
+       URL first, sessionStorage fallback.
     ------------------------------*/
 
-    if (storedPet) {
-      const petData =
-        JSON.parse(
-          storedPet
-        );
+    const storedPets =
+      Array.isArray(
+        petData?.pets
+      )
+        ? petData.pets
+        : [];
 
-      const storedPets =
-        Array.isArray(
-          petData?.pets
-        )
-          ? petData.pets
-          : [];
+    const sourcePets =
+      urlPets ??
+      storedPets;
 
-      /*
-       * URL pets take priority when
-       * they exist.
-       */
-      const sourcePets =
-        urlPets ??
-        storedPets;
-
+    if (
+      sourcePets.length > 0
+    ) {
       setPets(
         sourcePets.map(
           (
@@ -1859,16 +1940,14 @@ function DetailsContent() {
             const storedPlan =
               coverData
                 ?.plans?.[
-              index
-              ];
-
-            const urlPlan =
-              pet?.selectedPlan;
+                  String(index)
+                ];
 
             const plan =
-              urlPlan ??
-              storedPlan ??
-              "";
+              normalisePlan(
+                pet?.selectedPlan ??
+                storedPlan
+              );
 
             return {
               name:
@@ -1881,15 +1960,13 @@ function DetailsContent() {
                   pet?.pet_type ??
                   pet?.petType ??
                   ""
-                ).toLowerCase() ===
-                  "dog"
+                ).toLowerCase() === "dog"
                   ? "dog"
                   : (
-                    pet?.pet_type ??
-                    pet?.petType ??
-                    ""
-                  ).toLowerCase() ===
-                    "cat"
+                      pet?.pet_type ??
+                      pet?.petType ??
+                      ""
+                    ).toLowerCase() === "cat"
                     ? "cat"
                     : null,
 
@@ -1908,133 +1985,249 @@ function DetailsContent() {
                   pet?.pet_sex ??
                   pet?.gender ??
                   ""
-                ).toLowerCase() ===
-                  "male"
+                ).toLowerCase() === "male"
                   ? "male"
                   : (
-                    pet?.pet_sex ??
-                    pet?.gender ??
-                    ""
-                  ).toLowerCase() ===
-                    "female"
+                      pet?.pet_sex ??
+                      pet?.gender ??
+                      ""
+                    ).toLowerCase() === "female"
                     ? "female"
                     : null,
 
               tier:
                 plan === "gold"
                   ? "Gold"
-                  : plan ===
-                    "upgraded"
+                  : plan === "upgraded"
                     ? "Silver"
                     : "",
             };
           }
         )
       );
+    }
 
-      /* -----------------------------
-         CUSTOMER FROM URL / STORAGE
-      ------------------------------*/
+    /* -----------------------------
+       COVER DATA
+       Rebuild from URL pet fields when possible so a copied URL does not
+       require this browser's sessionStorage.
+    ------------------------------*/
 
-      const storedAddress =
-        petData.address ??
-        "";
+    if (
+      urlPets &&
+      urlPets.length > 0
+    ) {
+      const urlPetSettings:
+        Record<string, PetCoverSetting> = {};
 
-      const parsedAddress =
-        parseAddress(
-          storedAddress
+      const urlPlans:
+        Record<string, string> = {};
+
+      urlPets.forEach(
+        (pet: any, index: number) => {
+          const topLevelPlan =
+            index === 0
+              ? searchParams.get(
+                  "selectedPlan"
+                )
+              : null;
+
+          const plan =
+            normalisePlan(
+              pet?.selectedPlan ??
+              topLevelPlan ??
+              coverData?.plans?.[
+                String(index)
+              ]
+            ) || "upgraded";
+
+          const storedSetting =
+            coverData
+              ?.petSettings?.[
+                String(index)
+              ];
+
+          const limit =
+            Number(
+              pet?.annual_limit ??
+              (
+                index === 0
+                  ? searchParams.get(
+                      "annual_limit"
+                    )
+                  : null
+              ) ??
+              storedSetting?.limit ??
+              20000
+            );
+
+          const benefit =
+            Number(
+              pet?.benefit_percentage ??
+              (
+                index === 0
+                  ? searchParams.get(
+                      "benefit_percentage"
+                    )
+                  : null
+              ) ??
+              storedSetting?.benefit ??
+              80
+            );
+
+          const excess =
+            Number(
+              pet?.annual_excess ??
+              (
+                index === 0
+                  ? searchParams.get(
+                      "annual_excess"
+                    )
+                  : null
+              ) ??
+              storedSetting?.excess ??
+              250
+            );
+
+          urlPetSettings[
+            String(index)
+          ] = {
+            plan,
+            limit:
+              Number.isFinite(limit)
+                ? limit
+                : 20000,
+            benefit:
+              Number.isFinite(benefit)
+                ? benefit
+                : 80,
+            excess:
+              Number.isFinite(excess)
+                ? excess
+                : 250,
+          };
+
+          urlPlans[
+            String(index)
+          ] = plan;
+        }
+      );
+
+      const urlPrice =
+        Number(
+          searchParams.get(
+            "price"
+          )
         );
 
-      const googleAddress =
-        petData.addressDetails ??
-        {};
+      setCover({
+        petSettings:
+          urlPetSettings,
 
-      /*
-       * URL takes priority over
-       * sessionStorage.
-       */
-      const address =
-        urlAddress ||
-        storedAddress;
+        plans:
+          urlPlans,
 
-      const suburb =
-        urlRegion ||
-        googleAddress.suburb ||
-        parsedAddress.suburb;
+        price:
+          Number.isFinite(urlPrice)
+            ? urlPrice
+            : coverData?.price ?? 0,
 
-      const state =
-        urlState ||
-        googleAddress.state ||
-        parsedAddress.state;
-
-      const postcode =
-        urlPostcode ||
-        googleAddress.postcode ||
-        parsedAddress.postcode;
-
-      const storageEmail =
-        petData.email ??
-        "";
-
-      const storageMobile =
-        petData.mobile ??
-        "";
-
-      setCustomer({
-        firstName:
-          urlFirstName,
-
-        lastName:
-          urlLastName,
-
-        email:
-          urlEmail ||
-          storageEmail,
-
-        mobile:
-          urlMobile ||
-          storageMobile,
-
-        address,
-
-        suburb,
-
-        state,
-
-        postcode,
+        applyToAllPets:
+          coverData?.applyToAllPets ??
+          false,
       });
-    } else {
-      /*
-       * Even if petDetails is missing,
-       * still allow the URL to populate
-       * the customer fields.
-       */
-      setCustomer({
-        firstName:
-          urlFirstName,
-
-        lastName:
-          urlLastName,
-
-        email:
-          urlEmail,
-
-        mobile:
-          urlMobile,
-
-        address:
-          urlAddress,
-
-        suburb:
-          urlRegion,
-
-        state:
-          urlState,
-
-        postcode:
-          urlPostcode,
-      });
+    } else if (coverData) {
+      setCover(
+        coverData
+      );
     }
+
+    /* -----------------------------
+       CUSTOMER FROM URL / STORAGE
+       URL values take priority.
+    ------------------------------*/
+
+    const storedAddress =
+      petData?.address ??
+      "";
+
+    const parsedAddress =
+      parseAddress(
+        storedAddress
+      );
+
+    const googleAddress =
+      petData?.addressDetails ??
+      {};
+
+    const address =
+      urlAddress ||
+      storedAddress;
+
+    const suburb =
+      urlRegion ||
+      googleAddress.suburb ||
+      parsedAddress.suburb;
+
+    const state =
+      urlState ||
+      googleAddress.state ||
+      parsedAddress.state;
+
+    const postcode =
+      urlPostcode ||
+      googleAddress.postcode ||
+      parsedAddress.postcode;
+
+    const storageEmail =
+      petData?.email ??
+      "";
+
+    const storageMobile =
+      petData?.mobile ??
+      "";
+
+    const storageFirstName =
+      petData?.firstName ??
+      petData?.first_name ??
+      "";
+
+    const storageLastName =
+      petData?.lastName ??
+      petData?.last_name ??
+      "";
+
+    setCustomer({
+      firstName:
+        urlFirstName ||
+        storageFirstName,
+
+      lastName:
+        urlLastName ||
+        storageLastName,
+
+      email:
+        urlEmail ||
+        storageEmail,
+
+      mobile:
+        urlMobile ||
+        storageMobile,
+
+      address,
+
+      suburb,
+
+      state,
+
+      postcode,
+    });
+
+    /*
+     * Set mounted last so the URL-sync effect cannot overwrite the incoming
+     * URL with the component's empty initial state before restoration finishes.
+     */
+    setMounted(true);
   }, []);
 
   /* -----------------------------
