@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { generateMasterPolicyId } from "@/lib/generateID";
 
 interface Pet {
   name: string;
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
       100000 + Math.random() * 900000
     );
 
-    const quoteId = `WAS-${randomNumber}`;
+    const quoteId = generateMasterPolicyId();
     const pets = body.pets
     
     console.log("Generated Quote ID:", quoteId);
