@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       line_items: [
         {
           price_data: {
-            currency: "usd",
+            currency: "aud",
 
             product_data: {
               name: body.productName || "Pet Insurance Quote",
